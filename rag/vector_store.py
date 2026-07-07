@@ -1,8 +1,7 @@
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-from text_splitter import load_document_chunks
-
+from rag.text_splitter import load_document_chunks
 
 MODEL_NAME = "BAAI/bge-m3"
 DB_PATH = "vector_db_bge_m3"

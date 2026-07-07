@@ -1,8 +1,9 @@
 from openai import OpenAI
 
 from config import MODEL_NAME, OPENAI_API_KEY
-from bull_prompt import BULL_SYSTEM_PROMPT
-from workflow import BullWorkflow
+from agents.bull_prompt import BULL_SYSTEM_PROMPT
+from app.workflow import BullWorkflow
+
 class BullAgent:
     def __init__(self) -> None:
         self.client = OpenAI(api_key=OPENAI_API_KEY)

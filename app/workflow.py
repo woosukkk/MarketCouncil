@@ -1,4 +1,4 @@
-from tools import BullTools
+from tools.bull_tools import BullTools
 
 
 class BullWorkflow:

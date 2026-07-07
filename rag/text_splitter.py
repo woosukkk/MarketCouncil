@@ -1,5 +1,4 @@
-from document_loader import load_all_documents
-
+from rag.document_loader import load_all_documents
 
 def split_text(
     text: str,
