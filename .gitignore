@@ -14,20 +14,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Package and build files
+# Build and package files
 build/
 dist/
 *.egg-info/
 .eggs/
 pip-wheel-metadata/
-
-# Test and coverage files
-.pytest_cache/
-.coverage
-coverage.xml
-htmlcov/
-.tox/
-.nox/
 
 # IDE settings
 .vscode/
@@ -45,13 +37,40 @@ desktop.ini
 *.temp
 ~$*
 
-# Local result files
-results/
+# Test and coverage files
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# Type checker and linter cache
+.mypy_cache/
+.ruff_cache/
+.pyre/
 
 # Jupyter
 .ipynb_checkpoints/
 
-# Python tools
-.mypy_cache/
-.ruff_cache/
-.pyre/
+# Generated analysis results
+results/
+
+# Local documents
+documents/
+
+# Chroma vector databases
+vector_db/
+vector_db_bge_m3/
+
+# Hugging Face and model cache
+.cache/
+huggingface/
+hf_cache/
+
+# Local model files
+*.bin
+*.safetensors
+*.onnx
+*.pt
+*.pth
