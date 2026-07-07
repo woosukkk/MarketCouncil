@@ -2,12 +2,12 @@ from openai import OpenAI
 
 from config import MODEL_NAME, OPENAI_API_KEY
 from agents.bull_prompt import BULL_SYSTEM_PROMPT
-from app.workflow import BullWorkflow
+from app.langgraph_workflow import BullGraphWorkflow
 
 class BullAgent:
     def __init__(self) -> None:
         self.client = OpenAI(api_key=OPENAI_API_KEY)
-        self.workflow = BullWorkflow()
+        self.workflow = BullGraphWorkflow()
 
     def analyze(self, company_name: str) -> tuple[str, dict, list[dict]]:
         workflow_result = self.workflow.run(company_name)
