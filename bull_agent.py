@@ -1,37 +1,19 @@
 from openai import OpenAI
 
 from config import MODEL_NAME, OPENAI_API_KEY
-
 from bull_prompt import BULL_SYSTEM_PROMPT
-
-from tools import BullTools
-
-
+from workflow import BullWorkflow
 class BullAgent:
     def __init__(self) -> None:
         self.client = OpenAI(api_key=OPENAI_API_KEY)
-        self.retriever = ReportRetriever()
+        self.workflow = BullWorkflow()
 
     def analyze(self, company_name: str) -> tuple[str, dict, list[dict]]:
-        financial_data = self.tools.get_company_financials(
-             company_name
-             )
-        retrieved_chunks = self.tools.search_company_reports(
-            company_name,
-            top_k=3,
-            )
+        workflow_result = self.workflow.run(company_name)
 
-        report_context = "\n\n".join(
-            [
-                f"""
-출처: {chunk["source"]}
-청크 번호: {chunk["chunk_id"]}
-내용:
-{chunk["text"]}
-"""
-                for chunk in retrieved_chunks
-            ]
-        )
+        financial_data = workflow_result["financial_data"]
+        retrieved_chunks = workflow_result["retrieved_chunks"]
+        report_context = workflow_result["report_context"]
 
         user_prompt = f"""
 다음 기업을 Bull 관점에서 분석해줘.
@@ -53,14 +35,14 @@ class BullAgent:
 최근 영업이익률: {financial_data["current_operating_margin"]}
 전년도 영업이익률: {financial_data["previous_operating_margin"]}
 
-아래는 검색된 투자 리포트 내용이다.
+[검색된 투자 리포트]
 
 {report_context}
 
 제공된 금융 데이터와 리포트 내용만 근거로
 긍정적인 투자 요인과 성장 가능성을 분석해줘.
 
-리포트에서 찾은 근거에는 출처 파일명을 함께 표시해줘.
+검색된 청크에 없는 수치나 정보는 추가하지 마.
 """
 
         response = self.client.responses.create(
@@ -69,4 +51,8 @@ class BullAgent:
             input=user_prompt,
         )
 
-        return response.output_text, financial_data, retrieved_chunks
+        return (
+            response.output_text,
+            financial_data,
+            retrieved_chunks,
+        )
