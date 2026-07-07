@@ -1,8 +1,23 @@
-user_prompt = f"""
-다음 기업을 Bull 관점에서 분석해줘.
+from bull_agent import BullAgent
 
-기업명: {company_name}
 
-긍정적인 투자 근거와 성장 가능성만 분석하고,
-근거가 부족하면 억지로 긍정적인 결론을 만들지 마.
-"""
+def main() -> None:
+    company_name = input("분석할 기업명: ").strip()
+
+    if not company_name:
+        print("기업명을 입력하세요.")
+        return
+
+    try:
+        agent = BullAgent()
+        result = agent.analyze(company_name)
+
+        print("\n===== Bull 분석 결과 =====\n")
+        print(result)
+
+    except Exception as error:
+        print(f"오류가 발생했습니다: {error}")
+
+
+if __name__ == "__main__":
+    main()
