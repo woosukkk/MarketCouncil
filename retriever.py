@@ -1,21 +1,21 @@
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-
 MODEL_NAME = "BAAI/bge-m3"
-
+DB_PATH = "vector_db_bge_m3"
+COLLECTION_NAME = "investment_reports_bge_m3"
 
 class ReportRetriever:
     def __init__(self) -> None:
         self.model = SentenceTransformer(MODEL_NAME)
 
         self.client = chromadb.PersistentClient(
-            path="vector_db"
-        )
+            path=DB_PATH
+            )
 
         self.collection = self.client.get_collection(
-            name="investment_reports"
-        )
+            name=COLLECTION_NAME
+            )
 
     def search(
         self,
