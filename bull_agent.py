@@ -9,7 +9,7 @@ class BullAgent:
     def __init__(self) -> None:
         self.client = OpenAI(api_key=OPENAI_API_KEY)
 
-    def analyze(self, company_name: str) -> str:
+    def analyze(self, company_name: str) -> tuple[str, dict]:
         financial_data = get_financial_data(company_name)
 
         user_prompt = f"""
@@ -34,8 +34,6 @@ class BullAgent:
 
 제공된 금융 데이터만 근거로 긍정적인 투자 요인과
 성장 가능성을 분석해줘.
-
-수치가 없는 항목은 억지로 해석하지 마.
 """
 
         response = self.client.responses.create(
@@ -44,4 +42,4 @@ class BullAgent:
             input=user_prompt,
         )
 
-        return response.output_text
+        return response.output_text, financial_data

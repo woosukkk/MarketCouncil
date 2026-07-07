@@ -4,10 +4,7 @@ import yfinance as yf
 TICKER_MAP = {
     "삼성전자": "005930.KS",
     "SK하이닉스": "000660.KS",
-    "현대자동차": "005380.KS",
-    "애플": "AAPL",
-    "엔비디아": "NVDA",
-    "테슬라": "TSLA",
+    "현대자동차": "005380.KS"
 }
 
 
@@ -23,6 +20,13 @@ def calculate_growth(current, previous):
         return None
 
     return ((current - previous) / previous) * 100
+
+
+def calculate_margin(operating_income, revenue):
+    if operating_income is None or revenue in (None, 0):
+        return None
+
+    return (operating_income / revenue) * 100
 
 
 def format_percent(value) -> str:
@@ -44,6 +48,7 @@ def get_financial_data(company_name: str) -> dict:
     financials = company.financials
 
     current_price = None
+    price_date = None
     current_revenue = None
     previous_revenue = None
     current_operating_income = None
@@ -51,6 +56,7 @@ def get_financial_data(company_name: str) -> dict:
 
     if not history.empty:
         current_price = history["Close"].iloc[-1]
+        price_date = history.index[-1].strftime("%Y-%m-%d")
 
     if not financials.empty and len(financials.columns) >= 2:
         current_column = financials.columns[0]
@@ -82,12 +88,25 @@ def get_financial_data(company_name: str) -> dict:
         previous_operating_income,
     )
 
+    current_operating_margin = calculate_margin(
+        current_operating_income,
+        current_revenue,
+    )
+
+    previous_operating_margin = calculate_margin(
+        previous_operating_income,
+        previous_revenue,
+    )
+
     return {
         "ticker": ticker_symbol,
         "current_price": format_number(current_price),
+        "price_date": price_date or "데이터 없음",
+
         "current_revenue": format_number(current_revenue),
         "previous_revenue": format_number(previous_revenue),
         "revenue_growth": format_percent(revenue_growth),
+
         "current_operating_income": format_number(
             current_operating_income
         ),
@@ -96,5 +115,12 @@ def get_financial_data(company_name: str) -> dict:
         ),
         "operating_income_growth": format_percent(
             operating_income_growth
+        ),
+
+        "current_operating_margin": format_percent(
+            current_operating_margin
+        ),
+        "previous_operating_margin": format_percent(
+            previous_operating_margin
         ),
     }
