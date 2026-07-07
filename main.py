@@ -8,6 +8,7 @@ def save_result(
     company_name: str,
     result: str,
     financial_data: dict,
+    retrieved_chunks: list[dict],
 ) -> None:
     results_dir = Path("results")
     results_dir.mkdir(exist_ok=True)
@@ -15,6 +16,18 @@ def save_result(
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_name = company_name.replace(" ", "_")
     file_path = results_dir / f"{safe_name}_{timestamp}.txt"
+
+    retrieved_text = "\n\n".join(
+        [
+            f"""출처: {chunk["source"]}
+청크 번호: {chunk["chunk_id"]}
+거리: {chunk["distance"]}
+내용:
+{chunk["text"]}
+"""
+            for chunk in retrieved_chunks
+        ]
+    )
 
     content = f"""기업명: {company_name}
 티커: {financial_data["ticker"]}
@@ -32,7 +45,11 @@ def save_result(
 최근 영업이익률: {financial_data["current_operating_margin"]}
 전년도 영업이익률: {financial_data["previous_operating_margin"]}
 
-[ Bull 분석 결과 ]
+[검색된 리포트 근거]
+
+{retrieved_text}
+
+[Bull 분석 결과]
 
 {result}
 """
@@ -50,12 +67,20 @@ def main() -> None:
 
     try:
         agent = BullAgent()
-        result, financial_data = agent.analyze(company_name)
+
+        result, financial_data, retrieved_chunks = agent.analyze(
+            company_name
+        )
 
         print("\n===== Bull 분석 결과 =====\n")
         print(result)
 
-        save_result(company_name, result, financial_data)
+        save_result(
+            company_name,
+            result,
+            financial_data,
+            retrieved_chunks,
+        )
 
     except Exception as error:
         print(f"오류가 발생했습니다: {error}")
