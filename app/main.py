@@ -1,7 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from bull_agent import BullAgent
+from agents.bull_agent import BullAgent
 
 
 def save_result(
