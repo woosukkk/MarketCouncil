@@ -1,9 +1,10 @@
 from openai import OpenAI
 
 from config import MODEL_NAME, OPENAI_API_KEY
-from financial_data import get_financial_data
+
 from bull_prompt import BULL_SYSTEM_PROMPT
-from retriever import ReportRetriever
+
+from tools import BullTools
 
 
 class BullAgent:
@@ -12,14 +13,13 @@ class BullAgent:
         self.retriever = ReportRetriever()
 
     def analyze(self, company_name: str) -> tuple[str, dict, list[dict]]:
-        financial_data = get_financial_data(company_name)
-
-        query = f"{company_name}의 긍정적인 성장 요인과 투자 근거"
-
-        retrieved_chunks = self.retriever.search(
-            query=query,
+        financial_data = self.tools.get_company_financials(
+             company_name
+             )
+        retrieved_chunks = self.tools.search_company_reports(
+            company_name,
             top_k=3,
-        )
+            )
 
         report_context = "\n\n".join(
             [
