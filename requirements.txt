@@ -2,4 +2,6 @@ openai
 python-dotenv
 yfinance
 pypdf
+sentence-transformers
+chromadb
 langgraph
