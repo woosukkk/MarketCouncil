@@ -3,12 +3,15 @@ from openai import OpenAI
 from agents.bear_agent import BearAgent
 from agents.bull_agent import BullAgent
 from agents.judge_prompt import JUDGE_SYSTEM_PROMPT
+from app.comparison_workflow import ComparisonWorkflow
 from config import MODEL_NAME, OPENAI_API_KEY
 
 
 class JudgeAgent:
     def __init__(self) -> None:
         self.client = OpenAI(api_key=OPENAI_API_KEY)
+
+        self.workflow = ComparisonWorkflow()
         self.bull_agent = BullAgent()
         self.bear_agent = BearAgent()
 
@@ -16,36 +19,55 @@ class JudgeAgent:
         self,
         company_name: str,
     ) -> dict:
-        print("\n[1] Bull Agent 분석 시작")
+        print("\n[공통 데이터 수집 시작]")
 
-        (
-            bull_result,
-            bull_financial_data,
-            bull_chunks,
-        ) = self.bull_agent.analyze(company_name)
+        context = self.workflow.run(company_name)
 
-        print("[1] Bull Agent 분석 완료")
+        print("[공통 데이터 수집 완료]")
 
-        print("\n[2] Bear Agent 분석 시작")
+        financial_data = context["financial_data"]
 
-        (
-            bear_result,
-            bear_financial_data,
-            bear_chunks,
-        ) = self.bear_agent.analyze(company_name)
+        print("\n[Bull Agent 분석 시작]")
 
-        print("[2] Bear Agent 분석 완료")
+        bull_result = self.bull_agent.analyze_with_context(
+            company_name=company_name,
+            financial_data=financial_data,
+            report_context=context[
+                "bull_report_context"
+            ],
+            web_context=context[
+                "bull_web_context"
+            ],
+        )
 
-        print("\n[3] Judge Agent 비교 시작")
+        print("[Bull Agent 분석 완료]")
+
+        print("\n[Bear Agent 분석 시작]")
+
+        bear_result = self.bear_agent.analyze_with_context(
+            company_name=company_name,
+            financial_data=financial_data,
+            report_context=context[
+                "bear_report_context"
+            ],
+            web_context=context[
+                "bear_web_context"
+            ],
+        )
+
+        print("[Bear Agent 분석 완료]")
+
+        print("\n[Judge Agent 비교 시작]")
 
         user_prompt = f"""
-다음은 동일한 기업에 대한 Bull 분석과 Bear 분석이다.
+다음은 동일한 기업과 동일한 금융 데이터에 기반한
+Bull 분석과 Bear 분석이다.
 
 기업명: {company_name}
 
 [공통 금융 데이터]
 
-{bull_financial_data}
+{financial_data}
 
 [Bull 분석]
 
@@ -55,15 +77,15 @@ class JudgeAgent:
 
 {bear_result}
 
-두 분석에서 사용한 근거의 구체성, 출처 신뢰도, 날짜,
-금융 데이터와의 연결성을 비교해 최종 종합 의견을 작성해줘.
+두 분석의 근거 구체성, 출처 신뢰도, 날짜,
+금융 데이터와의 연결성을 비교해
+최종 종합 의견을 작성해줘.
 
-다음 기준을 반드시 적용해:
-- 출처와 날짜가 명확한 근거를 우선한다.
-- 같은 사건을 반복한 주장은 하나의 근거로 본다.
-- 단순한 가능성만 제시한 주장은 낮게 평가한다.
-- 일반적인 면책 문구나 모든 기업에 적용되는 위험은 낮게 평가한다.
-- 긍정적 근거와 부정적 근거가 모두 강하면 Neutral로 판단할 수 있다.
+규칙:
+- 근거 개수보다 품질을 우선한다.
+- 같은 사건을 반복한 주장은 하나로 본다.
+- 일반적인 면책 문구는 약한 근거로 평가한다.
+- 출처와 날짜가 명확한 근거를 높게 평가한다.
 - Bull Score와 Bear Score의 합은 100으로 작성한다.
 """
 
@@ -73,14 +95,28 @@ class JudgeAgent:
             input=user_prompt,
         )
 
-        print("[3] Judge Agent 비교 완료")
+        print("[Judge Agent 비교 완료]")
 
         return {
             "company_name": company_name,
-            "financial_data": bull_financial_data,
+            "financial_data": financial_data,
             "bull_result": bull_result,
             "bear_result": bear_result,
             "judge_result": response.output_text,
-            "bull_chunks": bull_chunks,
-            "bear_chunks": bear_chunks,
+            "bull_chunks": context.get(
+                "bull_chunks",
+                [],
+            ),
+            "bear_chunks": context.get(
+                "bear_chunks",
+                [],
+            ),
+            "bull_web_context": context.get(
+                "bull_web_context",
+                "",
+            ),
+            "bear_web_context": context.get(
+                "bear_web_context",
+                "",
+            ),
         }
