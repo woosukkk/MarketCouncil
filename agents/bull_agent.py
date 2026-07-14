@@ -2,7 +2,7 @@ from openai import OpenAI
 
 from config import MODEL_NAME, OPENAI_API_KEY
 from agents.bull_prompt import BULL_SYSTEM_PROMPT
-from app.langgraph_workflow import BullGraphWorkflow
+from app.bull_langgraph_workflow import BullGraphWorkflow
 
 class BullAgent:
     def __init__(self) -> None:
@@ -15,6 +15,7 @@ class BullAgent:
         financial_data = workflow_result["financial_data"]
         retrieved_chunks = workflow_result["retrieved_chunks"]
         report_context = workflow_result["report_context"]
+        web_context = workflow_result["web_context"]
 
         user_prompt = f"""
 다음 기업을 Bull 관점에서 분석해줘.
@@ -40,10 +41,14 @@ class BullAgent:
 
 {report_context}
 
-제공된 금융 데이터와 리포트 내용만 근거로
-긍정적인 투자 요인과 성장 가능성을 분석해줘.
+[최신 웹 검색 결과]
 
-검색된 청크에 없는 수치나 정보는 추가하지 마.
+{web_context}
+
+금융 데이터, 로컬 리포트, 최신 웹 검색 결과만 근거로 분석해줘.
+
+최신 웹 근거를 사용할 때는 반드시 출처와 게시일을 표시해.
+검색 결과에 없는 사실은 추가하지 마.
 """
 
         response = self.client.responses.create(

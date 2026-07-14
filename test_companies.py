@@ -1,5 +1,5 @@
 from agents.bull_agent import BullAgent
-from app.main import save_result
+from app.bull_main import save_result
 
 
 TEST_COMPANIES = [

@@ -10,6 +10,7 @@ class BearState(TypedDict, total=False):
     financial_data: dict
     retrieved_chunks: list[dict]
     report_context: str
+    web_context: str
 
 
 class BearGraphWorkflow:
@@ -58,6 +59,18 @@ class BearGraphWorkflow:
             "report_context": report_context,
         }
 
+    def search_recent_web(
+        self,
+        state: BearState,
+    ) -> BearState:
+        web_context = self.tools.search_recent_web(
+            state["company_name"]
+        )
+
+        return {
+            "web_context": web_context,
+        }
+
     def _build_graph(self):
         builder = StateGraph(BearState)
 
@@ -65,29 +78,53 @@ class BearGraphWorkflow:
             "collect_financial_data",
             self.collect_financial_data,
         )
+
         builder.add_node(
             "retrieve_reports",
             self.retrieve_reports,
         )
+
         builder.add_node(
             "build_report_context",
             self.build_report_context,
         )
 
-        builder.add_edge(START, "collect_financial_data")
+        builder.add_node(
+            "search_recent_web",
+            self.search_recent_web,
+        )
+
+        builder.add_edge(
+            START,
+            "collect_financial_data",
+        )
+
         builder.add_edge(
             "collect_financial_data",
             "retrieve_reports",
         )
+
         builder.add_edge(
             "retrieve_reports",
             "build_report_context",
         )
-        builder.add_edge("build_report_context", END)
+
+        builder.add_edge(
+            "build_report_context",
+            "search_recent_web",
+        )
+
+        builder.add_edge(
+            "search_recent_web",
+            END,
+        )
 
         return builder.compile()
 
-    def run(self, company_name: str) -> BearState:
+    def run(
+        self,
+        company_name: str,
+    ) -> BearState:
         return self.graph.invoke({
             "company_name": company_name,
         })

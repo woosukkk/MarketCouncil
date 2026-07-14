@@ -10,6 +10,7 @@ class BullState(TypedDict, total=False):
     financial_data: dict
     retrieved_chunks: list[dict]
     report_context: str
+    web_context: str
 
 
 class BullGraphWorkflow:
@@ -17,7 +18,10 @@ class BullGraphWorkflow:
         self.tools = BullTools()
         self.graph = self._build_graph()
 
-    def collect_financial_data(self, state: BullState) -> BullState:
+    def collect_financial_data(
+        self,
+        state: BullState,
+    ) -> BullState:
         financial_data = self.tools.get_company_financials(
             state["company_name"]
         )
@@ -26,7 +30,10 @@ class BullGraphWorkflow:
             "financial_data": financial_data,
         }
 
-    def retrieve_reports(self, state: BullState) -> BullState:
+    def retrieve_reports(
+        self,
+        state: BullState,
+    ) -> BullState:
         retrieved_chunks = self.tools.search_company_reports(
             state["company_name"],
             top_k=3,
@@ -36,7 +43,10 @@ class BullGraphWorkflow:
             "retrieved_chunks": retrieved_chunks,
         }
 
-    def build_report_context(self, state: BullState) -> BullState:
+    def build_report_context(
+        self,
+        state: BullState,
+    ) -> BullState:
         report_context = "\n\n".join(
             f"""출처: {chunk["source"]}
 청크 번호: {chunk["chunk_id"]}
@@ -49,6 +59,18 @@ class BullGraphWorkflow:
             "report_context": report_context,
         }
 
+    def search_recent_web(
+        self,
+        state: BullState,
+    ) -> BullState:
+        web_context = self.tools.search_recent_web(
+            state["company_name"]
+        )
+
+        return {
+            "web_context": web_context,
+        }
+
     def _build_graph(self):
         builder = StateGraph(BullState)
 
@@ -56,29 +78,53 @@ class BullGraphWorkflow:
             "collect_financial_data",
             self.collect_financial_data,
         )
+
         builder.add_node(
             "retrieve_reports",
             self.retrieve_reports,
         )
+
         builder.add_node(
             "build_report_context",
             self.build_report_context,
         )
 
-        builder.add_edge(START, "collect_financial_data")
+        builder.add_node(
+            "search_recent_web",
+            self.search_recent_web,
+        )
+
+        builder.add_edge(
+            START,
+            "collect_financial_data",
+        )
+
         builder.add_edge(
             "collect_financial_data",
             "retrieve_reports",
         )
+
         builder.add_edge(
             "retrieve_reports",
             "build_report_context",
         )
-        builder.add_edge("build_report_context", END)
+
+        builder.add_edge(
+            "build_report_context",
+            "search_recent_web",
+        )
+
+        builder.add_edge(
+            "search_recent_web",
+            END,
+        )
 
         return builder.compile()
 
-    def run(self, company_name: str) -> BullState:
+    def run(
+        self,
+        company_name: str,
+    ) -> BullState:
         return self.graph.invoke({
             "company_name": company_name,
         })

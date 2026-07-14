@@ -10,8 +10,8 @@ def save_result(
     financial_data: dict,
     retrieved_chunks: list[dict],
 ) -> None:
-    results_dir = Path("results")
-    results_dir.mkdir(exist_ok=True)
+    results_dir = Path("results") / "bull"
+    results_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_name = company_name.replace(" ", "_")
