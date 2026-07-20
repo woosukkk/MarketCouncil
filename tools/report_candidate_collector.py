@@ -2,7 +2,10 @@ from pathlib import Path
 from typing import Any
 
 from rag.ingestion_pipeline import IngestionPipeline
-from tools.report_downloader import ReportDownloader
+from tools.report_downloader import (
+    ReportDownloader,
+    ReportDownloadSkipped,
+)
 from tools.source_collector import SourceCollector
 
 
@@ -84,6 +87,13 @@ class ReportCandidateCollector:
                 )
                 queued.append(record)
                 existing_urls.add(url)
+            except ReportDownloadSkipped as error:
+                if downloaded_path and downloaded_path.exists():
+                    downloaded_path.unlink(missing_ok=True)
+                skipped.append({
+                    "url": url,
+                    "reason": str(error),
+                })
             except Exception as error:
                 if downloaded_path and downloaded_path.exists():
                     downloaded_path.unlink(missing_ok=True)
