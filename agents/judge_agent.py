@@ -1,8 +1,11 @@
+import json
+
 from openai import OpenAI
 
 from agents.bear_agent import BearAgent
 from agents.bull_agent import BullAgent
 from agents.judge_prompt import JUDGE_SYSTEM_PROMPT
+from agents.sentiment_agent import SentimentAgent
 from app.comparison_workflow import ComparisonWorkflow
 from config import MODEL_NAME, OPENAI_API_KEY
 
@@ -14,6 +17,7 @@ class JudgeAgent:
         self.workflow = ComparisonWorkflow()
         self.bull_agent = BullAgent()
         self.bear_agent = BearAgent()
+        self.sentiment_agent = SentimentAgent()
 
     def analyze(
         self,
@@ -57,6 +61,14 @@ class JudgeAgent:
 
         print("[Bear Agent 분석 완료]")
 
+        print("\n[민심 Agent 분석 시작]")
+
+        sentiment_result = self.sentiment_agent.analyze(
+            company_name
+        )
+
+        print("[민심 Agent 분석 완료]")
+
         print("\n[Judge Agent 비교 시작]")
 
         user_prompt = f"""
@@ -77,6 +89,10 @@ Bull 분석과 Bear 분석이다.
 
 {bear_result}
 
+[뉴스 민심 분석]
+
+{json.dumps(sentiment_result, ensure_ascii=False, indent=2)}
+
 두 분석의 근거 구체성, 출처 신뢰도, 날짜,
 금융 데이터와의 연결성을 비교해
 최종 종합 의견을 작성해줘.
@@ -86,6 +102,8 @@ Bull 분석과 Bear 분석이다.
 - 같은 사건을 반복한 주장은 하나로 본다.
 - 일반적인 면책 문구는 약한 근거로 평가한다.
 - 출처와 날짜가 명확한 근거를 높게 평가한다.
+- 뉴스 민심 비율은 보조 지표로만 사용한다.
+- 기사 수만으로 Bull/Bear 점수를 결정하지 않는다.
 - Bull Score와 Bear Score의 합은 100으로 작성한다.
 """
 
@@ -102,6 +120,7 @@ Bull 분석과 Bear 분석이다.
             "financial_data": financial_data,
             "bull_result": bull_result,
             "bear_result": bear_result,
+            "sentiment_result": sentiment_result,
             "judge_result": response.output_text,
             "bull_chunks": context.get(
                 "bull_chunks",

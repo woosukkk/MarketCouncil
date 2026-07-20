@@ -10,8 +10,8 @@ def save_bear_result(
     financial_data: dict,
     retrieved_chunks: list[dict],
 ) -> str:
-    results_dir = Path("results")
-    results_dir.mkdir(exist_ok=True)
+    results_dir = Path("results") / "bear"
+    results_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_path = results_dir / f"{company_name}_bear_{timestamp}.txt"

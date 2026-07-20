@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from pathlib import Path
 
@@ -67,6 +68,12 @@ def save_comparison_result(
 ==================================================
 
 {analysis_data["bear_result"]}
+
+==================================================
+[뉴스 민심 분석]
+==================================================
+
+{json.dumps(analysis_data["sentiment_result"], ensure_ascii=False, indent=2)}
 
 ==================================================
 [Judge 종합 판단]
