@@ -70,6 +70,8 @@ Do not introduce later-stage technologies before they are needed.
 * Report the tests or commands executed and their results.
 * Mention remaining issues, assumptions, or unverified behavior.
 * Suggest an appropriate English commit message.
+* Immediately provide a brief, easy-to-scan summary of what was changed.
+* List the modified files and the key change made in each file.
 
 ## Approval Rule
 
