@@ -1,5 +1,6 @@
 import chromadb
 from sentence_transformers import SentenceTransformer
+from datetime import datetime
 
 MODEL_NAME = "BAAI/bge-m3"
 DB_PATH = "vector_db_bge_m3"
@@ -21,14 +22,37 @@ class ReportRetriever:
         self,
         query: str,
         top_k: int = 3,
+        as_of_date: str | None = None,
     ) -> list[dict]:
         query_embedding = self.model.encode(
             [query]
         ).tolist()
 
+        where = None
+        if as_of_date:
+            try:
+                cutoff_text = as_of_date
+                if len(as_of_date) == 10:
+                    cutoff_text = f"{as_of_date}T23:59:59"
+                cutoff = int(datetime.fromisoformat(cutoff_text).timestamp())
+            except ValueError as error:
+                raise ValueError(
+                    "as_of_date는 ISO 날짜 형식이어야 합니다."
+                ) from error
+
+            where = {
+                "published_timestamp": {"$lte": cutoff},
+            }
+
+        query_options = {
+            "query_embeddings": query_embedding,
+            "n_results": top_k,
+        }
+        if where:
+            query_options["where"] = where
+
         results = self.collection.query(
-            query_embeddings=query_embedding,
-            n_results=top_k,
+            **query_options,
         )
 
         documents = results["documents"][0]
@@ -47,6 +71,7 @@ class ReportRetriever:
                 "source": metadata["source"],
                 "chunk_id": metadata["chunk_id"],
                 "distance": distance,
+                "metadata": metadata,
             })
 
         return retrieved_chunks

@@ -2,6 +2,8 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
+from rag.document_registry import APPROVED_DIR
+
 
 DOCUMENTS_DIR = Path("documents")
 
@@ -23,7 +25,12 @@ def load_pdf_text(file_path: Path) -> str:
 def load_all_documents() -> dict[str, str]:
     documents = {}
 
-    for file_path in DOCUMENTS_DIR.glob("*.pdf"):
+    file_paths = [
+        *DOCUMENTS_DIR.glob("*.pdf"),
+        *APPROVED_DIR.glob("*.pdf"),
+    ]
+
+    for file_path in file_paths:
         documents[file_path.name] = load_pdf_text(file_path)
 
     return documents
