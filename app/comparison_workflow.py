@@ -109,7 +109,8 @@ class ComparisonWorkflow:
         print("[4] 통합 최신 뉴스 수집 시작")
 
         source_data = self.source_collector.collect(
-            state["company_name"]
+            state["company_name"],
+            ticker=state.get("financial_data", {}).get("ticker"),
         )
 
         print("[4] 통합 최신 뉴스 수집 완료")
@@ -171,8 +172,10 @@ class ComparisonWorkflow:
         return "\n\n".join(
             f"""제목: {article.get("title", "알 수 없음")}
 내용: {article.get("reason", "")}
+자료 유형: {article.get("source_type", "알 수 없음")}
 출처: {article.get("source", "알 수 없음")}
 게시일: {article.get("published_date", "알 수 없음")}
+신뢰도: {article.get("credibility_score", 0.0)}
 URL: {article.get("url", "")}"""
             for article in selected
         )
