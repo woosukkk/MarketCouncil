@@ -64,7 +64,8 @@ class JudgeAgent:
         print("\n[민심 Agent 분석 시작]")
 
         sentiment_result = self.sentiment_agent.analyze(
-            company_name
+            company_name,
+            source_data=context.get("source_data"),
         )
 
         print("[민심 Agent 분석 완료]")
@@ -91,7 +92,7 @@ Bull 분석과 Bear 분석이다.
 
 [뉴스 민심 분석]
 
-{json.dumps(sentiment_result, ensure_ascii=False, indent=2)}
+{json.dumps(self._build_sentiment_summary(sentiment_result), ensure_ascii=False, indent=2)}
 
 두 분석의 근거 구체성, 출처 신뢰도, 날짜,
 금융 데이터와의 연결성을 비교해
@@ -138,4 +139,32 @@ Bull 분석과 Bear 분석이다.
                 "bear_web_context",
                 "",
             ),
+        }
+
+    @staticmethod
+    def _build_sentiment_summary(
+        sentiment_result: dict,
+    ) -> dict:
+        articles = sentiment_result.get("articles", [])
+        key_articles = []
+
+        for sentiment in ("positive", "negative"):
+            key_articles.extend([
+                article
+                for article in articles
+                if article.get("sentiment") == sentiment
+            ][:2])
+
+        return {
+            "period": sentiment_result.get("period", ""),
+            "total_count": sentiment_result.get("total_count", 0),
+            "positive_count": sentiment_result.get("positive_count", 0),
+            "negative_count": sentiment_result.get("negative_count", 0),
+            "neutral_count": sentiment_result.get("neutral_count", 0),
+            "positive_ratio": sentiment_result.get("positive_ratio", 0.0),
+            "negative_ratio": sentiment_result.get("negative_ratio", 0.0),
+            "neutral_ratio": sentiment_result.get("neutral_ratio", 0.0),
+            "sentiment_score": sentiment_result.get("sentiment_score", 0.0),
+            "summary": sentiment_result.get("summary", ""),
+            "key_articles": key_articles,
         }

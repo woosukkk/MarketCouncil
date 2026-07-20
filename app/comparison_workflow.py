@@ -4,6 +4,7 @@ from langgraph.graph import END, START, StateGraph
 
 from tools.bull_tools import BullTools
 from tools.bear_tools import BearTools
+from tools.source_collector import SourceCollector
 
 
 class ComparisonState(TypedDict, total=False):
@@ -18,12 +19,14 @@ class ComparisonState(TypedDict, total=False):
 
     bull_web_context: str
     bear_web_context: str
+    source_data: dict
 
 
 class ComparisonWorkflow:
     def __init__(self) -> None:
         self.bull_tools = BullTools()
         self.bear_tools = BearTools()
+        self.source_collector = SourceCollector()
         self.graph = self._build_graph()
 
     def collect_financial_data(
@@ -99,40 +102,40 @@ class ComparisonWorkflow:
             "bear_report_context": bear_report_context,
         }
 
-    def search_bull_web(
+    def collect_web_sources(
         self,
         state: ComparisonState,
     ) -> ComparisonState:
-        print("[4] Bull 최신 웹 근거 조회 시작")
+        print("[4] 통합 최신 뉴스 수집 시작")
 
-        bull_web_context = (
-            self.bull_tools.search_recent_web(
-                state["company_name"]
-            )
+        source_data = self.source_collector.collect(
+            state["company_name"]
         )
 
-        print("[4] Bull 최신 웹 근거 조회 완료")
+        print("[4] 통합 최신 뉴스 수집 완료")
 
         return {
-            "bull_web_context": bull_web_context,
+            "source_data": source_data,
         }
 
-    def search_bear_web(
+    def build_web_contexts(
         self,
         state: ComparisonState,
     ) -> ComparisonState:
-        print("[5] Bear 최신 웹 근거 조회 시작")
-
-        bear_web_context = (
-            self.bear_tools.search_recent_web(
-                state["company_name"]
-            )
+        articles = state.get("source_data", {}).get(
+            "articles",
+            [],
         )
 
-        print("[5] Bear 최신 웹 근거 조회 완료")
-
         return {
-            "bear_web_context": bear_web_context,
+            "bull_web_context": self._build_web_context(
+                articles,
+                "positive",
+            ),
+            "bear_web_context": self._build_web_context(
+                articles,
+                "negative",
+            ),
         }
 
     @staticmethod
@@ -148,6 +151,30 @@ class ComparisonWorkflow:
 내용:
 {chunk.get("text", "")}"""
             for chunk in chunks
+        )
+
+    @staticmethod
+    def _build_web_context(
+        articles: list[dict],
+        sentiment: str,
+    ) -> str:
+        selected = [
+            article
+            for article in articles
+            if isinstance(article, dict)
+            and article.get("sentiment") == sentiment
+        ]
+
+        if not selected:
+            return "해당 방향의 최신 웹 근거 없음"
+
+        return "\n\n".join(
+            f"""제목: {article.get("title", "알 수 없음")}
+내용: {article.get("reason", "")}
+출처: {article.get("source", "알 수 없음")}
+게시일: {article.get("published_date", "알 수 없음")}
+URL: {article.get("url", "")}"""
+            for article in selected
         )
 
     def _build_graph(self):
@@ -170,12 +197,12 @@ class ComparisonWorkflow:
             self.build_report_contexts,
         )
         builder.add_node(
-            "search_bull_web",
-            self.search_bull_web,
+            "collect_web_sources",
+            self.collect_web_sources,
         )
         builder.add_node(
-            "search_bear_web",
-            self.search_bear_web,
+            "build_web_contexts",
+            self.build_web_contexts,
         )
 
         builder.add_edge(
@@ -196,14 +223,14 @@ class ComparisonWorkflow:
         )
         builder.add_edge(
             "build_report_contexts",
-            "search_bull_web",
+            "collect_web_sources",
         )
         builder.add_edge(
-            "search_bull_web",
-            "search_bear_web",
+            "collect_web_sources",
+            "build_web_contexts",
         )
         builder.add_edge(
-            "search_bear_web",
+            "build_web_contexts",
             END,
         )
 

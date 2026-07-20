@@ -1,54 +1,19 @@
-import json
 from typing import Any
 
-from openai import OpenAI
-
-from agents.sentiment_prompt import SENTIMENT_SYSTEM_PROMPT
-from config import MODEL_NAME, OPENAI_API_KEY
+from tools.source_collector import SourceCollector
 
 
 class SentimentAgent:
     def __init__(self) -> None:
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
+        self.source_collector = SourceCollector()
 
-    def analyze(self, company_name: str) -> dict[str, Any]:
-        response = self.client.responses.create(
-            model=MODEL_NAME,
-            instructions=SENTIMENT_SYSTEM_PROMPT,
-            tools=[
-                {
-                    "type": "web_search",
-                    "search_context_size": "medium",
-                }
-            ],
-            input=(
-                f"현재 날짜를 기준으로 {company_name} 관련 최신 주요 뉴스를 "
-                "중립적으로 검색하고 뉴스 민심을 분석해줘."
-            ),
-        )
-
-        result = self._parse_json(response.output_text)
-        return self._normalize(result)
-
-    @staticmethod
-    def _parse_json(output_text: str) -> dict[str, Any]:
-        text = output_text.strip()
-
-        if text.startswith("```"):
-            lines = text.splitlines()
-            text = "\n".join(lines[1:-1]).strip()
-
-        try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError as error:
-            raise ValueError(
-                "민심 에이전트가 올바른 JSON을 반환하지 않았습니다."
-            ) from error
-
-        if not isinstance(parsed, dict):
-            raise ValueError("민심 분석 결과는 JSON 객체여야 합니다.")
-
-        return parsed
+    def analyze(
+        self,
+        company_name: str,
+        source_data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        result = source_data or self.source_collector.collect(company_name)
+        return self._normalize(result.copy())
 
     @staticmethod
     def _normalize(result: dict[str, Any]) -> dict[str, Any]:
