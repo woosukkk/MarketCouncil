@@ -4,6 +4,7 @@ from langgraph.graph import END, START, StateGraph
 
 from tools.bull_tools import BullTools
 from tools.bear_tools import BearTools
+from tools.evidence_resolver import EvidenceResolver
 from tools.source_collector import SourceCollector
 
 
@@ -20,6 +21,7 @@ class ComparisonState(TypedDict, total=False):
     bull_web_context: str
     bear_web_context: str
     source_data: dict
+    evidence_bundle: dict
 
 
 class ComparisonWorkflow:
@@ -27,6 +29,7 @@ class ComparisonWorkflow:
         self.bull_tools = BullTools()
         self.bear_tools = BearTools()
         self.source_collector = SourceCollector()
+        self.evidence_resolver = EvidenceResolver()
         self.graph = self._build_graph()
 
     def collect_financial_data(
@@ -139,6 +142,26 @@ class ComparisonWorkflow:
             ),
         }
 
+    def resolve_evidence(
+        self,
+        state: ComparisonState,
+    ) -> ComparisonState:
+        print("[5] 웹/RAG 중복 근거 확인 시작")
+
+        source_data = self.evidence_resolver.resolve(
+            state.get("source_data", {})
+        )
+
+        print("[5] 웹/RAG 중복 근거 확인 완료")
+
+        return {
+            "source_data": source_data,
+            "evidence_bundle": source_data.get(
+                "evidence_bundle",
+                {},
+            ),
+        }
+
     @staticmethod
     def _build_context(
         chunks: list[dict],
@@ -164,6 +187,7 @@ class ComparisonWorkflow:
             for article in articles
             if isinstance(article, dict)
             and article.get("sentiment") == sentiment
+            and article.get("use_as_evidence", True)
         ]
 
         if not selected:
@@ -204,6 +228,10 @@ URL: {article.get("url", "")}"""
             self.collect_web_sources,
         )
         builder.add_node(
+            "resolve_evidence",
+            self.resolve_evidence,
+        )
+        builder.add_node(
             "build_web_contexts",
             self.build_web_contexts,
         )
@@ -230,6 +258,10 @@ URL: {article.get("url", "")}"""
         )
         builder.add_edge(
             "collect_web_sources",
+            "resolve_evidence",
+        )
+        builder.add_edge(
+            "resolve_evidence",
             "build_web_contexts",
         )
         builder.add_edge(
