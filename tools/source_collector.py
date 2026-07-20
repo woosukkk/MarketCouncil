@@ -3,8 +3,8 @@ from typing import Any
 
 from openai import OpenAI
 
-from bull_prompt import SOURCE_COLLECTION_PROMPT
 from config import MODEL_NAME, OPENAI_API_KEY
+from tools.source_collector_prompt import SOURCE_COLLECTION_PROMPT
 
 
 class SourceCollector:

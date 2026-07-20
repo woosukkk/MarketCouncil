@@ -16,11 +16,8 @@ Do not introduce later-stage technologies before they are needed.
 
 ## File Rules
 
-* Keep all prompt definitions in `bull_prompt.py`.
-* Do not rename existing files unless explicitly requested.
-* Preserve existing function names and return formats when possible.
-* Save generated outputs in `results/`.
-* Do not read, modify, or expose `.env` or API keys unless explicitly requested.
+* Keep prompt definitions in dedicated prompt files.
+* Do not place prompt definitions directly inside agent logic files.
 
 ## Coding Rules
 
