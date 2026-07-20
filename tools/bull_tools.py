@@ -1,3 +1,5 @@
+from datetime import date
+
 from rag.retriever import ReportRetriever
 from tools.financial_data import get_financial_data
 from tools.web_search_tool import WebSearchTool
@@ -27,6 +29,7 @@ class BullTools:
         return self.retriever.search(
             query=query,
             top_k=top_k,
+            as_of_date=date.today().isoformat(),
         )
 
     def search_recent_web(

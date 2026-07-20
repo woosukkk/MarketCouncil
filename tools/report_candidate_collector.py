@@ -6,6 +6,7 @@ from tools.report_downloader import (
     ReportDownloader,
     ReportDownloadSkipped,
 )
+from tools.report_source_collector import ReportSourceCollector
 from tools.source_collector import SourceCollector
 
 
@@ -13,7 +14,7 @@ class ReportCandidateCollector:
     CANDIDATE_TYPES = {"official", "report"}
 
     def __init__(self) -> None:
-        self.source_collector = SourceCollector()
+        self.source_collector = ReportSourceCollector()
         self.downloader = ReportDownloader()
         self.pipeline = IngestionPipeline()
 
@@ -75,9 +76,12 @@ class ReportCandidateCollector:
                         "title": article.get("title", downloaded_path.stem),
                         "publisher": article.get("source", ""),
                         "source_type": (
-                            "official_report"
-                            if source_type == "official"
-                            else "web_report"
+                            article.get("report_type")
+                            or (
+                                "official_report"
+                                if source_type == "official"
+                                else "web_report"
+                            )
                         ),
                         "source_url": url,
                         "published_at": article.get("published_date", ""),

@@ -28,7 +28,7 @@ class ReportRetriever:
             [query]
         ).tolist()
 
-        where = None
+        cutoff = int(datetime.now().timestamp())
         if as_of_date:
             try:
                 cutoff_text = as_of_date
@@ -40,16 +40,10 @@ class ReportRetriever:
                     "as_of_date는 ISO 날짜 형식이어야 합니다."
                 ) from error
 
-            where = {
-                "published_timestamp": {"$lte": cutoff},
-            }
-
         query_options = {
             "query_embeddings": query_embedding,
-            "n_results": top_k,
+            "n_results": max(top_k * 3, top_k),
         }
-        if where:
-            query_options["where"] = where
 
         results = self.collection.query(
             **query_options,
@@ -66,15 +60,42 @@ class ReportRetriever:
             metadatas,
             distances,
         ):
+            published_timestamp = int(
+                metadata.get("published_timestamp", 0) or 0
+            )
+            if published_timestamp > cutoff:
+                continue
+
+            age_days = None
+            recency_penalty = 0.1
+            if published_timestamp:
+                age_days = max(
+                    0,
+                    (cutoff - published_timestamp) // 86400,
+                )
+                if age_days <= 30:
+                    recency_penalty = 0.0
+                elif age_days <= 90:
+                    recency_penalty = 0.03
+                elif age_days <= 365:
+                    recency_penalty = 0.08
+                else:
+                    recency_penalty = 0.15
+
             retrieved_chunks.append({
                 "text": document,
                 "source": metadata["source"],
                 "chunk_id": metadata["chunk_id"],
                 "distance": distance,
+                "ranking_score": float(distance) + recency_penalty,
+                "age_days": age_days,
                 "metadata": metadata,
             })
 
-        return retrieved_chunks
+        return sorted(
+            retrieved_chunks,
+            key=lambda chunk: chunk["ranking_score"],
+        )[:top_k]
 
 
 if __name__ == "__main__":
