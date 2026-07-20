@@ -33,6 +33,54 @@ Do not introduce later-stage technologies before they are needed.
 * Do not commit, push, create branches, or open pull requests unless explicitly requested.
 * Suggest an English commit message after completing a meaningful unit of work.
 
+### PR Convention
+
+* Title format: `[PR type] 주요 기능`
+* Body must include:
+  * 추가하거나 수정한 기능명
+  * 관련 이슈가 존재하면 해당 이슈
+  * 어느 코드를 어떤 방식으로 수정했는지
+  * 실행 결과
+* PR types:
+  * `[기능 추가]`: 신규 기능 추가
+  * `[버그 수정]`: 버그 수정
+  * `[배포 수정]`: 배포 관련 수정
+
+### Issue Convention
+
+* Title format: `[Issue type] 주요 내용`
+* Body must include:
+  * 이슈 관련 내용
+  * 발생하는 문제에 대한 상세 설명
+  * 이슈와 관련된 코드 부분
+* Issue types:
+  * `[기능추가요청]`: 신규 기능 추가 요청
+  * `[버그]`: 기존 브랜치 버그 제보
+
+### Branch Convention
+
+* `main`: 최종 발표 및 배포용
+* `develop`: 통합 개발용
+* `feature/*`: 기능 개발용
+* `hotfix/*`: 발표 직전 긴급 수정용
+
+### Commit Convention
+
+* Format: `type: subject`
+* Add one space after the colon.
+* Write the subject in English.
+* Commit types:
+  * `feat`: 새로운 기능 추가
+  * `fix`: 버그 수정
+  * `docs`: 문서 수정
+  * `style`: 코드 포매팅 및 코드 스타일 변경
+  * `design`: 사용자 UI 변경
+  * `test`: 테스트 코드
+  * `refactor`: 리팩토링
+  * `chore`: 자잘한 수정
+  * `rename`: 파일 또는 폴더명 수정
+  * `remove`: 파일 삭제만 수행
+
 ## Token and Context Usage
 
 * Read only files relevant to the current task.
