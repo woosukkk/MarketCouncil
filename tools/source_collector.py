@@ -6,6 +6,7 @@ from openai import OpenAI
 
 from config import MODEL_NAME, OPENAI_API_KEY
 from tools.source_collector_prompt import SOURCE_COLLECTION_PROMPT
+from tools.source_collector_schema import SOURCE_COLLECTION_SCHEMA
 
 
 class SourceCollector:
@@ -37,6 +38,14 @@ class SourceCollector:
                         "search_context_size": "medium",
                     }
                 ],
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "source_collection",
+                        "strict": True,
+                        "schema": SOURCE_COLLECTION_SCHEMA,
+                    }
+                },
                 input=(
                     f"기업명: {company_name}\n"
                     f"티커: {ticker_text}\n"
@@ -64,8 +73,23 @@ class SourceCollector:
                 "통합 뉴스 수집 결과가 올바른 JSON이 아닙니다."
             ) from error
 
+        if isinstance(result, list):
+            return {
+                "period": "",
+                "summary": "",
+                "coverage": {},
+                "articles": result,
+            }
+
         if not isinstance(result, dict):
-            raise ValueError("통합 뉴스 수집 결과는 JSON 객체여야 합니다.")
+            result_type = type(result).__name__
+            raise ValueError(
+                "통합 뉴스 수집 결과 형식이 올바르지 않습니다. "
+                f"응답 타입: {result_type}"
+            )
+
+        if "articles" not in result:
+            result["articles"] = []
 
         return result
 
