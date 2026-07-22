@@ -48,7 +48,7 @@ class ReportDownloader:
         self.registry = DocumentRegistry()
         self.session = requests.Session()
         self.session.headers.update({
-            "User-Agent": "BULL-AGNET/1.0 report-collector",
+            "User-Agent": "MarketCouncil/1.0 report-collector",
         })
 
     def download(
