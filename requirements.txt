@@ -7,3 +7,4 @@ chromadb
 langgraph
 streamlit
 requests
+youtube-transcript-api
