@@ -3,7 +3,6 @@ from typing import Any
 from openai import OpenAI
 
 from agents.video_debate_prompt import (
-    VIDEO_JUDGE_SYSTEM_PROMPT,
     VIDEO_REBUTTAL_SYSTEM_PROMPT,
     VIDEO_SUMMARY_SYSTEM_PROMPT,
 )
@@ -47,14 +46,6 @@ class VideoDebateAgent:
             opponent_summary=bull_summary,
         )
 
-        print("[7] Judge 종합 평가")
-        judge_result = self._judge(
-            bull_summary,
-            bear_summary,
-            bull_rebuttal,
-            bear_rebuttal,
-        )
-
         return {
             "bull_video": self._transcript_export(bull_transcript),
             "bear_video": self._transcript_export(bear_transcript),
@@ -62,7 +53,6 @@ class VideoDebateAgent:
             "bear_summary": bear_summary,
             "bull_rebuttal": bull_rebuttal,
             "bear_rebuttal": bear_rebuttal,
-            "judge_result": judge_result,
         }
 
     def _summarize(
@@ -124,29 +114,6 @@ class VideoDebateAgent:
 
 자신의 영상 논거를 사용해 상대 요약의 핵심 주장을 반박해줘.""",
             max_output_tokens=1600,
-        )
-
-    def _judge(
-        self,
-        bull_summary: str,
-        bear_summary: str,
-        bull_rebuttal: str,
-        bear_rebuttal: str,
-    ) -> str:
-        return self._response(
-            VIDEO_JUDGE_SYSTEM_PROMPT,
-            f"""[Bull 영상 요약]
-{bull_summary}
-
-[Bear 영상 요약]
-{bear_summary}
-
-[Bull의 반박]
-{bull_rebuttal}
-
-[Bear의 반박]
-{bear_rebuttal}""",
-            max_output_tokens=1800,
         )
 
     def _response(
