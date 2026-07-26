@@ -14,6 +14,49 @@ Build the investment analysis system in this order:
 
 Do not introduce later-stage technologies before they are needed.
 
+## Investment Analysis Principles
+
+* Treat every prompt as an operational specification, not a simple question.
+* Define the role, objective, supplied inputs, decision criteria, analysis order,
+  output format, and prohibited behavior explicitly.
+* Do not ask an agent to jump directly to a conclusion or recommendation.
+* Separate verified facts, market expectations, and analyst hypotheses.
+* Use this default analysis order when the available inputs support it:
+  market environment, industry, company performance, valuation, growth drivers,
+  counter-evidence, risks, and hypothesis validation.
+* Do not invent a missing section. Mark unavailable evidence as
+  `확인 불가` or `추가 데이터 필요`.
+* Express conclusions conditionally. State what strengthens, weakens, or
+  invalidates each hypothesis.
+* Prefer tracking changes and validating previous judgments over pretending to
+  predict the future precisely.
+* Keep data collection, evidence classification, directional analysis,
+  portfolio-risk analysis, and final judgment as separate responsibilities.
+* Expand the system incrementally: basic agent, data input, result storage,
+  comparison with prior analysis, self-review, and then automation.
+
+## Standard Analysis Output
+
+Unless a strict JSON schema or a specialized collector format applies, use this
+section order:
+
+1. 핵심 결론
+2. 확인된 사실
+3. 시장 기대
+4. 투자 가설
+5. 긍정 근거
+6. 반대 근거
+7. 위험 요인
+8. 추가 확인 데이터
+9. 가설 강화 조건
+10. 가설 약화·폐기 조건
+11. 최종 판단
+
+Collection agents must return evidence only and must not make an investment
+recommendation. Analysis agents must cite the supplied evidence and distinguish
+fact from interpretation. Final-judgment agents must compare competing
+hypotheses and report confidence and evidence limitations.
+
 ## File Rules
 
 * Keep prompt definitions in dedicated prompt files.
