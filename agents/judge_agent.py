@@ -95,9 +95,9 @@ Bull 분석과 Bear 분석이다.
 
 {json.dumps(self._build_sentiment_summary(sentiment_result), ensure_ascii=False, indent=2)}
 
-[영상 토론 분석]
+[영상 관점별 요약]
 
-{json.dumps(self._build_video_debate_summary(video_debate), ensure_ascii=False, indent=2) if video_debate else "사용하지 않음"}
+{json.dumps(self._build_video_summary(video_debate), ensure_ascii=False, indent=2) if video_debate else "사용하지 않음"}
 
 두 분석의 근거 구체성, 출처 신뢰도, 날짜,
 금융 데이터와의 연결성을 비교해
@@ -149,7 +149,7 @@ Bull 분석과 Bear 분석이다.
         }
 
     @staticmethod
-    def _build_video_debate_summary(
+    def _build_video_summary(
         video_debate: dict,
     ) -> dict:
         bull_video = video_debate.get("bull_video", {})
@@ -161,8 +161,6 @@ Bull 분석과 Bear 분석이다.
             "bear_video_url": bear_video.get("video_url", ""),
             "bull_summary": video_debate.get("bull_summary", ""),
             "bear_summary": video_debate.get("bear_summary", ""),
-            "bull_rebuttal": video_debate.get("bull_rebuttal", ""),
-            "bear_rebuttal": video_debate.get("bear_rebuttal", ""),
         }
 
     @staticmethod

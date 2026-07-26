@@ -41,10 +41,10 @@ class VideoDebateStore:
         try:
             data = json.loads(files[0].read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError) as error:
-            raise ValueError("최신 영상 토론 결과를 읽을 수 없습니다.") from error
+            raise ValueError("최신 영상 분석 결과를 읽을 수 없습니다.") from error
 
         if not isinstance(data, dict):
-            raise ValueError("영상 토론 결과 형식이 올바르지 않습니다.")
+            raise ValueError("영상 분석 결과 형식이 올바르지 않습니다.")
         return data
 
     @staticmethod

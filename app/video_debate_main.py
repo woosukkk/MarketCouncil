@@ -7,7 +7,7 @@ DEFAULT_BULL_VIDEO = "https://www.youtube.com/watch?v=Yy3aOAAUza0"
 
 
 def main() -> None:
-    company_name = input("영상 토론 대상 기업명: ").strip()
+    company_name = input("영상 분석 대상 기업명: ").strip()
     if not company_name:
         print("기업명을 입력하세요.")
         return
@@ -29,17 +29,13 @@ def main() -> None:
             result,
         )
     except Exception as error:
-        print(f"\n영상 토론 오류: {error}")
+        print(f"\n영상 분석 오류: {error}")
         return
 
     print("\n===== Bull 영상 요약 =====\n")
     print(result["bull_summary"])
     print("\n===== Bear 영상 요약 =====\n")
     print(result["bear_summary"])
-    print("\n===== Bull의 Bear 반박 =====\n")
-    print(result["bull_rebuttal"])
-    print("\n===== Bear의 Bull 반박 =====\n")
-    print(result["bear_rebuttal"])
     print(f"\n저장 완료: {result_path}")
     print("최종 판단은 compare_main 실행 시 Judge가 수행합니다.")
 

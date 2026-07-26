@@ -55,7 +55,7 @@ def save_comparison_result(
         video_debate = analysis_data["video_debate"]
         video_debate_section = f"""
 ==================================================
-[영상 토론 분석]
+[영상 관점별 요약]
 ==================================================
 
 Bull 영상 요약:
@@ -63,12 +63,6 @@ Bull 영상 요약:
 
 Bear 영상 요약:
 {video_debate.get("bear_summary", "")}
-
-Bull 반박:
-{video_debate.get("bull_rebuttal", "")}
-
-Bear 반박:
-{video_debate.get("bear_rebuttal", "")}
 """
 
     content = f"""기업명: {company_name}
@@ -125,14 +119,14 @@ def main() -> None:
     try:
         latest_video_debate = VideoDebateStore().load_latest(company_name)
     except ValueError as error:
-        print(f"영상 토론 결과 확인 오류: {error}")
+        print(f"영상 분석 결과 확인 오류: {error}")
         latest_video_debate = None
 
     if latest_video_debate:
         created_at = latest_video_debate.get("created_at", "알 수 없음")
-        print(f"최신 영상 토론 결과 발견: {created_at}")
+        print(f"최신 영상 분석 결과 발견: {created_at}")
         use_video = input(
-            "최종 Judge 판단에 영상 토론을 포함할까요? (y/N): "
+            "최종 Judge 판단에 영상 요약을 포함할까요? (y/N): "
         ).strip().lower()
         if use_video in {"y", "yes"}:
             video_debate = latest_video_debate
