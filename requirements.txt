@@ -8,3 +8,4 @@ langgraph
 streamlit
 requests
 youtube-transcript-api
+crawl4ai

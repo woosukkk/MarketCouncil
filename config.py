@@ -7,6 +7,7 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DART_API_KEY = os.getenv("DART_API_KEY")
 SEC_USER_AGENT = os.getenv("SEC_USER_AGENT")
+SEARXNG_URL = os.getenv("SEARXNG_URL", "http://127.0.0.1:8080")
 MODEL_NAME = "gpt-5-mini"
 
 if not OPENAI_API_KEY:

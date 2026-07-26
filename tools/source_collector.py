@@ -4,7 +4,8 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from openai import OpenAI
 
-from config import MODEL_NAME, OPENAI_API_KEY
+from config import MODEL_NAME, OPENAI_API_KEY, SEARXNG_URL
+from tools.open_source_web_collector import OpenSourceWebCollector
 from tools.source_collector_prompt import SOURCE_COLLECTION_PROMPT
 from tools.source_collector_schema import SOURCE_COLLECTION_SCHEMA
 
@@ -20,6 +21,7 @@ class SourceCollector:
 
     def __init__(self) -> None:
         self.client = OpenAI(api_key=OPENAI_API_KEY)
+        self.web_collector = OpenSourceWebCollector(SEARXNG_URL)
 
     def collect(
         self,
@@ -27,17 +29,12 @@ class SourceCollector:
         ticker: str | None = None,
     ) -> dict[str, Any]:
         ticker_text = ticker or "티커 정보 없음"
+        collected = self.web_collector.collect(company_name, ticker=ticker)
 
         try:
             response = self.client.responses.create(
                 model=MODEL_NAME,
                 instructions=SOURCE_COLLECTION_PROMPT,
-                tools=[
-                    {
-                        "type": "web_search",
-                        "search_context_size": "medium",
-                    }
-                ],
                 text={
                     "format": {
                         "type": "json_schema",
@@ -49,14 +46,19 @@ class SourceCollector:
                 input=(
                     f"기업명: {company_name}\n"
                     f"티커: {ticker_text}\n"
-                    "최신 주요 자료를 소스 유형별로 균형 있게 수집해줘."
+                    "다음은 SearXNG와 Crawl4AI가 수집한 자료다. "
+                    "제공된 자료만 소스 유형과 사건 방향별로 분류해라.\n\n"
+                    f"{json.dumps(collected['documents'], ensure_ascii=False)}"
                 ),
             )
         except Exception as error:
-            raise RuntimeError("통합 뉴스 수집에 실패했습니다.") from error
+            raise RuntimeError("수집된 웹 자료 분류에 실패했습니다.") from error
 
         result = self._parse_json(response.output_text)
-        return self._normalize(result)
+        normalized = self._normalize(result)
+        normalized["collection_method"] = "searxng+crawl4ai"
+        normalized["extraction_failures"] = collected["extraction_failures"]
+        return normalized
 
     @staticmethod
     def _parse_json(output_text: str) -> dict[str, Any]:
