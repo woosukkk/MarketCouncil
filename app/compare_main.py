@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 from agents.judge_agent import JudgeAgent
+from tools.analysis_debate_store import AnalysisDebateStore
 from tools.video_debate_store import VideoDebateStore
 
 
@@ -138,6 +139,18 @@ def main() -> None:
             video_debate=video_debate,
         )
 
+        analysis_debate = analysis_data.get("analysis_debate", {})
+        debate_path = ""
+        if analysis_debate:
+            print("\n===== Bull의 Bear 전체 분석 반박 =====\n")
+            print(analysis_debate.get("bull_rebuttal", ""))
+            print("\n===== Bear의 Bull 전체 분석 반박 =====\n")
+            print(analysis_debate.get("bear_rebuttal", ""))
+            debate_path = AnalysisDebateStore().save(
+                company_name,
+                analysis_debate,
+            )
+
         bull_path = save_text_result(
             company_name=company_name,
             perspective="bull",
@@ -162,6 +175,9 @@ def main() -> None:
         print(f"\nBull 저장 완료: {bull_path}")
         print(f"Bear 저장 완료: {bear_path}")
         print(f"Comparison 저장 완료: {comparison_path}")
+        if debate_path:
+            print(f"토론 실험 결과 별도 저장 완료: {debate_path}")
+            print("토론 결과는 Judge 판단과 Comparison 결과에 포함되지 않았습니다.")
 
     except Exception as error:
         print(f"\n오류가 발생했습니다: {error}")

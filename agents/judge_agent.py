@@ -4,6 +4,7 @@ from openai import OpenAI
 
 from agents.bear_agent import BearAgent
 from agents.bull_agent import BullAgent
+from agents.analysis_debate_agent import AnalysisDebateAgent
 from agents.judge_prompt import JUDGE_SYSTEM_PROMPT
 from agents.sentiment_agent import SentimentAgent
 from app.comparison_workflow import ComparisonWorkflow
@@ -18,6 +19,7 @@ class JudgeAgent:
         self.bull_agent = BullAgent()
         self.bear_agent = BearAgent()
         self.sentiment_agent = SentimentAgent()
+        self.analysis_debate_agent = AnalysisDebateAgent()
 
     def analyze(
         self,
@@ -71,6 +73,22 @@ class JudgeAgent:
 
         print("[민심 Agent 분석 완료]")
 
+        sentiment_summary = self._build_sentiment_summary(sentiment_result)
+        video_summary = (
+            self._build_video_summary(video_debate)
+            if video_debate
+            else None
+        )
+
+        analysis_debate = self.analysis_debate_agent.run(
+            company_name=company_name,
+            financial_data=financial_data,
+            bull_result=bull_result,
+            bear_result=bear_result,
+            sentiment_summary=sentiment_summary,
+            video_summary=video_summary,
+        )
+
         print("\n[Judge Agent 비교 시작]")
 
         user_prompt = f"""
@@ -93,11 +111,11 @@ Bull 분석과 Bear 분석이다.
 
 [뉴스 민심 분석]
 
-{json.dumps(self._build_sentiment_summary(sentiment_result), ensure_ascii=False, indent=2)}
+{json.dumps(sentiment_summary, ensure_ascii=False, indent=2)}
 
 [영상 관점별 요약]
 
-{json.dumps(self._build_video_summary(video_debate), ensure_ascii=False, indent=2) if video_debate else "사용하지 않음"}
+{json.dumps(video_summary, ensure_ascii=False, indent=2) if video_summary else "사용하지 않음"}
 
 두 분석의 근거 구체성, 출처 신뢰도, 날짜,
 금융 데이터와의 연결성을 비교해
@@ -129,6 +147,7 @@ Bull 분석과 Bear 분석이다.
             "bear_result": bear_result,
             "sentiment_result": sentiment_result,
             "video_debate": video_debate,
+            "analysis_debate": analysis_debate,
             "judge_result": response.output_text,
             "bull_chunks": context.get(
                 "bull_chunks",
