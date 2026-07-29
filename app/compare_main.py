@@ -142,9 +142,13 @@ def main() -> None:
         analysis_debate = analysis_data.get("analysis_debate", {})
         debate_path = ""
         if analysis_debate:
-            print("\n===== Bull의 Bear 전체 분석 반박 =====\n")
+            print("\n" + "=" * 72)
+            print("[토론 1] Bull이 Bear의 분석 결과에 제기하는 반론")
+            print("=" * 72 + "\n")
             print(analysis_debate.get("bull_rebuttal", ""))
-            print("\n===== Bear의 Bull 전체 분석 반박 =====\n")
+            print("\n" + "=" * 72)
+            print("[토론 2] Bear가 Bull의 분석 결과에 제기하는 반론")
+            print("=" * 72 + "\n")
             print(analysis_debate.get("bear_rebuttal", ""))
             debate_path = AnalysisDebateStore().save(
                 company_name,
