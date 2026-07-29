@@ -8,6 +8,14 @@ from tools.searxng_search import SearxngSearch
 
 class OpenSourceWebCollector:
     MAX_CANDIDATES = 12
+    BLOCKED_DOMAINS = {
+        "instagram.com",
+        "www.instagram.com",
+        "scribd.com",
+        "www.scribd.com",
+        "t.me",
+        "telegram.me",
+    }
 
     def __init__(self, searxng_url: str) -> None:
         self.search_client = SearxngSearch(searxng_url)
@@ -44,6 +52,8 @@ class OpenSourceWebCollector:
                     continue
                 domain = (urlsplit(url).hostname or "").lower()
                 if not domain or domain_counts.get(domain, 0) >= 2:
+                    continue
+                if domain in self.BLOCKED_DOMAINS:
                     continue
                 result["search_query"] = query
                 result["search_focus"] = search_focus
