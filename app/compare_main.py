@@ -109,6 +109,71 @@ Bear 영상 요약:
     return str(file_path)
 
 
+def print_debate_result(debate: dict) -> None:
+    print("\n" + "=" * 72)
+    print("[중재 토론 의제]")
+    print("=" * 72)
+    for index, issue in enumerate(debate.get("agenda", []), start=1):
+        print(f"\n쟁점 {index}. {issue.get('title', '')}")
+        print(f"  Bull 최초 주장: {issue.get('bull_claim', '')}")
+        print(f"  Bear 최초 주장: {issue.get('bear_claim', '')}")
+        print(f"  중재자 질문: {issue.get('question', '')}")
+
+    for round_data in debate.get("rounds", []):
+        round_number = round_data.get("round", "?")
+        print("\n" + "=" * 72)
+        print(f"[토론 {round_number}라운드]")
+        print("=" * 72)
+        _print_debate_turn("Bull", round_data.get("bull_response", {}))
+        _print_debate_turn("Bear", round_data.get("bear_response", {}))
+
+        review = round_data.get("moderator_review", {})
+        print("\n  [중재자 검토]")
+        for issue in review.get("issue_reviews", []):
+            print(
+                f"  - {issue.get('issue_id', '')} "
+                f"[{issue.get('status', '')}]: "
+                f"{issue.get('assessment', '')}"
+            )
+            if issue.get("question_for_bull"):
+                print(f"    Bull에게: {issue['question_for_bull']}")
+            if issue.get("question_for_bear"):
+                print(f"    Bear에게: {issue['question_for_bear']}")
+        print(f"  계속 여부: {review.get('continue_debate', False)}")
+        print(f"  판단 이유: {review.get('reason', '')}")
+
+    summary = debate.get("moderator_summary", {})
+    print("\n" + "=" * 72)
+    print("[중재자 최종 정리]")
+    print("=" * 72)
+    print(f"종료 이유: {debate.get('stop_reason', '')}")
+    _print_list("합의점", summary.get("agreements", []))
+    _print_list("미해결 쟁점", summary.get("unresolved_issues", []))
+    _print_list("추가 필요 증거", summary.get("required_evidence", []))
+    print(f"요약: {summary.get('summary', '')}")
+
+
+def _print_debate_turn(role: str, turn: dict) -> None:
+    print(f"\n  [{role} 발언]")
+    print(f"  입장 요약: {turn.get('position_summary', '')}")
+    for index, issue in enumerate(turn.get("issues", []), start=1):
+        print(f"\n  {role} 쟁점 {index} ({issue.get('issue_id', '')})")
+        print(f"    상대 주장: {issue.get('target_claim', '')}")
+        print(f"    반론: {issue.get('response', '')}")
+        _print_list("반론 근거", issue.get("evidence", []), indent="    ")
+        print(f"    인정하는 부분: {issue.get('concession', '')}")
+        print(f"    추가 확인 필요: {issue.get('missing_evidence', '')}")
+
+
+def _print_list(label: str, items: list, indent: str = "") -> None:
+    print(f"{indent}{label}:")
+    if not items:
+        print(f"{indent}  - 없음")
+        return
+    for item in items:
+        print(f"{indent}  - {item}")
+
+
 def main() -> None:
     company_name = input("비교 분석할 기업명: ").strip()
 
@@ -142,14 +207,7 @@ def main() -> None:
         analysis_debate = analysis_data.get("analysis_debate", {})
         debate_path = ""
         if analysis_debate:
-            print("\n" + "=" * 72)
-            print("[토론 1] Bull이 Bear의 분석 결과에 제기하는 반론")
-            print("=" * 72 + "\n")
-            print(analysis_debate.get("bull_rebuttal", ""))
-            print("\n" + "=" * 72)
-            print("[토론 2] Bear가 Bull의 분석 결과에 제기하는 반론")
-            print("=" * 72 + "\n")
-            print(analysis_debate.get("bear_rebuttal", ""))
+            print_debate_result(analysis_debate)
             debate_path = AnalysisDebateStore().save(
                 company_name,
                 analysis_debate,

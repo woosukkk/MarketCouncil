@@ -30,8 +30,7 @@ class AnalysisDebateStore:
         payload = {
             "company_name": company_name,
             "created_at": datetime.now().isoformat(timespec="seconds"),
-            "bull_rebuttal": debate.get("bull_rebuttal", ""),
-            "bear_rebuttal": debate.get("bear_rebuttal", ""),
+            **debate,
             "included_in_judge": False,
         }
         file_path.write_text(
