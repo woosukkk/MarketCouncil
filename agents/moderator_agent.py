@@ -94,7 +94,7 @@ class ModeratorAgent:
             debate_input,
             "debate_agenda",
             AGENDA_SCHEMA,
-            1000,
+            2000,
         )
 
     def review_round(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -103,7 +103,7 @@ class ModeratorAgent:
             json.dumps(payload, ensure_ascii=False, indent=2, default=str),
             "debate_review",
             REVIEW_SCHEMA,
-            1200,
+            2000,
         )
 
     def summarize(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -112,7 +112,7 @@ class ModeratorAgent:
             json.dumps(payload, ensure_ascii=False, indent=2, default=str),
             "debate_summary",
             SUMMARY_SCHEMA,
-            1000,
+            2000,
         )
 
     def _respond(
@@ -139,6 +139,7 @@ class ModeratorAgent:
                         }
                     },
                     input=input_text,
+                    reasoning={"effort": "minimal"},
                     max_output_tokens=token_limit,
                 )
                 self._ensure_complete(response)
@@ -169,4 +170,7 @@ class ModeratorAgent:
         if status == "completed":
             return
         details = getattr(response, "incomplete_details", None)
-        raise ValueError(f"응답 상태={status}, 상세={details}")
+        usage = getattr(response, "usage", None)
+        raise ValueError(
+            f"응답 상태={status}, 상세={details}, 사용량={usage}"
+        )

@@ -211,7 +211,7 @@ class AnalysisDebateAgent:
         )
         last_error: Exception | None = None
         for attempt in range(2):
-            token_limit = 1400 * (attempt + 1)
+            token_limit = 2000 * (attempt + 1)
             try:
                 response = self.client.responses.create(
                     model=MODEL_NAME,
@@ -225,6 +225,7 @@ class AnalysisDebateAgent:
                         }
                     },
                     input=json.dumps(payload, ensure_ascii=False, default=str),
+                    reasoning={"effort": "minimal"},
                     max_output_tokens=token_limit,
                 )
                 self._ensure_complete(response)
@@ -255,7 +256,10 @@ class AnalysisDebateAgent:
         if status == "completed":
             return
         details = getattr(response, "incomplete_details", None)
-        raise ValueError(f"응답 상태={status}, 상세={details}")
+        usage = getattr(response, "usage", None)
+        raise ValueError(
+            f"응답 상태={status}, 상세={details}, 사용량={usage}"
+        )
 
     def _build_graph(self):
         builder = StateGraph(DebateState)
