@@ -209,27 +209,53 @@ class AnalysisDebateAgent:
             if role == "bull"
             else BEAR_ANALYSIS_DEBATE_PROMPT
         )
-        try:
-            response = self.client.responses.create(
-                model=MODEL_NAME,
-                instructions=instructions,
-                text={
-                    "format": {
-                        "type": "json_schema",
-                        "name": f"{role}_debate_turn",
-                        "strict": True,
-                        "schema": PARTICIPANT_SCHEMA,
-                    }
-                },
-                input=json.dumps(payload, ensure_ascii=False, default=str),
-                max_output_tokens=1400,
-            )
-            result = json.loads(response.output_text)
-        except Exception as error:
-            raise RuntimeError(f"{role.title()} 토론 발언 생성에 실패했습니다: {error}") from error
-        if not isinstance(result, dict):
-            raise RuntimeError(f"{role.title()} 토론 응답이 JSON 객체가 아닙니다.")
-        return result
+        last_error: Exception | None = None
+        for attempt in range(2):
+            token_limit = 1400 * (attempt + 1)
+            try:
+                response = self.client.responses.create(
+                    model=MODEL_NAME,
+                    instructions=instructions,
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": f"{role}_debate_turn",
+                            "strict": True,
+                            "schema": PARTICIPANT_SCHEMA,
+                        }
+                    },
+                    input=json.dumps(payload, ensure_ascii=False, default=str),
+                    max_output_tokens=token_limit,
+                )
+                self._ensure_complete(response)
+                result = json.loads(response.output_text)
+                if not isinstance(result, dict):
+                    raise ValueError("응답이 JSON 객체가 아닙니다.")
+                return result
+            except (json.JSONDecodeError, ValueError) as error:
+                last_error = error
+                if attempt == 0:
+                    print(
+                        f"[WARN] {role.title()} 토론 응답이 불완전하여 "
+                        f"{token_limit * 2} 토큰으로 재시도합니다."
+                    )
+                    continue
+            except Exception as error:
+                raise RuntimeError(
+                    f"{role.title()} 토론 발언 생성에 실패했습니다: {error}"
+                ) from error
+
+        raise RuntimeError(
+            f"{role.title()} 토론 JSON 응답 생성에 실패했습니다: {last_error}"
+        ) from last_error
+
+    @staticmethod
+    def _ensure_complete(response: Any) -> None:
+        status = getattr(response, "status", "completed")
+        if status == "completed":
+            return
+        details = getattr(response, "incomplete_details", None)
+        raise ValueError(f"응답 상태={status}, 상세={details}")
 
     def _build_graph(self):
         builder = StateGraph(DebateState)
