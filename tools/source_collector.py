@@ -7,6 +7,7 @@ from openai import OpenAI
 
 from config import MODEL_NAME, OPENAI_API_KEY, SEARXNG_URL
 from tools.open_source_web_collector import OpenSourceWebCollector
+from tools.emotion_axes import normalize_article_emotions
 from tools.source_collector_prompt import SOURCE_COLLECTION_PROMPT
 from tools.source_collector_schema import SOURCE_COLLECTION_SCHEMA
 
@@ -105,6 +106,23 @@ class SourceCollector:
                 "event_key": f"fallback-{index}",
                 "is_primary_source": source_type == "official",
                 "credibility_score": 0.2 if source_type == "blog" else 0.5,
+                "emotion_actor": "unknown",
+                "emotion_intensity": 0.0,
+                "emotion_confidence": 0.0,
+                "event_importance": 0.0,
+                "emotion_axes": {
+                    axis_id: {
+                        "status": "unavailable",
+                        "score": 0,
+                        "reason": "LLM 분류 실패로 확인 불가",
+                    }
+                    for axis_id in (
+                        "expectation",
+                        "risk_emotion",
+                        "certainty",
+                        "expectation_gap",
+                    )
+                },
             })
 
         return {
@@ -173,6 +191,7 @@ class SourceCollector:
             article["credibility_score"] = cls._score(
                 article.get("credibility_score")
             )
+            normalize_article_emotions(article)
             normalized_articles.append(article)
             counts[source_type] += 1
             publisher_counts[source] = publisher_counts.get(source, 0) + 1

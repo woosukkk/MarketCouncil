@@ -279,6 +279,7 @@ class JudgeAgent:
             "negative_ratio": sentiment_result.get("negative_ratio", 0.0),
             "neutral_ratio": sentiment_result.get("neutral_ratio", 0.0),
             "sentiment_score": sentiment_result.get("sentiment_score", 0.0),
+            "emotion_summary": sentiment_result.get("emotion_summary", {}),
             "summary": sentiment_result.get("summary", ""),
             "key_articles": key_articles,
         }

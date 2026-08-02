@@ -1,11 +1,13 @@
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 from agents.analysis_axes import select_analysis_axes
 from agents.axis_analysis_schema import normalize_perspective_analysis
 from agents.axis_judgment import compare_axis_judgments, normalize_axis_judgment
 from tools.axis_analysis_store import AxisAnalysisStore
+from tools.emotion_axes import aggregate_emotion_axes, normalize_article_emotions
 from tools.markdown_report_renderer import MarkdownReportRenderer
 
 
@@ -161,6 +163,104 @@ class StorageAndRenderingTest(unittest.TestCase):
         })
         self.assertIn("## 분석 축별 판단", markdown)
         self.assertIn("확인 불가", markdown)
+
+
+class EmotionAxesTest(unittest.TestCase):
+    @staticmethod
+    def _article(
+        expectation: int,
+        risk_emotion: int,
+        published_date: str = "2026-08-01",
+    ) -> dict:
+        return normalize_article_emotions({
+            "credibility_score": 0.9,
+            "published_date": published_date,
+            "emotion_actor": "investor",
+            "emotion_intensity": 0.8,
+            "emotion_confidence": 0.9,
+            "event_importance": 0.8,
+            "emotion_axes": {
+                "expectation": {
+                    "status": "available",
+                    "score": expectation,
+                    "reason": "전망 변화",
+                },
+                "risk_emotion": {
+                    "status": "available",
+                    "score": risk_emotion,
+                    "reason": "위험 반응",
+                },
+                "certainty": {
+                    "status": "unavailable",
+                    "score": 2,
+                    "reason": "확인 불가",
+                },
+                "expectation_gap": {
+                    "status": "available",
+                    "score": 1,
+                    "reason": "예상 상회",
+                },
+            },
+        })
+
+    def test_unavailable_is_not_treated_as_neutral(self) -> None:
+        summary = aggregate_emotion_axes(
+            [self._article(2, -1)],
+            today=date(2026, 8, 2),
+        )
+        certainty = next(
+            axis for axis in summary["axes"] if axis["axis_id"] == "certainty"
+        )
+        self.assertEqual(certainty["status"], "unavailable")
+        self.assertEqual(certainty["evidence_count"], 0)
+
+    def test_weighted_emotion_score_favors_fresher_evidence(self) -> None:
+        recent = self._article(2, 1, "2026-08-01")
+        old = self._article(-2, -1, "2025-01-01")
+        summary = aggregate_emotion_axes(
+            [recent, old],
+            today=date(2026, 8, 2),
+        )
+        expectation = next(
+            axis for axis in summary["axes"] if axis["axis_id"] == "expectation"
+        )
+        self.assertGreater(expectation["score"], 0)
+
+    def test_invalid_values_are_normalized(self) -> None:
+        article = normalize_article_emotions({
+            "emotion_actor": "invalid",
+            "emotion_intensity": 5,
+            "emotion_confidence": -1,
+            "event_importance": "invalid",
+            "emotion_axes": {
+                "expectation": {
+                    "status": "available", "score": 9, "reason": ""
+                }
+            },
+        })
+        self.assertEqual(article["emotion_actor"], "unknown")
+        self.assertEqual(article["emotion_intensity"], 1.0)
+        self.assertEqual(article["emotion_confidence"], 0.0)
+        self.assertEqual(article["emotion_axes"]["expectation"]["score"], 2)
+
+    def test_markdown_renders_emotion_axes(self) -> None:
+        summary = aggregate_emotion_axes(
+            [self._article(2, -1)],
+            today=date(2026, 8, 2),
+        )
+        markdown = MarkdownReportRenderer().render({
+            "company_name": "테스트",
+            "judge_result": "# 최종 판단\n- Final Rating: Neutral",
+            "sentiment_result": {
+                "total_count": 1,
+                "positive_count": 1,
+                "positive_ratio": 100,
+                "emotion_summary": summary,
+            },
+        })
+        self.assertIn("### 다차원 감정 축", markdown)
+        self.assertIn("긍정적 놀라움", markdown)
+        self.assertIn("투자자 1건", markdown)
 
 
 if __name__ == "__main__":

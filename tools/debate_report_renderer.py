@@ -187,7 +187,61 @@ pre {{ white-space:pre-wrap; overflow-wrap:anywhere; background:#111827; color:#
 {self._sentiment_card("긍정", sentiment.get("positive_ratio", 0), sentiment.get("positive_count", 0))}
 {self._sentiment_card("중립", sentiment.get("neutral_ratio", 0), sentiment.get("neutral_count", 0))}
 {self._sentiment_card("부정", sentiment.get("negative_ratio", 0), sentiment.get("negative_count", 0))}
-</div><p>{self._escape(sentiment.get("summary", ""))}</p></section>"""
+</div><p>{self._escape(sentiment.get("summary", ""))}</p>
+{self._render_emotion_summary(sentiment.get("emotion_summary", {}))}</section>"""
+
+    def _render_emotion_summary(self, summary: dict[str, Any]) -> str:
+        axes = summary.get("axes", []) if isinstance(summary, dict) else []
+        if not axes:
+            return ""
+        direction_labels = {
+            "expectation": ("비관", "낙관"),
+            "risk_emotion": ("공포", "안도"),
+            "certainty": ("불확실", "확신"),
+            "expectation_gap": ("실망", "긍정적 놀라움"),
+        }
+        rows = []
+        for axis in axes:
+            axis_id = str(axis.get("axis_id", ""))
+            if axis.get("status") == "unavailable":
+                direction = "확인 불가"
+                score = "-"
+            else:
+                value = float(axis.get("score", 0))
+                negative, positive = direction_labels.get(axis_id, ("부정", "긍정"))
+                direction = positive if value > 0.25 else negative if value < -0.25 else "중립"
+                score = f"{value:+.2f}"
+            rows.append(
+                "<tr>"
+                f"<td>{self._escape(axis.get('label', axis_id))}</td>"
+                f"<td>{self._escape(direction)}</td>"
+                f"<td>{self._escape(score)}</td>"
+                f"<td>{self._escape(axis.get('confidence', 'low'))}</td>"
+                f"<td>{self._escape(axis.get('evidence_count', 0))}</td>"
+                "</tr>"
+            )
+        actors = summary.get("actor_distribution", {})
+        actor_labels = {
+            "investor": "투자자",
+            "consumer": "소비자",
+            "management": "경영진",
+            "analyst": "애널리스트",
+            "policy": "정책기관",
+            "mixed": "복수 주체",
+            "unknown": "주체 불명",
+        }
+        actor_text = ", ".join(
+            f"{actor_labels.get(str(actor), str(actor))} {int(count)}건"
+            for actor, count in actors.items()
+        ) if isinstance(actors, dict) else ""
+        return (
+            '<h3>다차원 감정 축</h3>'
+            '<table style="width:100%;border-collapse:collapse">'
+            '<thead><tr><th>감정 축</th><th>방향</th><th>점수</th><th>신뢰도</th><th>근거 사건</th></tr></thead>'
+            f"<tbody>{''.join(rows)}</tbody></table>"
+            '<p class="muted">감정 축은 보조 신호이며 투자 결론이 아닙니다.</p>'
+            f'<p class="muted">감정 주체 분포: {self._escape(actor_text or "확인 불가")}</p>'
+        )
 
     def _render_debate(self, debate: dict[str, Any]) -> str:
         if not debate:

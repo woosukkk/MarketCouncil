@@ -1,3 +1,21 @@
+EMOTION_AXIS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "status": {
+            "type": "string",
+            "enum": ["available", "unavailable"],
+        },
+        "score": {
+            "type": "integer",
+            "enum": [-2, -1, 0, 1, 2],
+        },
+        "reason": {"type": "string"},
+    },
+    "required": ["status", "score", "reason"],
+    "additionalProperties": False,
+}
+
+
 SOURCE_COLLECTION_SCHEMA = {
     "type": "object",
     "properties": {
@@ -70,6 +88,49 @@ SOURCE_COLLECTION_SCHEMA = {
                         "minimum": 0.0,
                         "maximum": 1.0,
                     },
+                    "emotion_actor": {
+                        "type": "string",
+                        "enum": [
+                            "investor",
+                            "consumer",
+                            "management",
+                            "analyst",
+                            "policy",
+                            "mixed",
+                            "unknown",
+                        ],
+                    },
+                    "emotion_intensity": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 1.0,
+                    },
+                    "emotion_confidence": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 1.0,
+                    },
+                    "event_importance": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 1.0,
+                    },
+                    "emotion_axes": {
+                        "type": "object",
+                        "properties": {
+                            "expectation": EMOTION_AXIS_SCHEMA,
+                            "risk_emotion": EMOTION_AXIS_SCHEMA,
+                            "certainty": EMOTION_AXIS_SCHEMA,
+                            "expectation_gap": EMOTION_AXIS_SCHEMA,
+                        },
+                        "required": [
+                            "expectation",
+                            "risk_emotion",
+                            "certainty",
+                            "expectation_gap",
+                        ],
+                        "additionalProperties": False,
+                    },
                 },
                 "required": [
                     "title",
@@ -83,6 +144,11 @@ SOURCE_COLLECTION_SCHEMA = {
                     "event_key",
                     "is_primary_source",
                     "credibility_score",
+                    "emotion_actor",
+                    "emotion_intensity",
+                    "emotion_confidence",
+                    "event_importance",
+                    "emotion_axes",
                 ],
                 "additionalProperties": False,
             },

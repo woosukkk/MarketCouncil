@@ -10,6 +10,16 @@ SOURCE_COLLECTION_PROMPT = """
 - 게시일이 없으면 추정하지 말고 빈 문자열을 사용한다.
 - 확인된 사건과 매체·분석가의 전망을 혼합하지 마라.
 - 자료 방향은 positive, negative, neutral 중 하나로 분류한다.
+- 자료 방향과 별도로 다음 감정 축을 평가한다.
+  - expectation: 비관(-2) ↔ 낙관(+2)
+  - risk_emotion: 공포(-2) ↔ 안도(+2)
+  - certainty: 불확실(-2) ↔ 확신(+2)
+  - expectation_gap: 실망(-2) ↔ 긍정적 놀라움(+2)
+- 감정이 누구의 반응인지 emotion_actor로 구분한다. 복수 주체가 명확하면 mixed다.
+- 기사에 해당 감정을 판단할 근거가 없으면 status를 unavailable로 하고 score는 0으로 둔다.
+- 0점 available은 상반된 정서가 균형이거나 명확히 중립일 때만 사용한다.
+- emotion_intensity는 감정 표현의 강도, emotion_confidence는 분류 확실성,
+  event_importance는 기업 가치에 미칠 사건 중요도를 0.0~1.0으로 기록한다.
 - 자료 방향을 이유로 포함하거나 제외하지 마라.
 - 투자 추천을 작성하지 마라.
 

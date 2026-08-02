@@ -218,6 +218,11 @@ class MarkdownReportRenderer:
             "## 뉴스 민심",
             self._wrap_paragraph(overview),
         ]
+        emotion_section = self._render_emotion_summary(
+            sentiment.get("emotion_summary", {})
+        )
+        if emotion_section:
+            lines.append(emotion_section)
         summary = str(sentiment.get("summary", "")).strip()
         if summary:
             lines.extend(["### 핵심 요약", self._wrap_paragraph(summary)])
@@ -232,6 +237,59 @@ class MarkdownReportRenderer:
                 lines.append(f"### {title}")
                 lines.extend(self._article_line(article) for article in selected)
         return "\n\n".join(lines)
+
+    def _render_emotion_summary(self, summary: dict[str, Any]) -> str:
+        axes = summary.get("axes", []) if isinstance(summary, dict) else []
+        if not axes:
+            return ""
+        labels = {
+            "expectation": ("비관", "낙관"),
+            "risk_emotion": ("공포", "안도"),
+            "certainty": ("불확실", "확신"),
+            "expectation_gap": ("실망", "긍정적 놀라움"),
+        }
+        lines = [
+            "### 다차원 감정 축",
+            "| 감정 축 | 방향 | 점수 | 신뢰도 | 근거 사건 |",
+            "|---|---|---:|---|---:|",
+        ]
+        for axis in axes:
+            axis_id = str(axis.get("axis_id", ""))
+            if axis.get("status") == "unavailable":
+                direction = "확인 불가"
+                score = "-"
+            else:
+                value = float(axis.get("score", 0))
+                negative, positive = labels.get(axis_id, ("부정", "긍정"))
+                direction = positive if value > 0.25 else negative if value < -0.25 else "중립"
+                score = f"{value:+.2f}"
+            lines.append(
+                f"| {self._safe(axis.get('label', axis_id))} | "
+                f"{self._safe(direction)} | {score} | "
+                f"{self._safe(axis.get('confidence', 'low'))} | "
+                f"{int(axis.get('evidence_count', 0))} |"
+            )
+        lines.extend([
+            "",
+            "> 감정 축은 출처 품질·강도·최신성을 반영한 보조 신호이며 투자 결론이 아닙니다.",
+        ])
+        actors = summary.get("actor_distribution", {})
+        if isinstance(actors, dict) and actors:
+            actor_labels = {
+                "investor": "투자자",
+                "consumer": "소비자",
+                "management": "경영진",
+                "analyst": "애널리스트",
+                "policy": "정책기관",
+                "mixed": "복수 주체",
+                "unknown": "주체 불명",
+            }
+            distribution = ", ".join(
+                f"{actor_labels.get(str(actor), str(actor))} {int(count)}건"
+                for actor, count in actors.items()
+            )
+            lines.append(f"> 감정 주체 분포: {self._safe(distribution)}")
+        return "\n".join(lines)
 
     def _render_debate(self, debate: dict[str, Any]) -> str:
         if not debate:

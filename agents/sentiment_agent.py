@@ -1,6 +1,7 @@
 from typing import Any
 
 from tools.source_collector import SourceCollector
+from tools.emotion_axes import aggregate_emotion_axes, normalize_article_emotions
 
 
 class SentimentAgent:
@@ -37,7 +38,7 @@ class SentimentAgent:
                 continue
 
             counts[sentiment] += 1
-            valid_articles.append(article)
+            valid_articles.append(normalize_article_emotions(article))
 
         total = len(valid_articles)
 
@@ -68,6 +69,7 @@ class SentimentAgent:
                 ) / total * 100,
                 1,
             ) if total else 0.0,
+            "emotion_summary": aggregate_emotion_axes(valid_articles),
             "articles": valid_articles,
         })
 

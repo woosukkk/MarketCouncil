@@ -165,6 +165,9 @@ def main() -> None:
                     "conditional_conclusion", ""
                 ),
                 "changes_from_previous": analysis_data.get("axis_changes", []),
+                "emotion_summary": analysis_data.get(
+                    "sentiment_result", {}
+                ).get("emotion_summary", {}),
             },
         )
 
