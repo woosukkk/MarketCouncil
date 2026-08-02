@@ -4,6 +4,7 @@ from pathlib import Path
 
 from agents.judge_agent import JudgeAgent
 from tools.analysis_debate_store import AnalysisDebateStore
+from tools.debate_report_renderer import DebateReportRenderer
 from tools.video_debate_store import VideoDebateStore
 
 
@@ -230,6 +231,7 @@ def main() -> None:
         comparison_path = save_comparison_result(
             analysis_data
         )
+        html_report_path = DebateReportRenderer().save(analysis_data)
 
         print("\n===== Judge 종합 판단 =====\n")
         print(analysis_data["judge_result"])
@@ -237,9 +239,10 @@ def main() -> None:
         print(f"\nBull 저장 완료: {bull_path}")
         print(f"Bear 저장 완료: {bear_path}")
         print(f"Comparison 저장 완료: {comparison_path}")
+        print(f"시각화 HTML 저장 완료: {html_report_path}")
         if debate_path:
             print(f"토론 실험 결과 별도 저장 완료: {debate_path}")
-            print("토론 결과는 Judge 판단과 Comparison 결과에 포함되지 않았습니다.")
+            print("토론 결과는 HTML 보고서에 포함되며 Judge 판단에는 사용되지 않았습니다.")
 
     except Exception as error:
         print(f"\n오류가 발생했습니다: {error}")
