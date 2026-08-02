@@ -16,13 +16,9 @@ class AnalysisDebateStore:
         self,
         company_name: str,
         debate: dict[str, Any],
+        included_in_judge: bool = False,
     ) -> str:
-        safe_company = re.sub(
-            r"[^0-9A-Za-z가-힣._-]+",
-            "_",
-            company_name,
-        ).strip("_") or "company"
-        save_dir = self.base_dir / safe_company
+        save_dir = self._company_dir(company_name)
         save_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -31,10 +27,41 @@ class AnalysisDebateStore:
             "company_name": company_name,
             "created_at": datetime.now().isoformat(timespec="seconds"),
             **debate,
-            "included_in_judge": False,
+            "included_in_judge": included_in_judge,
         }
         file_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
         return str(file_path)
+
+    def load_latest(self, company_name: str) -> dict[str, Any] | None:
+        save_dir = self._company_dir(company_name)
+        if not save_dir.exists():
+            return None
+        files = sorted(
+            save_dir.glob("analysis_debate_*.json"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        if not files:
+            return None
+        latest_path = files[0]
+        try:
+            result = json.loads(latest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ValueError(
+                f"최근 토론 결과를 읽지 못했습니다: {latest_path}"
+            ) from error
+        if not isinstance(result, dict):
+            raise ValueError("최근 토론 결과가 JSON 객체가 아닙니다.")
+        result["_source_path"] = str(latest_path)
+        return result
+
+    def _company_dir(self, company_name: str) -> Path:
+        safe_company = re.sub(
+            r"[^0-9A-Za-z가-힣._-]+",
+            "_",
+            company_name,
+        ).strip("_") or "company"
+        return self.base_dir / safe_company

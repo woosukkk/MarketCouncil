@@ -91,7 +91,8 @@ pre {{ white-space:pre-wrap; overflow-wrap:anywhere; background:#111827; color:#
 <details><summary>Bear 전체 분석</summary><pre>{self._escape(analysis_data.get("bear_result", ""))}</pre></details>
 <details><summary>뉴스 민심 분석</summary><pre>{self._json(analysis_data.get("sentiment_result", {}))}</pre></details>
 </section>
-<p class="muted">토론 내용은 시각화 보고서에만 포함되며 Judge 입력에는 사용되지 않았습니다.</p>
+<p class="muted">토론 적용 여부: {self._escape(analysis_data.get("debate_applied", False))}
+ · 토론 출처: {self._escape(analysis_data.get("debate_source", "none"))}</p>
 </main></body></html>"""
 
     def _render_debate(self, debate: dict[str, Any]) -> str:
