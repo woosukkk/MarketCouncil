@@ -196,6 +196,10 @@ class ComparisonWorkflow:
                 "source": article.get("source", ""),
                 "url": article.get("url", ""),
                 "available": bool(article.get("reason") or article.get("title")),
+                "emotion_available": any(
+                    isinstance(axis, dict) and axis.get("status") == "available"
+                    for axis in article.get("emotion_axes", {}).values()
+                ),
             })
         return {"source_data": source_data, "evidence_catalog": catalog}
 

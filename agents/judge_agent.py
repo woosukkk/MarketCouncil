@@ -9,6 +9,7 @@ from agents.analysis_axes import select_analysis_axes
 from agents.axis_analysis_prompt import AXIS_JUDGE_SYSTEM_PROMPT
 from agents.axis_judgment import (
     AXIS_JUDGMENT_SCHEMA,
+    apply_debate_confidence_adjustments,
     judgment_to_text,
     normalize_axis_judgment,
 )
@@ -120,6 +121,8 @@ class JudgeAgent:
                 bull_analysis=bull_analysis,
                 bear_analysis=bear_analysis,
                 sentiment_summary=sentiment_summary,
+                analysis_axes=analysis_axes,
+                evidence_catalog=context.get("evidence_catalog", []),
                 video_summary=video_summary,
             )
             debate_source = "newly_generated"
@@ -169,6 +172,12 @@ class JudgeAgent:
             allowed_evidence_ids,
             available_axis_ids,
         )
+        if analysis_debate:
+            axis_judgment = apply_debate_confidence_adjustments(
+                axis_judgment,
+                analysis_debate.get("axis_debate_results", []),
+                analysis_axes,
+            )
         judge_result = judgment_to_text(axis_judgment, analysis_axes)
 
         print("[Judge Agent 비교 완료]")
@@ -232,6 +241,7 @@ class JudgeAgent:
             "created_at": debate.get("created_at", ""),
             "round_count": len(rounds),
             "issue_statuses": debate.get("issue_statuses", []),
+            "axis_debate_results": debate.get("axis_debate_results", []),
             "agreements": summary.get("agreements", []),
             "unresolved_issues": summary.get("unresolved_issues", []),
             "required_evidence": summary.get("required_evidence", []),

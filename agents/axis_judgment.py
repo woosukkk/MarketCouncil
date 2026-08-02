@@ -273,6 +273,43 @@ def compare_axis_judgments(
     return changes
 
 
+def apply_debate_confidence_adjustments(
+    judgment: dict[str, Any],
+    debate_results: list[dict[str, Any]],
+    axes: list[AnalysisAxis],
+) -> dict[str, Any]:
+    debate_by_axis = {
+        str(item.get("axis_id")): item
+        for item in debate_results
+        if isinstance(item, dict) and item.get("axis_id")
+    }
+    levels = ["low", "medium", "high"]
+    for item in judgment.get("axis_judgments", []):
+        debate = debate_by_axis.get(str(item.get("axis_id", "")))
+        if not debate:
+            continue
+        status = str(debate.get("status", ""))
+        if status in {"UNKNOWN", "INVALID", "STALEMATE"}:
+            item["confidence"] = "low"
+            continue
+        try:
+            change = float(debate.get("confidence_change", 0.0))
+        except (TypeError, ValueError):
+            change = 0.0
+        current = str(item.get("confidence", "low"))
+        index = levels.index(current) if current in levels else 0
+        if change >= 0.25:
+            index = min(index + 1, len(levels) - 1)
+        elif change <= -0.25:
+            index = max(index - 1, 0)
+        item["confidence"] = levels[index]
+    judgment["overall"] = aggregate_axis_judgments(
+        judgment.get("axis_judgments", []),
+        axes,
+    )
+    return judgment
+
+
 def _rating(score: float, coverage: float) -> str:
     if coverage < 0.35:
         return "Neutral"

@@ -8,6 +8,14 @@ from agents.analysis_debate_prompt import (
     BEAR_ANALYSIS_DEBATE_PROMPT,
     BULL_ANALYSIS_DEBATE_PROMPT,
 )
+from agents.debate_policy import (
+    normalize_debate_summary,
+    normalize_agenda,
+    normalize_moderator_review,
+    select_debate_candidates,
+    should_continue_debate,
+    validate_participant_response,
+)
 from agents.moderator_agent import ModeratorAgent
 from config import MODEL_NAME, OPENAI_API_KEY
 
@@ -23,18 +31,45 @@ PARTICIPANT_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "issue_id": {"type": "string"},
+                    "axis_id": {"type": "string"},
                     "claim": {"type": "string"},
                     "target_claim": {"type": "string"},
                     "response": {"type": "string"},
-                    "evidence": {"type": "array", "items": {"type": "string"}},
+                    "challenge_type": {
+                        "type": "string",
+                        "enum": [
+                            "source_reliability", "data_freshness",
+                            "fact_vs_interpretation", "causal_gap",
+                            "expectation_pricing", "counter_evidence", "none",
+                        ],
+                    },
+                    "target_evidence_id": {"type": "string"},
+                    "fact_interpretation": {
+                        "type": "string",
+                        "enum": [
+                            "verified_fact", "market_expectation",
+                            "analyst_hypothesis", "mixed",
+                        ],
+                    },
+                    "fact_evidence_ids": {
+                        "type": "array", "items": {"type": "string"},
+                    },
+                    "emotion_evidence_ids": {
+                        "type": "array", "items": {"type": "string"},
+                    },
+                    "emotion_role": {
+                        "type": "string",
+                        "enum": ["supporting_signal", "not_used"],
+                    },
                     "example_or_data": {"type": "string"},
                     "concession": {"type": "string"},
                     "missing_evidence": {"type": "string"},
                 },
                 "required": [
-                    "issue_id", "claim", "target_claim", "response",
-                    "evidence", "example_or_data", "concession",
-                    "missing_evidence",
+                    "issue_id", "axis_id", "claim", "target_claim", "response",
+                    "challenge_type", "target_evidence_id", "fact_interpretation",
+                    "fact_evidence_ids", "emotion_evidence_ids", "emotion_role",
+                    "example_or_data", "concession", "missing_evidence",
                 ],
                 "additionalProperties": False,
             },
@@ -47,6 +82,9 @@ PARTICIPANT_SCHEMA = {
 
 class DebateState(TypedDict, total=False):
     debate_input: str
+    analysis_axes: list[dict[str, Any]]
+    evidence_catalog: list[dict[str, Any]]
+    debate_candidates: list[dict[str, Any]]
     agenda: list[dict[str, Any]]
     current_round: int
     max_rounds: int
@@ -59,7 +97,7 @@ class DebateState(TypedDict, total=False):
 
 
 class AnalysisDebateAgent:
-    MIN_ROUNDS = 2
+    MIN_ROUNDS = 1
     DEFAULT_MAX_ROUNDS = 3
 
     def __init__(
@@ -81,8 +119,18 @@ class AnalysisDebateAgent:
         bull_analysis: dict[str, Any] | None,
         bear_analysis: dict[str, Any] | None,
         sentiment_summary: dict[str, Any],
+        analysis_axes: list[dict[str, Any]],
+        evidence_catalog: list[dict[str, Any]],
         video_summary: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        debate_candidates = select_debate_candidates(
+            analysis_axes,
+            bull_analysis or {},
+            bear_analysis or {},
+        )
+        if not debate_candidates:
+            print("[토론 생략] 유효한 축별 근거 충돌이 없습니다.")
+            return {}
         debate_input = self._build_input(
             company_name=company_name,
             financial_data=financial_data,
@@ -91,11 +139,17 @@ class AnalysisDebateAgent:
             bull_analysis=bull_analysis,
             bear_analysis=bear_analysis,
             sentiment_summary=sentiment_summary,
+            analysis_axes=analysis_axes,
+            evidence_catalog=evidence_catalog,
+            debate_candidates=debate_candidates,
             video_summary=video_summary,
         )
         result = self.graph.invoke(
             {
                 "debate_input": debate_input,
+                "analysis_axes": analysis_axes,
+                "evidence_catalog": evidence_catalog,
+                "debate_candidates": debate_candidates,
                 "current_round": 1,
                 "max_rounds": self.max_rounds,
                 "rounds": [],
@@ -110,6 +164,9 @@ class AnalysisDebateAgent:
             "issue_statuses": result.get("moderator_review", {}).get(
                 "issue_reviews", []
             ),
+            "axis_debate_results": result.get("moderator_summary", {}).get(
+                "axis_debate_results", []
+            ),
             "stop_reason": result.get("stop_reason", ""),
             "moderator_summary": result.get("moderator_summary", {}),
             "bull_rebuttal": latest.get("bull_response", {}),
@@ -120,8 +177,12 @@ class AnalysisDebateAgent:
     def create_agenda(self, state: DebateState) -> DebateState:
         print("\n[중재자 토론 의제 선정 시작]")
         result = self.moderator.create_agenda(state["debate_input"])
+        agenda = normalize_agenda(
+            result.get("agenda", []),
+            state.get("debate_candidates", []),
+        )
         print("[중재자 토론 의제 선정 완료]")
-        return {"agenda": result.get("agenda", [])}
+        return {"agenda": agenda}
 
     def bull_turn(self, state: DebateState) -> DebateState:
         round_number = state["current_round"]
@@ -140,7 +201,7 @@ class AnalysisDebateAgent:
     def moderator_review(self, state: DebateState) -> DebateState:
         round_number = state["current_round"]
         print(f"\n[중재자 {round_number}라운드 검토 시작]")
-        review = self.moderator.review_round({
+        raw_review = self.moderator.review_round({
             "agenda": state.get("agenda", []),
             "round": round_number,
             "previous_rounds": state.get("rounds", []),
@@ -148,6 +209,12 @@ class AnalysisDebateAgent:
             "bear_response": state.get("bear_response", {}),
             "original_evidence_and_analysis": state["debate_input"],
         })
+        review = normalize_moderator_review(
+            raw_review,
+            state.get("agenda", []),
+            state.get("bull_response", {}),
+            state.get("bear_response", {}),
+        )
         rounds = [
             *state.get("rounds", []),
             {
@@ -174,12 +241,17 @@ class AnalysisDebateAgent:
         else:
             stop_reason = str(review.get("reason", "중재자가 토론 종료를 결정했습니다."))
         print("\n[중재자 토론 최종 정리 시작]")
-        summary = self.moderator.summarize({
+        raw_summary = self.moderator.summarize({
             "agenda": state.get("agenda", []),
             "rounds": state.get("rounds", []),
             "final_issue_reviews": review.get("issue_reviews", []),
             "stop_reason": stop_reason,
         })
+        summary = normalize_debate_summary(
+            raw_summary,
+            state.get("agenda", []),
+            review.get("issue_reviews", []),
+        )
         print("[중재자 토론 최종 정리 완료]")
         return {"stop_reason": stop_reason, "moderator_summary": summary}
 
@@ -187,11 +259,11 @@ class AnalysisDebateAgent:
         self,
         state: DebateState,
     ) -> Literal["next_round", "summary"]:
-        if state["current_round"] < self.MIN_ROUNDS:
-            return "next_round"
-        if state["current_round"] >= state["max_rounds"]:
-            return "summary"
-        if state.get("moderator_review", {}).get("continue_debate", False):
+        if should_continue_debate(
+            state.get("moderator_review", {}),
+            state["current_round"],
+            state["max_rounds"],
+        ):
             return "next_round"
         return "summary"
 
@@ -240,7 +312,11 @@ class AnalysisDebateAgent:
                 result = json.loads(response.output_text)
                 if not isinstance(result, dict):
                     raise ValueError("응답이 JSON 객체가 아닙니다.")
-                return result
+                return validate_participant_response(
+                    result,
+                    state.get("agenda", []),
+                    state.get("evidence_catalog", []),
+                )
             except (json.JSONDecodeError, ValueError) as error:
                 last_error = error
                 if attempt == 0:
@@ -300,12 +376,24 @@ class AnalysisDebateAgent:
         bull_analysis: dict[str, Any] | None,
         bear_analysis: dict[str, Any] | None,
         sentiment_summary: dict[str, Any],
+        analysis_axes: list[dict[str, Any]],
+        evidence_catalog: list[dict[str, Any]],
+        debate_candidates: list[dict[str, Any]],
         video_summary: dict[str, Any] | None,
     ) -> str:
         return f"""기업명: {company_name}
 
 [공통 금융 데이터]
 {json.dumps(financial_data, ensure_ascii=False, indent=2, default=str)}
+
+[분석 축]
+{json.dumps(analysis_axes, ensure_ascii=False, indent=2)}
+
+[허용 근거 카탈로그]
+{json.dumps(evidence_catalog, ensure_ascii=False, indent=2, default=str)}
+
+[코드가 선정한 토론 후보]
+{json.dumps(debate_candidates, ensure_ascii=False, indent=2)}
 
 [Bull 전체 분석]
 {bull_result}

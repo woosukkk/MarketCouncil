@@ -44,6 +44,7 @@ class MarkdownReportRenderer:
         "RESOLVED": "쟁점 해소",
         "STALEMATE": "반복·교착",
         "UNKNOWN": "자료 부족",
+        "INVALID": "유효하지 않은 근거",
     }
     RATING_LABELS = {
         "Strong Bull": "강한 상승",
@@ -355,7 +356,34 @@ class MarkdownReportRenderer:
             f"| 합의 사항 | {self._list_cell(summary.get('agreements', []), 58)} |",
             f"| 미해결 쟁점 | {self._list_cell(summary.get('unresolved_issues', []), 58)} |",
             f"| 최종 결론 | {self._wrap_cell(summary.get('summary', ''), 58)} |",
+            "",
+            self._render_axis_debate_results(summary.get("axis_debate_results", [])),
         ])
+
+    def _render_axis_debate_results(
+        self,
+        results: list[dict[str, Any]],
+    ) -> str:
+        if not results:
+            return ""
+        lines = [
+            "### 축별 토론 검증 결과",
+            "",
+            "| 분석 축 | 상태 | 검증된 내용 | 기각된 내용 | 신뢰도 변화 |",
+            "|---|---|---|---|---:|",
+        ]
+        for item in results:
+            status = self.STATUS_LABELS.get(
+                str(item.get("status", "")),
+                str(item.get("status", "")),
+            )
+            lines.append(
+                f"| {self._safe(item.get('axis_id', ''))} | {self._safe(status)} | "
+                f"{self._list_cell(item.get('verified_points', []), 28)} | "
+                f"{self._list_cell(item.get('rejected_points', []), 28)} | "
+                f"{float(item.get('confidence_change', 0)):+.2f} |"
+            )
+        return "\n".join(lines)
 
     def _article_line(self, article: dict[str, Any]) -> str:
         title = self._safe(article.get("title", "제목 없음"))

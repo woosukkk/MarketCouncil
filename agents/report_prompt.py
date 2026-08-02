@@ -37,6 +37,7 @@ HUMAN_READABLE_REPORT_PROMPT = """
 - RESOLVED: 토론에서 해소된 쟁점
 - STALEMATE: 같은 주장이 반복된 쟁점
 - UNKNOWN: 자료가 부족해 판단하기 어려운 쟁점
+- INVALID: 허용되지 않은 근거 또는 의제와 무관한 주장
 - Final Rating: 최종 평가
 - Bull Score: 상승 점수
 - Bear Score: 하락 점수
@@ -66,6 +67,8 @@ HUMAN_READABLE_REPORT_PROMPT = """
 4. 여러 라운드의 같은 내용을 반복하지 않는다.
 5. 합의 사항과 끝까지 해결되지 않은 쟁점을 분리한다.
 6. 토론 전체 원문이나 중재자의 다음 질문은 출력하지 않는다.
+7. 축별 토론 결과가 있으면 검증된 내용, 기각된 내용, 남은 가설과
+   신뢰도 변화를 구분해 보여준다.
 
 반드시 다음 순서와 형식으로 작성한다.
 

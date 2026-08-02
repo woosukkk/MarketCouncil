@@ -5,7 +5,18 @@ from pathlib import Path
 
 from agents.analysis_axes import select_analysis_axes
 from agents.axis_analysis_schema import normalize_perspective_analysis
-from agents.axis_judgment import compare_axis_judgments, normalize_axis_judgment
+from agents.axis_judgment import (
+    apply_debate_confidence_adjustments,
+    compare_axis_judgments,
+    normalize_axis_judgment,
+)
+from agents.debate_policy import (
+    normalize_agenda,
+    normalize_moderator_review,
+    select_debate_candidates,
+    should_continue_debate,
+    validate_participant_response,
+)
 from tools.axis_analysis_store import AxisAnalysisStore
 from tools.emotion_axes import aggregate_emotion_axes, normalize_article_emotions
 from tools.markdown_report_renderer import MarkdownReportRenderer
@@ -261,6 +272,156 @@ class EmotionAxesTest(unittest.TestCase):
         self.assertIn("### 다차원 감정 축", markdown)
         self.assertIn("긍정적 놀라움", markdown)
         self.assertIn("투자자 1건", markdown)
+
+
+class DebatePolicyTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.axes = select_analysis_axes("현대자동차", {"ticker": "005380.KS"})
+        self.bull = {
+            "axis_results": [{
+                "axis_id": "earnings_outlook",
+                "status": "available",
+                "direction": 2,
+                "summary": "실적 개선",
+                "evidence_refs": ["financial.operating_income_growth"],
+                "confidence": "medium",
+            }]
+        }
+        self.bear = {
+            "axis_results": [{
+                "axis_id": "earnings_outlook",
+                "status": "available",
+                "direction": -2,
+                "summary": "지속성 약화",
+                "evidence_refs": ["web.1.risk"],
+                "confidence": "low",
+            }]
+        }
+
+    def test_selects_only_evidence_backed_conflicts(self) -> None:
+        candidates = select_debate_candidates(self.axes, self.bull, self.bear)
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0]["axis_id"], "earnings_outlook")
+        self.assertEqual(
+            set(candidates[0]["allowed_evidence_ids"]),
+            {"financial.operating_income_growth", "web.1.risk"},
+        )
+
+    def test_agenda_rejects_unselected_axis_and_locks_evidence(self) -> None:
+        candidates = select_debate_candidates(self.axes, self.bull, self.bear)
+        agenda = normalize_agenda([
+            {
+                "issue_id": "fake",
+                "axis_id": "interest_rate_outlook",
+                "title": "임의 의제",
+                "allowed_evidence_ids": ["invented"],
+            },
+            {
+                "issue_id": "earnings-1",
+                "axis_id": "earnings_outlook",
+                "title": "실적 지속성",
+                "bull_claim": "개선",
+                "bear_claim": "약화",
+                "question": "개선이 지속되는가?",
+                "allowed_evidence_ids": ["invented"],
+            },
+        ], candidates)
+        self.assertEqual(len(agenda), 1)
+        self.assertNotIn("invented", agenda[0]["allowed_evidence_ids"])
+
+    def test_invalid_participant_evidence_is_removed_and_flagged(self) -> None:
+        candidates = select_debate_candidates(self.axes, self.bull, self.bear)
+        agenda = normalize_agenda([], candidates)
+        response = validate_participant_response({
+            "position_summary": "요약",
+            "issues": [{
+                "issue_id": agenda[0]["issue_id"],
+                "axis_id": "fake",
+                "fact_evidence_ids": [
+                    "financial.operating_income_growth", "invented.fact"
+                ],
+                "emotion_evidence_ids": ["invented.emotion"],
+                "target_evidence_id": "invented.target",
+            }],
+        }, agenda)
+        issue = response["issues"][0]
+        self.assertEqual(issue["axis_id"], "earnings_outlook")
+        self.assertEqual(
+            issue["fact_evidence_ids"], ["financial.operating_income_growth"]
+        )
+        self.assertEqual(len(issue["invalid_evidence_ids"]), 3)
+
+    def test_non_emotion_source_cannot_be_used_as_emotion_evidence(self) -> None:
+        candidates = select_debate_candidates(self.axes, self.bull, self.bear)
+        agenda = normalize_agenda([], candidates)
+        response = validate_participant_response({
+            "position_summary": "요약",
+            "issues": [{
+                "issue_id": agenda[0]["issue_id"],
+                "emotion_evidence_ids": ["web.1.risk"],
+                "fact_evidence_ids": [],
+                "target_evidence_id": "",
+            }],
+        }, agenda, [{
+            "id": "web.1.risk",
+            "emotion_available": False,
+        }])
+        issue = response["issues"][0]
+        self.assertEqual(issue["emotion_evidence_ids"], [])
+        self.assertIn("web.1.risk", issue["invalid_evidence_ids"])
+
+    def test_invalid_evidence_forces_invalid_review(self) -> None:
+        candidates = select_debate_candidates(self.axes, self.bull, self.bear)
+        agenda = normalize_agenda([], candidates)
+        issue_id = agenda[0]["issue_id"]
+        review = normalize_moderator_review(
+            {
+                "issue_reviews": [{
+                    "issue_id": issue_id,
+                    "status": "CONTESTED",
+                    "assessment": "대립",
+                    "question_for_bull": "질문",
+                    "question_for_bear": "질문",
+                    "verified_points": [],
+                    "rejected_points": [],
+                    "remaining_uncertainty": "있음",
+                    "confidence_change": 0.5,
+                }],
+                "repeated_claims": [],
+                "missing_evidence": [],
+                "new_evidence_ids": ["invented"],
+                "continue_debate": True,
+                "reason": "계속",
+            },
+            agenda,
+            {"issues": [{"issue_id": issue_id, "invalid_evidence_ids": ["invented"]}]},
+            {"issues": []},
+        )
+        self.assertEqual(review["issue_reviews"][0]["status"], "INVALID")
+        self.assertEqual(review["new_evidence_ids"], [])
+        self.assertFalse(should_continue_debate(review, 1, 3))
+
+    def test_debate_changes_confidence_not_direction(self) -> None:
+        judgment = {
+            "axis_judgments": [{
+                "axis_id": "earnings_outlook",
+                "status": "available",
+                "verdict": 1,
+                "confidence": "medium",
+            }]
+        }
+        adjusted = apply_debate_confidence_adjustments(
+            judgment,
+            [{
+                "axis_id": "earnings_outlook",
+                "status": "RESOLVED",
+                "confidence_change": -0.5,
+            }],
+            self.axes,
+        )
+        item = adjusted["axis_judgments"][0]
+        self.assertEqual(item["verdict"], 1)
+        self.assertEqual(item["confidence"], "low")
 
 
 if __name__ == "__main__":

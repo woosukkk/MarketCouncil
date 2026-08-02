@@ -263,7 +263,28 @@ pre {{ white-space:pre-wrap; overflow-wrap:anywhere; background:#111827; color:#
 {self._summary_card("합의 사항", summary.get("agreements", []))}
 {self._summary_card("미해결 쟁점", summary.get("unresolved_issues", []))}
 </div><div class="moderator"><strong>중재자 최종 요약</strong>
-<p>{self._escape(summary.get("summary", ""))}</p></div></section>"""
+<p>{self._escape(summary.get("summary", ""))}</p></div>
+{self._render_axis_debate_results(summary.get("axis_debate_results", []))}</section>"""
+
+    def _render_axis_debate_results(self, results: list[dict[str, Any]]) -> str:
+        if not results:
+            return ""
+        rows = "".join(
+            "<tr>"
+            f"<td>{self._escape(item.get('axis_id', ''))}</td>"
+            f"<td>{self._escape(item.get('status', ''))}</td>"
+            f"<td>{self._list(item.get('verified_points', []))}</td>"
+            f"<td>{self._list(item.get('rejected_points', []))}</td>"
+            f"<td>{self._escape('{:+.2f}'.format(float(item.get('confidence_change', 0))))}</td>"
+            "</tr>"
+            for item in results
+        )
+        return (
+            '<h3>축별 토론 검증 결과</h3>'
+            '<table style="width:100%;border-collapse:collapse">'
+            '<thead><tr><th>분석 축</th><th>상태</th><th>검증</th><th>기각</th><th>신뢰도 변화</th></tr></thead>'
+            f"<tbody>{rows}</tbody></table>"
+        )
 
     def _render_final_issue(
         self,

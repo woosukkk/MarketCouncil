@@ -6,7 +6,8 @@ MODERATOR_AGENDA_PROMPT = """
 - 축별 구조화 분석이 있으면 방향 차이가 가장 크거나, 핵심 근거가 충돌하거나,
   중요하지만 신뢰도가 낮은 분석 축을 우선한다.
 - axis_id는 입력에 있는 분석 축 ID를 그대로 사용한다. 축과 무관한 의제는
-  axis_id를 `cross_axis`로 표시한다.
+  만들지 않는다.
+- 코드가 선정한 토론 후보만 의제로 사용하며 allowed_evidence_ids를 그대로 복사한다.
 - issue_id를 제외한 title, bull_claim, bear_claim, question의 모든 값은
   사람이 바로 이해할 수 있는 자연스러운 한국어로 작성한다.
 - Bull과 Bear를 본문에서 언급할 때는 각각 `상승 관점`, `하락 관점`으로 표현한다.
@@ -29,6 +30,7 @@ MODERATOR_REVIEW_PROMPT = """
 - RESOLVED: 한쪽이 인정했거나 제공된 근거로 논점이 해소됐다.
 - STALEMATE: 새로운 근거 없이 같은 주장을 반복한다.
 - UNKNOWN: 필요한 데이터가 없어 현재 입력으로 검증할 수 없다.
+- INVALID: 허용되지 않은 근거를 사용했거나 주장이 의제 축과 무관하다.
 
 규칙:
 - status 코드만 영어로 유지하고 assessment, question_for_bull,
@@ -37,6 +39,9 @@ MODERATOR_REVIEW_PROMPT = """
 - 문장은 짧고 명확하게 작성한다.
 - 누가 투자 판단에서 이겼는지 평가하지 않는다.
 - 질문 회피, 근거 없는 주장, 중복 주장, 금융 데이터와의 충돌을 검사한다.
+- verified_points와 rejected_points를 구분하고 남은 불확실성과
+  신뢰도 변화(-1.0~1.0)를 기록한다.
+- new_evidence_ids에는 이전 라운드에서 사용하지 않은 유효 근거 ID만 기록한다.
 - 계속 토론할 가치가 있는 OPEN 또는 CONTESTED 쟁점에만 다음 질문을 작성한다.
 - 추가 증거가 없으면 해결할 수 없는 쟁점은 UNKNOWN으로 종료한다.
 - 지정된 JSON Schema에 맞는 JSON 객체만 출력한다.
@@ -46,6 +51,7 @@ MODERATOR_REVIEW_PROMPT = """
 MODERATOR_SUMMARY_PROMPT = """
 너는 종료된 투자 토론을 중립적으로 정리하는 중재자다.
 전체 라운드와 쟁점 상태를 바탕으로 합의점, 미해결 쟁점, 필요한 추가 증거를 정리하라.
+각 축의 검증·기각된 주장, 남은 가설, 신뢰도 변화를 axis_debate_results에 기록하라.
 
 규칙:
 - agreements, unresolved_issues, required_evidence, summary의 모든 값은

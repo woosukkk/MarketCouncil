@@ -26,10 +26,14 @@ AGENDA_SCHEMA = {
                     "bull_claim": {"type": "string"},
                     "bear_claim": {"type": "string"},
                     "question": {"type": "string"},
+                    "allowed_evidence_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
                 },
                 "required": [
                     "issue_id", "axis_id", "title", "bull_claim",
-                    "bear_claim", "question",
+                    "bear_claim", "question", "allowed_evidence_ids",
                 ],
                 "additionalProperties": False,
             },
@@ -50,27 +54,43 @@ REVIEW_SCHEMA = {
                     "issue_id": {"type": "string"},
                     "status": {
                         "type": "string",
-                        "enum": ["OPEN", "CONTESTED", "RESOLVED", "STALEMATE", "UNKNOWN"],
+                        "enum": [
+                            "OPEN", "CONTESTED", "RESOLVED", "STALEMATE",
+                            "UNKNOWN", "INVALID",
+                        ],
                     },
                     "assessment": {"type": "string"},
                     "question_for_bull": {"type": "string"},
                     "question_for_bear": {"type": "string"},
+                    "verified_points": {
+                        "type": "array", "items": {"type": "string"},
+                    },
+                    "rejected_points": {
+                        "type": "array", "items": {"type": "string"},
+                    },
+                    "remaining_uncertainty": {"type": "string"},
+                    "confidence_change": {
+                        "type": "number", "minimum": -1.0, "maximum": 1.0,
+                    },
                 },
                 "required": [
                     "issue_id", "status", "assessment",
                     "question_for_bull", "question_for_bear",
+                    "verified_points", "rejected_points",
+                    "remaining_uncertainty", "confidence_change",
                 ],
                 "additionalProperties": False,
             },
         },
         "repeated_claims": {"type": "array", "items": {"type": "string"}},
         "missing_evidence": {"type": "array", "items": {"type": "string"}},
+        "new_evidence_ids": {"type": "array", "items": {"type": "string"}},
         "continue_debate": {"type": "boolean"},
         "reason": {"type": "string"},
     },
     "required": [
         "issue_reviews", "repeated_claims", "missing_evidence",
-        "continue_debate", "reason",
+        "new_evidence_ids", "continue_debate", "reason",
     ],
     "additionalProperties": False,
 }
@@ -81,9 +101,49 @@ SUMMARY_SCHEMA = {
         "agreements": {"type": "array", "items": {"type": "string"}},
         "unresolved_issues": {"type": "array", "items": {"type": "string"}},
         "required_evidence": {"type": "array", "items": {"type": "string"}},
+        "axis_debate_results": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "axis_id": {"type": "string"},
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "OPEN", "CONTESTED", "RESOLVED", "STALEMATE",
+                            "UNKNOWN", "INVALID",
+                        ],
+                    },
+                    "verified_points": {
+                        "type": "array", "items": {"type": "string"},
+                    },
+                    "rejected_points": {
+                        "type": "array", "items": {"type": "string"},
+                    },
+                    "remaining_hypotheses": {
+                        "type": "array", "items": {"type": "string"},
+                    },
+                    "required_evidence": {
+                        "type": "array", "items": {"type": "string"},
+                    },
+                    "confidence_change": {
+                        "type": "number", "minimum": -1.0, "maximum": 1.0,
+                    },
+                },
+                "required": [
+                    "axis_id", "status", "verified_points", "rejected_points",
+                    "remaining_hypotheses", "required_evidence",
+                    "confidence_change",
+                ],
+                "additionalProperties": False,
+            },
+        },
         "summary": {"type": "string"},
     },
-    "required": ["agreements", "unresolved_issues", "required_evidence", "summary"],
+    "required": [
+        "agreements", "unresolved_issues", "required_evidence",
+        "axis_debate_results", "summary",
+    ],
     "additionalProperties": False,
 }
 
