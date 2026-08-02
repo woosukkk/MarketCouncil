@@ -4,7 +4,10 @@ from pathlib import Path
 
 from agents.judge_agent import JudgeAgent
 from tools.analysis_debate_store import AnalysisDebateStore
-from tools.debate_report_renderer import DebateReportRenderer
+from tools.debate_report_renderer import (
+    DebateReportRenderer,
+    filter_visible_judge_result,
+)
 from tools.video_debate_store import VideoDebateStore
 
 
@@ -52,19 +55,23 @@ def save_comparison_result(
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_path = results_dir / f"{company_name}_{timestamp}.txt"
 
-    video_debate_section = ""
-    if analysis_data.get("video_debate"):
-        video_debate = analysis_data["video_debate"]
-        video_debate_section = f"""
+    debate = analysis_data.get("analysis_debate", {}) or {}
+    debate_summary = debate.get("moderator_summary", {}) or {}
+    debate_section = ""
+    if debate:
+        debate_section = f"""
 ==================================================
-[영상 관점별 요약]
+[토론 결과 요약]
 ==================================================
 
-Bull 영상 요약:
-{video_debate.get("bull_summary", "")}
+합의 사항:
+{json.dumps(debate_summary.get("agreements", []), ensure_ascii=False, indent=2)}
 
-Bear 영상 요약:
-{video_debate.get("bear_summary", "")}
+미해결 쟁점:
+{json.dumps(debate_summary.get("unresolved_issues", []), ensure_ascii=False, indent=2)}
+
+중재자 최종 요약:
+{debate_summary.get("summary", "")}
 """
 
     content = f"""기업명: {company_name}
@@ -73,21 +80,11 @@ Bear 영상 요약:
 토론 적용 여부: {analysis_data.get("debate_applied", False)}
 토론 출처: {analysis_data.get("debate_source", "none")}
 
-[금융 데이터]
-
-{analysis_data["financial_data"]}
-
 ==================================================
-[Bull 분석 결과]
+[Judge 종합 판단]
 ==================================================
 
-{analysis_data["bull_result"]}
-
-==================================================
-[Bear 분석 결과]
-==================================================
-
-{analysis_data["bear_result"]}
+{filter_visible_judge_result(analysis_data["judge_result"])}
 
 ==================================================
 [뉴스 민심 분석]
@@ -95,13 +92,7 @@ Bear 영상 요약:
 
 {json.dumps(analysis_data["sentiment_result"], ensure_ascii=False, indent=2)}
 
-{video_debate_section}
-
-==================================================
-[Judge 종합 판단]
-==================================================
-
-{analysis_data["judge_result"]}
+{debate_section}
 """
 
     file_path.write_text(
@@ -168,71 +159,6 @@ def _format_debate_age(created_at: str) -> tuple[str, int | None]:
     return f"{age_days}일 전", age_days
 
 
-def print_debate_result(debate: dict) -> None:
-    print("\n" + "=" * 72)
-    print("[중재 토론 의제]")
-    print("=" * 72)
-    for index, issue in enumerate(debate.get("agenda", []), start=1):
-        print(f"\n쟁점 {index}. {issue.get('title', '')}")
-        print(f"  Bull 최초 주장: {issue.get('bull_claim', '')}")
-        print(f"  Bear 최초 주장: {issue.get('bear_claim', '')}")
-        print(f"  중재자 질문: {issue.get('question', '')}")
-
-    for round_data in debate.get("rounds", []):
-        round_number = round_data.get("round", "?")
-        print("\n" + "=" * 72)
-        print(f"[토론 {round_number}라운드]")
-        print("=" * 72)
-        _print_debate_turn("Bull", round_data.get("bull_response", {}))
-        _print_debate_turn("Bear", round_data.get("bear_response", {}))
-
-        review = round_data.get("moderator_review", {})
-        print("\n  [중재자 검토]")
-        for issue in review.get("issue_reviews", []):
-            print(
-                f"  - {issue.get('issue_id', '')} "
-                f"[{issue.get('status', '')}]: "
-                f"{issue.get('assessment', '')}"
-            )
-            if issue.get("question_for_bull"):
-                print(f"    Bull에게: {issue['question_for_bull']}")
-            if issue.get("question_for_bear"):
-                print(f"    Bear에게: {issue['question_for_bear']}")
-        print(f"  계속 여부: {review.get('continue_debate', False)}")
-        print(f"  판단 이유: {review.get('reason', '')}")
-
-    summary = debate.get("moderator_summary", {})
-    print("\n" + "=" * 72)
-    print("[중재자 최종 정리]")
-    print("=" * 72)
-    print(f"종료 이유: {debate.get('stop_reason', '')}")
-    _print_list("합의점", summary.get("agreements", []))
-    _print_list("미해결 쟁점", summary.get("unresolved_issues", []))
-    _print_list("추가 필요 증거", summary.get("required_evidence", []))
-    print(f"요약: {summary.get('summary', '')}")
-
-
-def _print_debate_turn(role: str, turn: dict) -> None:
-    print(f"\n  [{role} 발언]")
-    print(f"  입장 요약: {turn.get('position_summary', '')}")
-    for index, issue in enumerate(turn.get("issues", []), start=1):
-        print(f"\n  {role} 쟁점 {index} ({issue.get('issue_id', '')})")
-        print(f"    상대 주장: {issue.get('target_claim', '')}")
-        print(f"    반론: {issue.get('response', '')}")
-        _print_list("반론 근거", issue.get("evidence", []), indent="    ")
-        print(f"    인정하는 부분: {issue.get('concession', '')}")
-        print(f"    추가 확인 필요: {issue.get('missing_evidence', '')}")
-
-
-def _print_list(label: str, items: list, indent: str = "") -> None:
-    print(f"{indent}{label}:")
-    if not items:
-        print(f"{indent}  - 없음")
-        return
-    for item in items:
-        print(f"{indent}  - {item}")
-
-
 def main() -> None:
     company_name = input("비교 분석할 기업명: ").strip()
 
@@ -270,7 +196,6 @@ def main() -> None:
         analysis_debate = analysis_data.get("analysis_debate", {})
         debate_path = ""
         if analysis_debate:
-            print_debate_result(analysis_debate)
             if analysis_data.get("debate_source") == "newly_generated":
                 debate_path = AnalysisDebateStore().save(
                     company_name,
@@ -298,10 +223,9 @@ def main() -> None:
         html_report_path = DebateReportRenderer().save(analysis_data)
 
         print("\n===== Judge 종합 판단 =====\n")
-        print(analysis_data["judge_result"])
+        print(filter_visible_judge_result(analysis_data["judge_result"]))
 
-        print(f"\nBull 저장 완료: {bull_path}")
-        print(f"Bear 저장 완료: {bear_path}")
+        print("\n개별 관점 분석 원본 저장 완료")
         print(f"Comparison 저장 완료: {comparison_path}")
         print(f"시각화 HTML 저장 완료: {html_report_path}")
         if debate_path:
