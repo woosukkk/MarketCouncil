@@ -68,6 +68,9 @@ class MarkdownReportRenderer:
 
     def save(self, analysis_data: dict[str, Any]) -> str:
         company_name = str(analysis_data.get("company_name", "company"))
+        return self.save_content(company_name, self.render(analysis_data))
+
+    def save_content(self, company_name: str, markdown: str) -> str:
         safe_company = re.sub(
             r"[^0-9A-Za-z가-힣._-]+",
             "_",
@@ -76,8 +79,28 @@ class MarkdownReportRenderer:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         file_path = self.output_dir / f"{safe_company}_{timestamp}.md"
-        file_path.write_text(self.render(analysis_data), encoding="utf-8")
+        file_path.write_text(markdown.strip() + "\n", encoding="utf-8")
         return str(file_path)
+
+    def normalize_generated(self, markdown: str) -> str:
+        output: list[str] = []
+        for raw_line in markdown.splitlines():
+            line = raw_line.rstrip()
+            if not line or line.startswith(("#", "|", "```")):
+                output.append(line)
+                continue
+            prefix = ""
+            content = line
+            match = re.match(r"^(>\s+|\s*[-*+]\s+|\s*\d+\.\s+)(.*)$", line)
+            if match:
+                prefix, content = match.groups()
+            width = max(self.line_width - self._width(prefix), 20)
+            wrapped = self._wrap_display(content, width)
+            for index, part in enumerate(wrapped):
+                visible_prefix = prefix if index == 0 else " " * self._width(prefix)
+                suffix = "  " if index < len(wrapped) - 1 else ""
+                output.append(f"{visible_prefix}{part}{suffix}")
+        return "\n".join(output).strip() + "\n"
 
     def render(self, analysis_data: dict[str, Any]) -> str:
         company_name = self._safe(analysis_data.get("company_name", ""))
@@ -104,6 +127,8 @@ class MarkdownReportRenderer:
             self._wrap_markdown(judge_result),
             self._render_sentiment(analysis_data.get("sentiment_result", {}) or {}),
             self._render_debate(analysis_data.get("analysis_debate", {}) or {}),
+            "## 최종 결론",
+            self._wrap_paragraph(self._extract_final_conclusion(judge_result)),
         ]
         return "\n\n".join(section for section in sections if section).strip() + "\n"
 
@@ -308,6 +333,21 @@ class MarkdownReportRenderer:
         bull_score = score("Bull Score", 50)
         bear_score = score("Bear Score", 100 - bull_score)
         return value("Final Rating", "확인 불가"), bull_score, bear_score, value("Confidence", "확인 불가")
+
+    @staticmethod
+    def _extract_final_conclusion(result: str) -> str:
+        match = re.search(
+            r"(?ms)^#\s*최종 판단\s*(.*?)(?=^#\s|\Z)",
+            result,
+        )
+        if match and match.group(1).strip():
+            return match.group(1).strip()
+        lines = [
+            line.strip("- ")
+            for line in result.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        return " ".join(lines[-3:]) if lines else "최종 결론을 확인할 수 없습니다."
 
     @staticmethod
     def _number(value: Any) -> str:

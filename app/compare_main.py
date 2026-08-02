@@ -2,6 +2,7 @@ from datetime import datetime
 from pathlib import Path
 
 from agents.judge_agent import JudgeAgent
+from agents.report_agent import HumanReadableReportAgent
 from tools.analysis_debate_store import AnalysisDebateStore
 from tools.markdown_report_renderer import (
     MarkdownReportRenderer,
@@ -157,7 +158,24 @@ def main() -> None:
             financial_data=analysis_data["financial_data"],
         )
 
-        comparison_path = MarkdownReportRenderer().save(analysis_data)
+        markdown_renderer = MarkdownReportRenderer()
+        print("\n[사람 중심 Markdown 보고서 생성 시작]")
+        try:
+            markdown_content = HumanReadableReportAgent().generate(
+                analysis_data
+            )
+            print("[사람 중심 Markdown 보고서 생성 완료]")
+        except RuntimeError as error:
+            print(f"[WARN] LLM 보고서 생성 실패: {error}")
+            print("[WARN] 규칙 기반 Markdown 보고서로 대체합니다.")
+            markdown_content = markdown_renderer.render(analysis_data)
+        markdown_content = markdown_renderer.normalize_generated(
+            markdown_content
+        )
+        comparison_path = markdown_renderer.save_content(
+            company_name,
+            markdown_content,
+        )
 
         print("\n===== Judge 종합 판단 =====\n")
         print(humanize_judge_result(analysis_data["judge_result"]))
