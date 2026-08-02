@@ -2,8 +2,10 @@ from datetime import datetime
 from pathlib import Path
 
 from agents.judge_agent import JudgeAgent
+from agents.axis_judgment import compare_axis_judgments
 from agents.report_agent import HumanReadableReportAgent
 from tools.analysis_debate_store import AnalysisDebateStore
+from tools.axis_analysis_store import AxisAnalysisStore
 from tools.markdown_report_renderer import (
     MarkdownReportRenderer,
     humanize_judge_result,
@@ -134,6 +136,38 @@ def main() -> None:
             existing_debate=existing_debate,
         )
 
+        axis_store = AxisAnalysisStore()
+        try:
+            previous_axis_analysis = axis_store.load_latest(company_name)
+        except ValueError as error:
+            print(f"[WARN] 이전 축 분석 확인 실패: {error}")
+            previous_axis_analysis = None
+        axis_judgment = analysis_data.get("axis_judgment", {})
+        analysis_data["axis_changes"] = compare_axis_judgments(
+            axis_judgment,
+            previous_axis_analysis,
+            analysis_data.get("analysis_axes", []),
+        )
+        axis_analysis_path = axis_store.save(
+            company_name,
+            {
+                "schema_version": axis_judgment.get("schema_version", "1.0"),
+                "analysis_axes": analysis_data.get("analysis_axes", []),
+                "evidence_snapshot": analysis_data.get("evidence_catalog", []),
+                "bull_analysis": analysis_data.get("bull_analysis", {}),
+                "bear_analysis": analysis_data.get("bear_analysis", {}),
+                "axis_judgments": axis_judgment.get("axis_judgments", []),
+                "overall": axis_judgment.get("overall", {}),
+                "evidence_limitations": axis_judgment.get(
+                    "evidence_limitations", []
+                ),
+                "conditional_conclusion": axis_judgment.get(
+                    "conditional_conclusion", ""
+                ),
+                "changes_from_previous": analysis_data.get("axis_changes", []),
+            },
+        )
+
         analysis_debate = analysis_data.get("analysis_debate", {})
         debate_path = ""
         if analysis_debate:
@@ -182,6 +216,7 @@ def main() -> None:
 
         print("\n개별 관점 분석 원본 저장 완료")
         print(f"Markdown 최종 결과 저장 완료: {comparison_path}")
+        print(f"축별 분석 JSON 저장 완료: {axis_analysis_path}")
         if debate_path:
             print(f"새 토론 결과 저장 완료: {debate_path}")
         if analysis_data.get("debate_applied"):

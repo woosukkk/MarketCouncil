@@ -78,6 +78,8 @@ class AnalysisDebateAgent:
         financial_data: dict[str, Any],
         bull_result: str,
         bear_result: str,
+        bull_analysis: dict[str, Any] | None,
+        bear_analysis: dict[str, Any] | None,
         sentiment_summary: dict[str, Any],
         video_summary: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -86,6 +88,8 @@ class AnalysisDebateAgent:
             financial_data=financial_data,
             bull_result=bull_result,
             bear_result=bear_result,
+            bull_analysis=bull_analysis,
+            bear_analysis=bear_analysis,
             sentiment_summary=sentiment_summary,
             video_summary=video_summary,
         )
@@ -293,6 +297,8 @@ class AnalysisDebateAgent:
         financial_data: dict[str, Any],
         bull_result: str,
         bear_result: str,
+        bull_analysis: dict[str, Any] | None,
+        bear_analysis: dict[str, Any] | None,
         sentiment_summary: dict[str, Any],
         video_summary: dict[str, Any] | None,
     ) -> str:
@@ -306,6 +312,12 @@ class AnalysisDebateAgent:
 
 [Bear 전체 분석]
 {bear_result}
+
+[축별 Bull 구조화 분석]
+{json.dumps(bull_analysis or {}, ensure_ascii=False, indent=2)}
+
+[축별 Bear 구조화 분석]
+{json.dumps(bear_analysis or {}, ensure_ascii=False, indent=2)}
 
 [뉴스 민심 요약]
 {json.dumps(sentiment_summary, ensure_ascii=False, indent=2)}

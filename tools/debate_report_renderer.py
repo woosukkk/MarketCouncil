@@ -41,8 +41,16 @@ class DebateReportRenderer:
         judge_result = filter_visible_judge_result(
             analysis_data.get("judge_result", "")
         )
-        rating, bull_score, bear_score, confidence = self._judge_metrics(
-            judge_result
+        overall = analysis_data.get("axis_judgment", {}).get("overall", {})
+        rating, bull_score, bear_score, confidence = (
+            (
+                str(overall.get("rating", "확인 불가")),
+                int(overall.get("bull_score", 50)),
+                int(overall.get("bear_score", 50)),
+                str(overall.get("confidence", "확인 불가")),
+            )
+            if overall
+            else self._judge_metrics(judge_result)
         )
         generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         return f"""<!doctype html>
@@ -98,12 +106,80 @@ pre {{ white-space:pre-wrap; overflow-wrap:anywhere; background:#111827; color:#
 <div class="score-bar"><div class="score-bull" style="width:{bull_score}%"></div>
 <div class="score-bear" style="width:{bear_score}%"></div></div></div>
 <div class="metric"><span class="muted">Confidence</span><strong>{self._escape(confidence)}</strong></div></div></section>
+{self._render_axes(analysis_data)}
+{self._render_axis_changes(analysis_data.get("axis_changes", []))}
 <section class="section"><h2>Judge 종합 판단</h2><pre>{self._escape(judge_result)}</pre></section>
 {self._render_sentiment(analysis_data.get("sentiment_result", {}))}
 {self._render_debate(debate)}
 <p class="muted">토론 적용 여부: {self._escape(analysis_data.get("debate_applied", False))}
  · 토론 출처: {self._escape(analysis_data.get("debate_source", "none"))}</p>
 </main></body></html>"""
+
+    def _render_axes(self, analysis_data: dict[str, Any]) -> str:
+        axes = {
+            axis.get("id"): axis
+            for axis in analysis_data.get("analysis_axes", [])
+            if isinstance(axis, dict)
+        }
+        judgments = analysis_data.get("axis_judgment", {}).get(
+            "axis_judgments", []
+        )
+        if not judgments:
+            return ""
+        labels = {-2: "매우 부정", -1: "부정", 0: "중립", 1: "긍정", 2: "매우 긍정"}
+        rows = []
+        for item in judgments:
+            axis = axes.get(item.get("axis_id"), {})
+            verdict = (
+                "확인 불가"
+                if item.get("status") == "unavailable"
+                else labels.get(int(item.get("verdict", 0)), "중립")
+            )
+            rows.append(
+                "<tr>"
+                f"<td>{self._escape(axis.get('label', item.get('axis_id', '')))}</td>"
+                f"<td>{self._escape(verdict)}</td>"
+                f"<td>{self._escape(item.get('confidence', 'low'))}</td>"
+                f"<td>{self._escape(item.get('reason', ''))}</td>"
+                "</tr>"
+            )
+        coverage = analysis_data.get("axis_judgment", {}).get(
+            "overall", {}
+        ).get("evidence_coverage", 0)
+        return (
+            '<section class="section"><h2>분석 축별 판단</h2>'
+            '<table style="width:100%;border-collapse:collapse">'
+            '<thead><tr><th>분석 축</th><th>판정</th><th>신뢰도</th><th>판단 근거</th></tr></thead>'
+            f"<tbody>{''.join(rows)}</tbody></table>"
+            f'<p class="muted">근거 충족률: {float(coverage):.1%}</p></section>'
+        )
+
+    def _render_axis_changes(self, changes: list[dict[str, Any]]) -> str:
+        if not changes:
+            return ""
+        rows = []
+        for change in changes:
+            previous = (
+                "확인 불가" if change.get("previous_status") == "unavailable"
+                else f"{int(change.get('previous_verdict', 0)):+d}"
+            )
+            current = (
+                "확인 불가" if change.get("current_status") == "unavailable"
+                else f"{int(change.get('current_verdict', 0)):+d}"
+            )
+            rows.append(
+                "<tr>"
+                f"<td>{self._escape(change.get('label', ''))}</td>"
+                f"<td>{self._escape(previous)}</td>"
+                f"<td>{self._escape(current)}</td>"
+                "</tr>"
+            )
+        return (
+            '<section class="section"><h2>이전 분석 대비 변화</h2>'
+            '<table style="width:100%;border-collapse:collapse">'
+            '<thead><tr><th>분석 축</th><th>이전</th><th>현재</th></tr></thead>'
+            f"<tbody>{''.join(rows)}</tbody></table></section>"
+        )
 
     def _render_sentiment(self, sentiment: dict[str, Any]) -> str:
         return f"""<section class="section"><h2>뉴스 민심</h2>

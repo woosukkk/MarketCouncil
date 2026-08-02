@@ -5,10 +5,17 @@ from openai import OpenAI
 from agents.bear_agent import BearAgent
 from agents.bull_agent import BullAgent
 from agents.analysis_debate_agent import AnalysisDebateAgent
-from agents.judge_prompt import JUDGE_SYSTEM_PROMPT
+from agents.analysis_axes import select_analysis_axes
+from agents.axis_analysis_prompt import AXIS_JUDGE_SYSTEM_PROMPT
+from agents.axis_judgment import (
+    AXIS_JUDGMENT_SCHEMA,
+    judgment_to_text,
+    normalize_axis_judgment,
+)
 from agents.sentiment_agent import SentimentAgent
+from agents.structured_response import create_structured_response
 from app.comparison_workflow import ComparisonWorkflow
-from config import MODEL_NAME, OPENAI_API_KEY
+from config import OPENAI_API_KEY
 
 
 class JudgeAgent:
@@ -37,10 +44,11 @@ class JudgeAgent:
         print("[공통 데이터 수집 완료]")
 
         financial_data = context["financial_data"]
+        analysis_axes = select_analysis_axes(company_name, financial_data)
 
         print("\n[Bull Agent 분석 시작]")
 
-        bull_result = self.bull_agent.analyze_with_context(
+        bull_analysis = self.bull_agent.analyze_structured_with_context(
             company_name=company_name,
             financial_data=financial_data,
             report_context=context[
@@ -49,13 +57,19 @@ class JudgeAgent:
             web_context=context[
                 "bull_web_context"
             ],
+            axes=analysis_axes,
+            evidence_catalog=context.get("evidence_catalog", []),
+        )
+        bull_result = self.bull_agent.structured_to_text(
+            bull_analysis,
+            analysis_axes,
         )
 
         print("[Bull Agent 분석 완료]")
 
         print("\n[Bear Agent 분석 시작]")
 
-        bear_result = self.bear_agent.analyze_with_context(
+        bear_analysis = self.bear_agent.analyze_structured_with_context(
             company_name=company_name,
             financial_data=financial_data,
             report_context=context[
@@ -64,6 +78,12 @@ class JudgeAgent:
             web_context=context[
                 "bear_web_context"
             ],
+            axes=analysis_axes,
+            evidence_catalog=context.get("evidence_catalog", []),
+        )
+        bear_result = self.bear_agent.structured_to_text(
+            bear_analysis,
+            analysis_axes,
         )
 
         print("[Bear Agent 분석 완료]")
@@ -97,6 +117,8 @@ class JudgeAgent:
                 financial_data=financial_data,
                 bull_result=bull_result,
                 bear_result=bear_result,
+                bull_analysis=bull_analysis,
+                bear_analysis=bear_analysis,
                 sentiment_summary=sentiment_summary,
                 video_summary=video_summary,
             )
@@ -111,64 +133,54 @@ class JudgeAgent:
 
         print("\n[Judge Agent 비교 시작]")
 
-        user_prompt = f"""
-다음은 동일한 기업과 동일한 금융 데이터에 기반한
-Bull 분석과 Bear 분석이다.
-
-기업명: {company_name}
-
-[공통 금융 데이터]
-
-{financial_data}
-
-[Bull 분석]
-
-{bull_result}
-
-[Bear 분석]
-
-{bear_result}
-
-[뉴스 민심 분석]
-
-{json.dumps(sentiment_summary, ensure_ascii=False, indent=2)}
-
-[영상 관점별 요약]
-
-{json.dumps(video_summary, ensure_ascii=False, indent=2) if video_summary else "사용하지 않음"}
-
-[중재 토론 핵심 결과]
-
-{json.dumps(debate_context, ensure_ascii=False, indent=2) if isinstance(debate_context, dict) else debate_context}
-
-두 분석의 근거 구체성, 출처 신뢰도, 날짜,
-금융 데이터와의 연결성을 비교해
-최종 종합 의견을 작성해줘.
-
-규칙:
-- 근거 개수보다 품질을 우선한다.
-- 같은 사건을 반복한 주장은 하나로 본다.
-- 일반적인 면책 문구는 약한 근거로 평가한다.
-- 출처와 날짜가 명확한 근거를 높게 평가한다.
-- 뉴스 민심 비율은 보조 지표로만 사용한다.
-- 기사 수만으로 Bull/Bear 점수를 결정하지 않는다.
-- 영상 주장은 금융 데이터, RAG, 웹 근거와 일치할 때만 강한 근거로 평가한다.
-- 토론 결과는 보조 검증 자료이며 원본 금융 데이터나 공시와 충돌하면 영향도를 낮춘다.
-- 토론의 합의나 미해결 쟁점을 새로운 사실로 간주하지 않는다.
-- Bull Score와 Bear Score의 합은 100으로 작성한다.
-"""
-
-        response = self.client.responses.create(
-            model=MODEL_NAME,
-            instructions=JUDGE_SYSTEM_PROMPT,
-            input=user_prompt,
+        raw_axis_judgment = create_structured_response(
+            client=self.client,
+            instructions=AXIS_JUDGE_SYSTEM_PROMPT,
+            input_data={
+                "company_name": company_name,
+                "analysis_axes": analysis_axes,
+                "financial_data": financial_data,
+                "evidence_catalog": context.get("evidence_catalog", []),
+                "bull_analysis": bull_analysis,
+                "bear_analysis": bear_analysis,
+                "news_sentiment": sentiment_summary,
+                "video_summary": video_summary or "사용하지 않음",
+                "debate_summary": debate_context,
+            },
+            schema_name="axis_judgment",
+            schema=AXIS_JUDGMENT_SCHEMA,
+            max_output_tokens=6000,
         )
+        allowed_evidence_ids = {
+            reference
+            for analysis in (bull_analysis, bear_analysis)
+            for axis_result in analysis.get("axis_results", [])
+            for reference in axis_result.get("evidence_refs", [])
+        }
+        available_axis_ids = {
+            axis_result.get("axis_id")
+            for analysis in (bull_analysis, bear_analysis)
+            for axis_result in analysis.get("axis_results", [])
+            if axis_result.get("status") == "available"
+        }
+        axis_judgment = normalize_axis_judgment(
+            raw_axis_judgment,
+            analysis_axes,
+            allowed_evidence_ids,
+            available_axis_ids,
+        )
+        judge_result = judgment_to_text(axis_judgment, analysis_axes)
 
         print("[Judge Agent 비교 완료]")
 
         return {
             "company_name": company_name,
             "financial_data": financial_data,
+            "evidence_catalog": context.get("evidence_catalog", []),
+            "analysis_axes": analysis_axes,
+            "bull_analysis": bull_analysis,
+            "bear_analysis": bear_analysis,
+            "axis_judgment": axis_judgment,
             "bull_result": bull_result,
             "bear_result": bear_result,
             "sentiment_result": sentiment_result,
@@ -176,7 +188,7 @@ Bull 분석과 Bear 분석이다.
             "analysis_debate": analysis_debate,
             "debate_applied": debate_applied,
             "debate_source": debate_source,
-            "judge_result": response.output_text,
+            "judge_result": judge_result,
             "bull_chunks": context.get(
                 "bull_chunks",
                 [],

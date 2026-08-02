@@ -22,6 +22,7 @@ class ComparisonState(TypedDict, total=False):
     bear_web_context: str
     source_data: dict
     evidence_bundle: dict
+    evidence_catalog: list[dict]
 
 
 class ComparisonWorkflow:
@@ -162,6 +163,42 @@ class ComparisonWorkflow:
             ),
         }
 
+    def build_evidence_catalog(
+        self,
+        state: ComparisonState,
+    ) -> ComparisonState:
+        catalog: list[dict] = []
+        for key, value in state.get("financial_data", {}).items():
+            catalog.append({
+                "id": f"financial.{key}",
+                "type": "financial",
+                "value": value,
+                "available": value not in {None, "", "데이터 없음"},
+            })
+        for perspective in ("bull", "bear"):
+            for index, chunk in enumerate(state.get(f"{perspective}_chunks", []), 1):
+                evidence_id = f"rag.{perspective}.{chunk.get('chunk_id', index)}"
+                chunk["evidence_id"] = evidence_id
+                catalog.append({
+                    "id": evidence_id,
+                    "type": "rag",
+                    "source": chunk.get("source", ""),
+                    "available": bool(chunk.get("text")),
+                })
+        source_data = state.get("source_data", {})
+        for index, article in enumerate(source_data.get("articles", []), 1):
+            event_key = str(article.get("event_key", "")).strip()
+            evidence_id = f"web.{index}.{event_key or 'event'}"
+            article["evidence_id"] = evidence_id
+            catalog.append({
+                "id": evidence_id,
+                "type": "web",
+                "source": article.get("source", ""),
+                "url": article.get("url", ""),
+                "available": bool(article.get("reason") or article.get("title")),
+            })
+        return {"source_data": source_data, "evidence_catalog": catalog}
+
     @staticmethod
     def _build_context(
         chunks: list[dict],
@@ -171,6 +208,7 @@ class ComparisonWorkflow:
 
         return "\n\n".join(
             f"""출처: {chunk.get("source", "알 수 없음")}
+근거 ID: {chunk.get("evidence_id", "")}
 청크 번호: {chunk.get("chunk_id", "알 수 없음")}
 내용:
 {chunk.get("text", "")}"""
@@ -195,6 +233,7 @@ class ComparisonWorkflow:
 
         return "\n\n".join(
             f"""제목: {article.get("title", "알 수 없음")}
+근거 ID: {article.get("evidence_id", "")}
 내용: {article.get("reason", "")}
 자료 유형: {article.get("source_type", "알 수 없음")}
 출처: {article.get("source", "알 수 없음")}
@@ -235,6 +274,10 @@ URL: {article.get("url", "")}"""
             "build_web_contexts",
             self.build_web_contexts,
         )
+        builder.add_node(
+            "build_evidence_catalog",
+            self.build_evidence_catalog,
+        )
 
         builder.add_edge(
             START,
@@ -250,10 +293,6 @@ URL: {article.get("url", "")}"""
         )
         builder.add_edge(
             "retrieve_bear_reports",
-            "build_report_contexts",
-        )
-        builder.add_edge(
-            "build_report_contexts",
             "collect_web_sources",
         )
         builder.add_edge(
@@ -262,6 +301,14 @@ URL: {article.get("url", "")}"""
         )
         builder.add_edge(
             "resolve_evidence",
+            "build_evidence_catalog",
+        )
+        builder.add_edge(
+            "build_evidence_catalog",
+            "build_report_contexts",
+        )
+        builder.add_edge(
+            "build_report_contexts",
             "build_web_contexts",
         )
         builder.add_edge(

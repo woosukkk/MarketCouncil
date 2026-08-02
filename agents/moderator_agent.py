@@ -21,12 +21,16 @@ AGENDA_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "issue_id": {"type": "string"},
+                    "axis_id": {"type": "string"},
                     "title": {"type": "string"},
                     "bull_claim": {"type": "string"},
                     "bear_claim": {"type": "string"},
                     "question": {"type": "string"},
                 },
-                "required": ["issue_id", "title", "bull_claim", "bear_claim", "question"],
+                "required": [
+                    "issue_id", "axis_id", "title", "bull_claim",
+                    "bear_claim", "question",
+                ],
                 "additionalProperties": False,
             },
         }

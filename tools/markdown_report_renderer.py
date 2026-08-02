@@ -107,8 +107,16 @@ class MarkdownReportRenderer:
         raw_judge_result = filter_visible_judge_result(
             analysis_data.get("judge_result", "")
         )
-        rating, bull_score, bear_score, confidence = self._judge_metrics(
-            raw_judge_result
+        overall = analysis_data.get("axis_judgment", {}).get("overall", {})
+        rating, bull_score, bear_score, confidence = (
+            (
+                str(overall.get("rating", "확인 불가")),
+                int(overall.get("bull_score", 50)),
+                int(overall.get("bear_score", 50)),
+                str(overall.get("confidence", "확인 불가")),
+            )
+            if overall
+            else self._judge_metrics(raw_judge_result)
         )
         judge_result = humanize_judge_result(raw_judge_result)
         debate_applied = "적용" if analysis_data.get("debate_applied") else "미적용"
@@ -123,6 +131,8 @@ class MarkdownReportRenderer:
             f"| 하락 점수 | {bear_score} |",
             f"| 신뢰도 | {self._safe(self.CONFIDENCE_LABELS.get(confidence, confidence))} |",
             f"| 토론 적용 | {debate_applied} |",
+            self._render_axis_judgments(analysis_data),
+            self._render_axis_changes(analysis_data.get("axis_changes", [])),
             "## Judge 종합 판단",
             self._wrap_markdown(judge_result),
             self._render_sentiment(analysis_data.get("sentiment_result", {}) or {}),
@@ -131,6 +141,65 @@ class MarkdownReportRenderer:
             self._wrap_paragraph(self._extract_final_conclusion(judge_result)),
         ]
         return "\n\n".join(section for section in sections if section).strip() + "\n"
+
+    def _render_axis_judgments(self, analysis_data: dict[str, Any]) -> str:
+        axes = {
+            axis.get("id"): axis
+            for axis in analysis_data.get("analysis_axes", [])
+            if isinstance(axis, dict)
+        }
+        judgments = analysis_data.get("axis_judgment", {}).get(
+            "axis_judgments", []
+        )
+        if not judgments:
+            return ""
+        labels = {-2: "매우 부정", -1: "부정", 0: "중립", 1: "긍정", 2: "매우 긍정"}
+        lines = [
+            "## 분석 축별 판단",
+            "| 분석 축 | 판정 | 신뢰도 | 판단 근거 |",
+            "|---|---:|---|---|",
+        ]
+        for item in judgments:
+            axis = axes.get(item.get("axis_id"), {})
+            label = self._safe(axis.get("label", item.get("axis_id", "")))
+            if item.get("status") == "unavailable":
+                verdict = "확인 불가"
+            else:
+                value = int(item.get("verdict", 0))
+                verdict = f"{labels.get(value, '중립')} ({value:+d})"
+            lines.append(
+                f"| {label} | {self._safe(verdict)} | "
+                f"{self._safe(item.get('confidence', 'low'))} | "
+                f"{self._wrap_cell(item.get('reason', ''), 48)} |"
+            )
+        coverage = analysis_data.get("axis_judgment", {}).get(
+            "overall", {}
+        ).get("evidence_coverage")
+        if coverage is not None:
+            lines.extend(["", f"> 근거 충족률: {float(coverage):.1%}"])
+        return "\n".join(lines)
+
+    def _render_axis_changes(self, changes: list[dict[str, Any]]) -> str:
+        if not changes:
+            return ""
+        lines = [
+            "## 이전 분석 대비 변화",
+            "| 분석 축 | 이전 | 현재 |",
+            "|---|---:|---:|",
+        ]
+        for change in changes:
+            previous = (
+                "확인 불가" if change.get("previous_status") == "unavailable"
+                else f"{int(change.get('previous_verdict', 0)):+d}"
+            )
+            current = (
+                "확인 불가" if change.get("current_status") == "unavailable"
+                else f"{int(change.get('current_verdict', 0)):+d}"
+            )
+            lines.append(
+                f"| {self._safe(change.get('label', ''))} | {previous} | {current} |"
+            )
+        return "\n".join(lines)
 
     def _render_sentiment(self, sentiment: dict[str, Any]) -> str:
         total = self._number(sentiment.get("total_count", 0))
