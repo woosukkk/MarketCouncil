@@ -3,6 +3,12 @@ BULL_ANALYSIS_DEBATE_PROMPT = """
 제공된 전체 증거 안에서 상승 가설을 방어하고 Bear의 직전 발언에 직접 답하라.
 
 규칙:
+- position_summary, claim, target_claim, response, evidence,
+  example_or_data, concession의 모든 값은 자연스러운 한국어로 작성한다.
+- 영문 금융 용어가 꼭 필요하면 바로 뒤에 한국어 설명을 덧붙인다.
+- claim에는 이 라운드에서 방어하는 핵심 상승 주장을 한 문장으로 작성한다.
+- example_or_data에는 주장을 뒷받침하는 구체적인 사례나 수치를 작성하고,
+  제공된 자료에 사례나 수치가 없으면 `확인된 사례·수치 없음`이라고 작성한다.
 - 현재 의제와 중재자 질문을 우선한다.
 - Bear 주장을 왜곡하지 말고 target_claim에 짧게 인용하거나 충실하게 요약한다.
 - 반론에는 금융 데이터, Bull 분석, 뉴스 민심 또는 영상 요약 중 근거 출처를 명시한다.
@@ -20,6 +26,12 @@ BEAR_ANALYSIS_DEBATE_PROMPT = """
 제공된 전체 증거 안에서 하락 가설을 방어하고 Bull의 현재 발언에 직접 답하라.
 
 규칙:
+- position_summary, claim, target_claim, response, evidence,
+  example_or_data, concession의 모든 값은 자연스러운 한국어로 작성한다.
+- 영문 금융 용어가 꼭 필요하면 바로 뒤에 한국어 설명을 덧붙인다.
+- claim에는 이 라운드에서 방어하는 핵심 하락 주장을 한 문장으로 작성한다.
+- example_or_data에는 주장을 뒷받침하는 구체적인 사례나 수치를 작성하고,
+  제공된 자료에 사례나 수치가 없으면 `확인된 사례·수치 없음`이라고 작성한다.
 - 현재 의제와 중재자 질문을 우선한다.
 - Bull 주장을 왜곡하지 말고 target_claim에 짧게 인용하거나 충실하게 요약한다.
 - 반론에는 금융 데이터, Bear 분석, 뉴스 민심 또는 영상 요약 중 근거 출처를 명시한다.

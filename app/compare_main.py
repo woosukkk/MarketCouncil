@@ -1,12 +1,11 @@
-import json
 from datetime import datetime
 from pathlib import Path
 
 from agents.judge_agent import JudgeAgent
 from tools.analysis_debate_store import AnalysisDebateStore
-from tools.debate_report_renderer import (
-    DebateReportRenderer,
-    filter_visible_judge_result,
+from tools.markdown_report_renderer import (
+    MarkdownReportRenderer,
+    humanize_judge_result,
 )
 from tools.video_debate_store import VideoDebateStore
 
@@ -34,65 +33,6 @@ def save_text_result(
 [{perspective.capitalize()} 분석 결과]
 
 {result}
-"""
-
-    file_path.write_text(
-        content,
-        encoding="utf-8",
-    )
-
-    return str(file_path)
-
-
-def save_comparison_result(
-    analysis_data: dict,
-) -> str:
-    company_name = analysis_data["company_name"]
-
-    results_dir = Path("results") / "comparison"
-    results_dir.mkdir(parents=True, exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_path = results_dir / f"{company_name}_{timestamp}.txt"
-
-    debate = analysis_data.get("analysis_debate", {}) or {}
-    debate_summary = debate.get("moderator_summary", {}) or {}
-    debate_section = ""
-    if debate:
-        debate_section = f"""
-==================================================
-[토론 결과 요약]
-==================================================
-
-합의 사항:
-{json.dumps(debate_summary.get("agreements", []), ensure_ascii=False, indent=2)}
-
-미해결 쟁점:
-{json.dumps(debate_summary.get("unresolved_issues", []), ensure_ascii=False, indent=2)}
-
-중재자 최종 요약:
-{debate_summary.get("summary", "")}
-"""
-
-    content = f"""기업명: {company_name}
-분석 유형: Bull/Bear 종합 비교
-분석 시간: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-토론 적용 여부: {analysis_data.get("debate_applied", False)}
-토론 출처: {analysis_data.get("debate_source", "none")}
-
-==================================================
-[Judge 종합 판단]
-==================================================
-
-{filter_visible_judge_result(analysis_data["judge_result"])}
-
-==================================================
-[뉴스 민심 분석]
-==================================================
-
-{json.dumps(analysis_data["sentiment_result"], ensure_ascii=False, indent=2)}
-
-{debate_section}
 """
 
     file_path.write_text(
@@ -217,17 +157,13 @@ def main() -> None:
             financial_data=analysis_data["financial_data"],
         )
 
-        comparison_path = save_comparison_result(
-            analysis_data
-        )
-        html_report_path = DebateReportRenderer().save(analysis_data)
+        comparison_path = MarkdownReportRenderer().save(analysis_data)
 
         print("\n===== Judge 종합 판단 =====\n")
-        print(filter_visible_judge_result(analysis_data["judge_result"]))
+        print(humanize_judge_result(analysis_data["judge_result"]))
 
         print("\n개별 관점 분석 원본 저장 완료")
-        print(f"Comparison 저장 완료: {comparison_path}")
-        print(f"시각화 HTML 저장 완료: {html_report_path}")
+        print(f"Markdown 최종 결과 저장 완료: {comparison_path}")
         if debate_path:
             print(f"새 토론 결과 저장 완료: {debate_path}")
         if analysis_data.get("debate_applied"):

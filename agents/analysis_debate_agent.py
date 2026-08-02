@@ -23,15 +23,18 @@ PARTICIPANT_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "issue_id": {"type": "string"},
+                    "claim": {"type": "string"},
                     "target_claim": {"type": "string"},
                     "response": {"type": "string"},
                     "evidence": {"type": "array", "items": {"type": "string"}},
+                    "example_or_data": {"type": "string"},
                     "concession": {"type": "string"},
                     "missing_evidence": {"type": "string"},
                 },
                 "required": [
-                    "issue_id", "target_claim", "response", "evidence",
-                    "concession", "missing_evidence",
+                    "issue_id", "claim", "target_claim", "response",
+                    "evidence", "example_or_data", "concession",
+                    "missing_evidence",
                 ],
                 "additionalProperties": False,
             },
@@ -118,16 +121,16 @@ class AnalysisDebateAgent:
 
     def bull_turn(self, state: DebateState) -> DebateState:
         round_number = state["current_round"]
-        print(f"\n[토론 {round_number}라운드 Bull 발언 시작]")
+        print(f"\n[토론 {round_number}라운드 상승 관점 발언 시작]")
         response = self._participant_response("bull", state)
-        print(f"[토론 {round_number}라운드 Bull 발언 완료]")
+        print(f"[토론 {round_number}라운드 상승 관점 발언 완료]")
         return {"bull_response": response}
 
     def bear_turn(self, state: DebateState) -> DebateState:
         round_number = state["current_round"]
-        print(f"\n[토론 {round_number}라운드 Bear 반론 시작]")
+        print(f"\n[토론 {round_number}라운드 하락 관점 반론 시작]")
         response = self._participant_response("bear", state)
-        print(f"[토론 {round_number}라운드 Bear 반론 완료]")
+        print(f"[토론 {round_number}라운드 하락 관점 반론 완료]")
         return {"bear_response": response}
 
     def moderator_review(self, state: DebateState) -> DebateState:
@@ -193,6 +196,7 @@ class AnalysisDebateAgent:
         role: Literal["bull", "bear"],
         state: DebateState,
     ) -> dict[str, Any]:
+        role_label = "상승 관점" if role == "bull" else "하락 관점"
         review = state.get("moderator_review", {})
         payload = {
             "round": state["current_round"],
@@ -237,17 +241,17 @@ class AnalysisDebateAgent:
                 last_error = error
                 if attempt == 0:
                     print(
-                        f"[WARN] {role.title()} 토론 응답이 불완전하여 "
+                        f"[WARN] {role_label} 토론 응답이 불완전하여 "
                         f"{token_limit * 2} 토큰으로 재시도합니다."
                     )
                     continue
             except Exception as error:
                 raise RuntimeError(
-                    f"{role.title()} 토론 발언 생성에 실패했습니다: {error}"
+                    f"{role_label} 토론 발언 생성에 실패했습니다: {error}"
                 ) from error
 
         raise RuntimeError(
-            f"{role.title()} 토론 JSON 응답 생성에 실패했습니다: {last_error}"
+            f"{role_label} 토론 JSON 응답 생성에 실패했습니다: {last_error}"
         ) from last_error
 
     @staticmethod
