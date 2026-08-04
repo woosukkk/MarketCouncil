@@ -13,9 +13,12 @@ def humanize_judge_result(result: Any) -> str:
     rating_labels = {
         "Strong Bull": "강한 상승",
         "Bull": "상승",
+        "Moderate Bull": "소폭 상승",
         "Neutral": "중립",
+        "Moderate Bear": "소폭 하락",
         "Bear": "하락",
         "Strong Bear": "강한 하락",
+        "Insufficient Evidence": "증거 부족",
     }
     confidence_labels = {"High": "높음", "Medium": "보통", "Low": "낮음"}
     rating_match = re.search(r"(?im)(Final Rating\s*:\s*)(.+)$", text)
@@ -48,9 +51,12 @@ class MarkdownReportRenderer:
     RATING_LABELS = {
         "Strong Bull": "강한 상승",
         "Bull": "상승",
+        "Moderate Bull": "소폭 상승",
         "Neutral": "중립",
+        "Moderate Bear": "소폭 하락",
         "Bear": "하락",
         "Strong Bear": "강한 하락",
+        "Insufficient Evidence": "증거 부족",
     }
     CONFIDENCE_LABELS = {
         "High": "높음",

@@ -17,11 +17,11 @@ class ComparisonState(TypedDict, total=False):
 
     bull_report_context: str
     bear_report_context: str
-    neutral_report_context: str
+    shared_report_context: str
 
     bull_web_context: str
     bear_web_context: str
-    neutral_web_context: str
+    shared_web_context: str
     source_data: dict
     evidence_bundle: dict
 
@@ -105,7 +105,7 @@ class ComparisonWorkflow:
         return {
             "bull_report_context": bull_report_context,
             "bear_report_context": bear_report_context,
-            "neutral_report_context": self._build_context(
+            "shared_report_context": self._build_context(
                 self._deduplicate_chunks(
                     state.get("bull_chunks", [])
                     + state.get("bear_chunks", [])
@@ -139,18 +139,12 @@ class ComparisonWorkflow:
             [],
         )
 
+        shared_web_context = self._build_web_context(articles)
+
         return {
-            "bull_web_context": self._build_web_context(
-                articles,
-                "positive",
-            ),
-            "bear_web_context": self._build_web_context(
-                articles,
-                "negative",
-            ),
-            "neutral_web_context": self._build_web_context(
-                articles,
-            ),
+            "bull_web_context": shared_web_context,
+            "bear_web_context": shared_web_context,
+            "shared_web_context": shared_web_context,
         }
 
     def resolve_evidence(
