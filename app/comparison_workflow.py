@@ -61,7 +61,7 @@ class ComparisonWorkflow:
         bull_chunks = (
             self.bull_tools.search_company_reports(
                 state["company_name"],
-                top_k=6,
+                top_k=12,
             )
         )
 
@@ -80,7 +80,7 @@ class ComparisonWorkflow:
         bear_chunks = (
             self.bear_tools.search_company_reports(
                 state["company_name"],
-                top_k=6,
+                top_k=12,
             )
         )
 

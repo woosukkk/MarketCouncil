@@ -1,5 +1,7 @@
 import json
+import re
 import time
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -13,13 +15,27 @@ from tools.source_collector_schema import SOURCE_COLLECTION_SCHEMA
 
 class SourceCollector:
     SOURCE_LIMITS = {
-        "official": 5,
-        "news": 6,
-        "report": 5,
-        "blog": 2,
-        "youtube": 2,
+        "official": 20,
+        "news": 24,
+        "report": 20,
+        "blog": 8,
+        "youtube": 8,
     }
-    MAX_ARTICLES = 20
+    ANALYSIS_LIMITS = {
+        "official": 10,
+        "news": 12,
+        "report": 10,
+        "blog": 4,
+        "youtube": 4,
+    }
+    SENTIMENT_MINIMUMS = {
+        "positive": 8,
+        "negative": 8,
+        "neutral": 4,
+    }
+    CLASSIFICATION_BATCH_SIZE = 24
+    MAX_EVIDENCE_POOL = 80
+    MAX_ARTICLES = 40
 
     def __init__(self) -> None:
         self.client = OpenAI(api_key=OPENAI_API_KEY)
@@ -32,49 +48,80 @@ class SourceCollector:
     ) -> dict[str, Any]:
         ticker_text = ticker or "티커 정보 없음"
         collected = self.web_collector.collect(company_name, ticker=ticker)
-        input_text = (
-            f"기업명: {company_name}\n"
-            f"티커: {ticker_text}\n"
-            "다음은 SearXNG와 Crawl4AI가 수집한 자료다. "
-            "제공된 자료만 유형과 사건 방향별로 분류하라.\n\n"
-            f"{json.dumps(collected['documents'], ensure_ascii=False)}"
+        result = self._classify_batches(
+            company_name,
+            ticker_text,
+            collected["documents"],
         )
-
-        result: dict[str, Any] | None = None
-        last_error: Exception | None = None
-        for attempt in range(2):
-            try:
-                response = self.client.responses.create(
-                    model=MODEL_NAME,
-                    instructions=SOURCE_COLLECTION_PROMPT,
-                    text={
-                        "format": {
-                            "type": "json_schema",
-                            "name": "source_collection",
-                            "strict": True,
-                            "schema": SOURCE_COLLECTION_SCHEMA,
-                        }
-                    },
-                    input=input_text,
-                )
-                result = self._parse_json(response.output_text)
-                break
-            except Exception as error:
-                last_error = error
-                if attempt == 0:
-                    time.sleep(1)
-
-        if result is None:
-            detail = f"{type(last_error).__name__}: {last_error}"
-            print(f"[WARN] 웹 자료 LLM 분류 실패: {detail}")
-            print("[WARN] 메타데이터 기반 중립 분류로 계속합니다.")
-            result = self._fallback_result(collected["documents"])
 
         normalized = self._normalize(result)
         normalized["collection_method"] = "searxng+crawl4ai"
         normalized["search_failures"] = collected.get("search_failures", [])
         normalized["extraction_failures"] = collected["extraction_failures"]
         return normalized
+
+    def _classify_batches(
+        self,
+        company_name: str,
+        ticker: str,
+        documents: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        articles: list[dict[str, Any]] = []
+        summaries: list[str] = []
+        periods: list[str] = []
+
+        for start in range(0, len(documents), self.CLASSIFICATION_BATCH_SIZE):
+            batch = documents[start:start + self.CLASSIFICATION_BATCH_SIZE]
+            input_text = (
+                f"기업명: {company_name}\n"
+                f"티커: {ticker}\n"
+                "다음은 SearXNG와 Crawl4AI가 수집한 자료다. "
+                "제공된 자료만 유형과 사건 방향별로 분류하라.\n\n"
+                f"{json.dumps(batch, ensure_ascii=False)}"
+            )
+            classified: dict[str, Any] | None = None
+            last_error: Exception | None = None
+            for attempt in range(2):
+                try:
+                    response = self.client.responses.create(
+                        model=MODEL_NAME,
+                        instructions=SOURCE_COLLECTION_PROMPT,
+                        text={
+                            "format": {
+                                "type": "json_schema",
+                                "name": "source_collection",
+                                "strict": True,
+                                "schema": SOURCE_COLLECTION_SCHEMA,
+                            }
+                        },
+                        input=input_text,
+                    )
+                    classified = self._parse_json(response.output_text)
+                    break
+                except Exception as error:
+                    last_error = error
+                    if attempt == 0:
+                        time.sleep(1)
+
+            if classified is None:
+                detail = f"{type(last_error).__name__}: {last_error}"
+                print(f"[WARN] 웹 자료 배치 LLM 분류 실패: {detail}")
+                classified = self._fallback_result(batch)
+
+            articles.extend(classified.get("articles", []))
+            summary = str(classified.get("summary", "")).strip()
+            period = str(classified.get("period", "")).strip()
+            if summary:
+                summaries.append(summary)
+            if period:
+                periods.append(period)
+
+        return {
+            "period": " / ".join(dict.fromkeys(periods)),
+            "summary": " ".join(summaries),
+            "coverage": {},
+            "articles": articles,
+        }
 
     @staticmethod
     def _fallback_result(documents: list[dict[str, Any]]) -> dict[str, Any]:
@@ -183,9 +230,17 @@ class SourceCollector:
             if event_key:
                 seen_events.add(event_key)
 
-        result["articles"] = normalized_articles[: cls.MAX_ARTICLES]
+        evidence_pool = sorted(
+            normalized_articles,
+            key=cls._quality_score,
+            reverse=True,
+        )[: cls.MAX_EVIDENCE_POOL]
+        result["evidence_pool"] = evidence_pool
+        result["articles"] = cls._select_analysis_articles(evidence_pool)
         result["coverage"] = {
             **counts,
+            "pool_count": len(evidence_pool),
+            "analysis_count": len(result["articles"]),
             "missing_types": [
                 source_type
                 for source_type, target in cls.SOURCE_LIMITS.items()
@@ -193,6 +248,97 @@ class SourceCollector:
             ],
         }
         return result
+
+    @classmethod
+    def _select_analysis_articles(
+        cls,
+        articles: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        selected: list[dict[str, Any]] = []
+        selected_urls: set[str] = set()
+        type_counts = {source_type: 0 for source_type in cls.ANALYSIS_LIMITS}
+
+        def add(
+            article: dict[str, Any],
+            enforce_type_limit: bool = True,
+        ) -> bool:
+            source_type = str(article.get("source_type", ""))
+            url = str(article.get("url", ""))
+            if (
+                not url
+                or url in selected_urls
+                or (
+                    enforce_type_limit
+                    and type_counts.get(source_type, 0)
+                    >= cls.ANALYSIS_LIMITS.get(source_type, 0)
+                )
+            ):
+                return False
+            selected.append(article)
+            selected_urls.add(url)
+            type_counts[source_type] += 1
+            return True
+
+        for sentiment, minimum in cls.SENTIMENT_MINIMUMS.items():
+            for article in articles:
+                if sum(
+                    item.get("sentiment") == sentiment
+                    for item in selected
+                ) >= minimum:
+                    break
+                if article.get("sentiment") == sentiment:
+                    add(article)
+
+        for article in articles:
+            if len(selected) >= cls.MAX_ARTICLES:
+                break
+            add(article)
+
+        for article in articles:
+            if len(selected) >= cls.MAX_ARTICLES:
+                break
+            add(article, enforce_type_limit=False)
+
+        return selected
+
+    @staticmethod
+    def _quality_score(article: dict[str, Any]) -> float:
+        score = SourceCollector._score(article.get("credibility_score")) * 4
+        source_type = str(article.get("source_type", ""))
+        score += {
+            "official": 1.5,
+            "report": 1.0,
+            "news": 0.6,
+            "blog": 0.2,
+            "youtube": 0.1,
+        }.get(source_type, 0.0)
+        if article.get("is_primary_source"):
+            score += 1.5
+        reason = str(article.get("reason", ""))
+        if re.search(r"\d", reason):
+            score += 0.4
+
+        published_date = str(article.get("published_date", "")).strip()
+        if published_date:
+            try:
+                published = datetime.fromisoformat(
+                    published_date.replace("Z", "+00:00")
+                )
+                if published.tzinfo is None:
+                    published = published.replace(tzinfo=timezone.utc)
+                age_days = max(
+                    (datetime.now(timezone.utc) - published).days,
+                    0,
+                )
+                if age_days <= 30:
+                    score += 1.0
+                elif age_days <= 90:
+                    score += 0.7
+                elif age_days <= 365:
+                    score += 0.3
+            except ValueError:
+                pass
+        return score
 
     @staticmethod
     def _normalize_url(url: str) -> str:

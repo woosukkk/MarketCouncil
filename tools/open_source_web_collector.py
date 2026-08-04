@@ -7,9 +7,9 @@ from tools.searxng_search import SearxngSearch
 
 
 class OpenSourceWebCollector:
-    MAX_CANDIDATES = 32
-    SEARCH_RESULT_LIMIT = 10
-    PER_QUERY_LIMIT = 4
+    MAX_CANDIDATES = 96
+    SEARCH_RESULT_LIMIT = 16
+    PER_QUERY_LIMIT = 8
     BLOCKED_DOMAINS = {
         "instagram.com",
         "www.instagram.com",
@@ -42,6 +42,10 @@ class OpenSourceWebCollector:
             (f"{identity} product technology growth", "general", "news", "year"),
             (f"{identity} risk regulation margin cost", "news", "news", "year"),
             (f"{identity} valuation consensus analysis", "general", "commentary", "year"),
+            (f"{identity} supply chain raw materials capacity", "news", "news", "year"),
+            (f"{identity} management capital allocation", "general", "official", "year"),
+            (f"{identity} customers orders contracts", "news", "news", "year"),
+            (f"{identity} interest rates foreign exchange macro", "general", "report", "year"),
         ]
 
         candidates: list[dict[str, Any]] = []
