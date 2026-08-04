@@ -6,6 +6,7 @@ from agents.bear_agent import BearAgent
 from agents.bull_agent import BullAgent
 from agents.analysis_debate_agent import AnalysisDebateAgent
 from agents.judge_prompt import JUDGE_SYSTEM_PROMPT
+from agents.neutral_agent import NeutralAgent
 from agents.sentiment_agent import SentimentAgent
 from app.comparison_workflow import ComparisonWorkflow
 from config import MODEL_NAME, OPENAI_API_KEY
@@ -18,6 +19,7 @@ class JudgeAgent:
         self.workflow = ComparisonWorkflow()
         self.bull_agent = BullAgent()
         self.bear_agent = BearAgent()
+        self.neutral_agent = NeutralAgent()
         self.sentiment_agent = SentimentAgent()
         self.analysis_debate_agent = AnalysisDebateAgent()
 
@@ -67,6 +69,17 @@ class JudgeAgent:
         )
 
         print("[Bear Agent 분석 완료]")
+
+        print("\n[Neutral Agent 분석 시작]")
+
+        neutral_result = self.neutral_agent.analyze_with_context(
+            company_name=company_name,
+            financial_data=financial_data,
+            report_context=context["neutral_report_context"],
+            web_context=context["neutral_web_context"],
+        )
+
+        print("[Neutral Agent 분석 완료]")
 
         print("\n[민심 Agent 분석 시작]")
 
@@ -129,6 +142,10 @@ Bull 분석과 Bear 분석이다.
 
 {bear_result}
 
+[Neutral 기본 시나리오]
+
+{neutral_result}
+
 [뉴스 민심 분석]
 
 {json.dumps(sentiment_summary, ensure_ascii=False, indent=2)}
@@ -156,6 +173,7 @@ Bull 분석과 Bear 분석이다.
 - 토론 결과는 보조 검증 자료이며 원본 금융 데이터나 공시와 충돌하면 영향도를 낮춘다.
 - 토론의 합의나 미해결 쟁점을 새로운 사실로 간주하지 않는다.
 - Bull Score와 Bear Score의 합은 100으로 작성한다.
+- Neutral은 독립 방향 점수가 아니라 Bull과 Bear를 비교하는 기준선으로 사용한다.
 """
 
         response = self.client.responses.create(
@@ -171,6 +189,7 @@ Bull 분석과 Bear 분석이다.
             "financial_data": financial_data,
             "bull_result": bull_result,
             "bear_result": bear_result,
+            "neutral_result": neutral_result,
             "sentiment_result": sentiment_result,
             "video_debate": video_debate,
             "analysis_debate": analysis_debate,

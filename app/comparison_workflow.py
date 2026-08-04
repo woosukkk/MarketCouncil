@@ -17,9 +17,11 @@ class ComparisonState(TypedDict, total=False):
 
     bull_report_context: str
     bear_report_context: str
+    neutral_report_context: str
 
     bull_web_context: str
     bear_web_context: str
+    neutral_web_context: str
     source_data: dict
     evidence_bundle: dict
 
@@ -103,6 +105,12 @@ class ComparisonWorkflow:
         return {
             "bull_report_context": bull_report_context,
             "bear_report_context": bear_report_context,
+            "neutral_report_context": self._build_context(
+                self._deduplicate_chunks(
+                    state.get("bull_chunks", [])
+                    + state.get("bear_chunks", [])
+                )
+            ),
         }
 
     def collect_web_sources(
@@ -139,6 +147,9 @@ class ComparisonWorkflow:
             "bear_web_context": self._build_web_context(
                 articles,
                 "negative",
+            ),
+            "neutral_web_context": self._build_web_context(
+                articles,
             ),
         }
 
@@ -180,18 +191,21 @@ class ComparisonWorkflow:
     @staticmethod
     def _build_web_context(
         articles: list[dict],
-        sentiment: str,
+        sentiment: str | None = None,
     ) -> str:
         selected = [
             article
             for article in articles
             if isinstance(article, dict)
-            and article.get("sentiment") == sentiment
+            and (
+                sentiment is None
+                or article.get("sentiment") == sentiment
+            )
             and article.get("use_as_evidence", True)
         ]
 
         if not selected:
-            return "해당 방향의 최신 웹 근거 없음"
+            return "사용 가능한 최신 웹 근거 없음"
 
         return "\n\n".join(
             f"""제목: {article.get("title", "알 수 없음")}
@@ -203,6 +217,23 @@ class ComparisonWorkflow:
 URL: {article.get("url", "")}"""
             for article in selected
         )
+
+    @staticmethod
+    def _deduplicate_chunks(chunks: list[dict]) -> list[dict]:
+        unique_chunks: list[dict] = []
+        seen: set[tuple[str, str]] = set()
+
+        for chunk in chunks:
+            key = (
+                str(chunk.get("source", "")),
+                str(chunk.get("chunk_id", "")),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_chunks.append(chunk)
+
+        return unique_chunks
 
     def _build_graph(self):
         builder = StateGraph(ComparisonState)
