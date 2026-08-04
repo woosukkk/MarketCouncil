@@ -5,7 +5,11 @@ from typing import Any
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-from rag.document_loader import DOCUMENTS_DIR, load_pdf_text
+from rag.document_loader import (
+    DOCUMENTS_DIR,
+    SUPPORTED_DOCUMENT_SUFFIXES,
+    load_document_text,
+)
 from rag.document_registry import APPROVED_DIR, DocumentRegistry
 from rag.text_splitter import split_text
 
@@ -73,7 +77,12 @@ def build_vector_store() -> None:
 
     file_paths = [
         *DOCUMENTS_DIR.glob("*.pdf"),
-        *APPROVED_DIR.glob("*.pdf"),
+        *(
+            path
+            for path in APPROVED_DIR.iterdir()
+            if path.is_file()
+            and path.suffix.lower() in SUPPORTED_DOCUMENT_SUFFIXES
+        ),
     ]
     indexed_chunks = 0
     skipped_documents = 0
@@ -92,7 +101,7 @@ def build_vector_store() -> None:
             skipped_documents += 1
             continue
 
-        text = load_pdf_text(file_path)
+        text = load_document_text(file_path)
         chunks = split_text(text)
         if not chunks:
             continue

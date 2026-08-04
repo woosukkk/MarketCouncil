@@ -23,6 +23,7 @@ class ReportRetriever:
         query: str,
         top_k: int = 3,
         as_of_date: str | None = None,
+        source_types: set[str] | None = None,
     ) -> list[dict]:
         query_embedding = self.model.encode(
             [query]
@@ -44,6 +45,13 @@ class ReportRetriever:
             "query_embeddings": query_embedding,
             "n_results": max(top_k * 3, top_k),
         }
+        if source_types:
+            sorted_types = sorted(source_types)
+            query_options["where"] = (
+                {"source_type": sorted_types[0]}
+                if len(sorted_types) == 1
+                else {"source_type": {"$in": sorted_types}}
+            )
 
         results = self.collection.query(
             **query_options,

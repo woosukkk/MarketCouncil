@@ -41,6 +41,9 @@ class IngestionPipeline:
             "publisher": str(metadata.get("publisher", "")).strip(),
             "source_type": str(metadata.get("source_type", "report")).strip(),
             "source_url": str(metadata.get("source_url", "")).strip(),
+            "original_file_path": str(
+                metadata.get("original_file_path", "")
+            ).strip(),
             "published_at": str(metadata.get("published_at", "")).strip(),
             "event_date": str(metadata.get("event_date", "")).strip(),
             "fiscal_period": str(metadata.get("fiscal_period", "")).strip(),

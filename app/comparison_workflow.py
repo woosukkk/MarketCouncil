@@ -14,10 +14,12 @@ class ComparisonState(TypedDict, total=False):
 
     bull_chunks: list[dict]
     bear_chunks: list[dict]
+    filing_chunks: list[dict]
 
     bull_report_context: str
     bear_report_context: str
     shared_report_context: str
+    filing_context: str
 
     bull_web_context: str
     bear_web_context: str
@@ -56,7 +58,7 @@ class ComparisonWorkflow:
         self,
         state: ComparisonState,
     ) -> ComparisonState:
-        print("[2] Bull 로컬 리포트 검색 시작")
+        print("[3] Bull 로컬 리포트 검색 시작")
 
         bull_chunks = (
             self.bull_tools.search_company_reports(
@@ -65,17 +67,29 @@ class ComparisonWorkflow:
             )
         )
 
-        print("[2] Bull 로컬 리포트 검색 완료")
+        print("[3] Bull 로컬 리포트 검색 완료")
 
         return {
             "bull_chunks": bull_chunks,
         }
 
+    def retrieve_regulatory_filings(
+        self,
+        state: ComparisonState,
+    ) -> ComparisonState:
+        print("[2] 공식 공시 검색 시작")
+        filing_chunks = self.bull_tools.search_regulatory_filings(
+            state["company_name"],
+            top_k=8,
+        )
+        print("[2] 공식 공시 검색 완료")
+        return {"filing_chunks": filing_chunks}
+
     def retrieve_bear_reports(
         self,
         state: ComparisonState,
     ) -> ComparisonState:
-        print("[3] Bear 로컬 리포트 검색 시작")
+        print("[4] Bear 로컬 리포트 검색 시작")
 
         bear_chunks = (
             self.bear_tools.search_company_reports(
@@ -84,7 +98,7 @@ class ComparisonWorkflow:
             )
         )
 
-        print("[3] Bear 로컬 리포트 검색 완료")
+        print("[4] Bear 로컬 리포트 검색 완료")
 
         return {
             "bear_chunks": bear_chunks,
@@ -102,14 +116,28 @@ class ComparisonWorkflow:
             state.get("bear_chunks", [])
         )
 
+        filing_chunks = state.get("filing_chunks", [])
+        filing_context = (
+            self._build_context(filing_chunks)
+            if filing_chunks
+            else "검색된 공식 공시 근거 없음"
+        )
+        shared_report_context = self._build_context(
+            self._deduplicate_chunks(
+                state.get("bull_chunks", [])
+                + state.get("bear_chunks", [])
+            )
+        )
+
         return {
             "bull_report_context": bull_report_context,
             "bear_report_context": bear_report_context,
-            "shared_report_context": self._build_context(
-                self._deduplicate_chunks(
-                    state.get("bull_chunks", [])
-                    + state.get("bear_chunks", [])
-                )
+            "filing_context": filing_context,
+            "shared_report_context": (
+                "[공식 공시 근거]\n\n"
+                f"{filing_context}\n\n"
+                "[일반 리포트 근거]\n\n"
+                f"{shared_report_context}"
             ),
         }
 
@@ -117,14 +145,14 @@ class ComparisonWorkflow:
         self,
         state: ComparisonState,
     ) -> ComparisonState:
-        print("[4] 통합 최신 뉴스 수집 시작")
+        print("[5] 통합 최신 뉴스 수집 시작")
 
         source_data = self.source_collector.collect(
             state["company_name"],
             ticker=state.get("financial_data", {}).get("ticker"),
         )
 
-        print("[4] 통합 최신 뉴스 수집 완료")
+        print("[5] 통합 최신 뉴스 수집 완료")
 
         return {
             "source_data": source_data,
@@ -151,17 +179,18 @@ class ComparisonWorkflow:
         self,
         state: ComparisonState,
     ) -> ComparisonState:
-        print("[5] 웹/RAG 중복 근거 확인 시작")
+        print("[6] 웹/RAG 중복 근거 확인 시작")
 
         source_data = self.evidence_resolver.resolve(
             state.get("source_data", {}),
             retrieved_chunks=(
                 state.get("bull_chunks", [])
                 + state.get("bear_chunks", [])
+                + state.get("filing_chunks", [])
             ),
         )
 
-        print("[5] 웹/RAG 중복 근거 확인 완료")
+        print("[6] 웹/RAG 중복 근거 확인 완료")
 
         return {
             "source_data": source_data,
@@ -241,6 +270,10 @@ URL: {article.get("url", "")}"""
             self.collect_financial_data,
         )
         builder.add_node(
+            "retrieve_regulatory_filings",
+            self.retrieve_regulatory_filings,
+        )
+        builder.add_node(
             "retrieve_bull_reports",
             self.retrieve_bull_reports,
         )
@@ -271,6 +304,10 @@ URL: {article.get("url", "")}"""
         )
         builder.add_edge(
             "collect_financial_data",
+            "retrieve_regulatory_filings",
+        )
+        builder.add_edge(
+            "retrieve_regulatory_filings",
             "retrieve_bull_reports",
         )
         builder.add_edge(

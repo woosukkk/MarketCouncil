@@ -30,7 +30,7 @@ class DartCollector:
         ticker: str,
         limit: int = 10,
     ) -> dict[str, Any]:
-        stock_code = ticker.strip().zfill(6)
+        stock_code = ticker.strip().split(".", 1)[0].zfill(6)
         corp_code = self._resolve_corp_code(company_name, stock_code)
         filings = self._list_filings(corp_code, limit)
         target_dir = self.base_dir / "dart" / self._safe_name(company_name)

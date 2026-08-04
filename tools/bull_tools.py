@@ -32,6 +32,22 @@ class BullTools:
             as_of_date=date.today().isoformat(),
         )
 
+    def search_regulatory_filings(
+        self,
+        company_name: str,
+        top_k: int = 8,
+    ) -> list[dict]:
+        query = (
+            f"{company_name} 공식 공시 재무 실적 계약 위험 요인 "
+            "자본 조달 사업 변화"
+        )
+        return self.retriever.search(
+            query=query,
+            top_k=top_k,
+            as_of_date=date.today().isoformat(),
+            source_types={"regulatory_filing"},
+        )
+
     def search_recent_web(
         self,
         company_name: str,

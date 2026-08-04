@@ -2,7 +2,10 @@ from pathlib import Path
 
 import streamlit as st
 
-from rag.document_loader import load_pdf_text
+from rag.document_loader import (
+    SUPPORTED_DOCUMENT_SUFFIXES,
+    load_document_text,
+)
 from rag.document_registry import INBOX_DIR, DocumentRegistry
 from rag.ingestion_pipeline import IngestionPipeline
 
@@ -45,17 +48,22 @@ def render_registration(pipeline: IngestionPipeline) -> None:
     registered_hashes = set(records)
     unregistered_files = []
 
-    for file_path in INBOX_DIR.glob("*.pdf"):
+    for file_path in INBOX_DIR.iterdir():
+        if (
+            not file_path.is_file()
+            or file_path.suffix.lower() not in SUPPORTED_DOCUMENT_SUFFIXES
+        ):
+            continue
         content_hash = registry.file_hash(file_path)
         if content_hash not in registered_hashes:
             unregistered_files.append(file_path)
 
     if not unregistered_files:
-        st.info("메타데이터를 등록할 새 PDF가 없습니다.")
+        st.info("메타데이터를 등록할 새 문서가 없습니다.")
         return
 
     selected = st.selectbox(
-        "등록할 PDF",
+        "등록할 문서",
         unregistered_files,
         format_func=lambda path: path.name,
     )
@@ -138,6 +146,7 @@ def render_pending_reviews(pipeline: IngestionPipeline) -> None:
             "publisher",
             "source_type",
             "source_url",
+            "original_file_path",
             "published_at",
             "event_date",
             "fiscal_period",
@@ -156,13 +165,13 @@ def render_pending_reviews(pipeline: IngestionPipeline) -> None:
     if file_path.exists():
         with file_path.open("rb") as file:
             st.download_button(
-                "원본 PDF 열기 또는 다운로드",
+                "검토 문서 열기 또는 다운로드",
                 data=file.read(),
                 file_name=file_path.name,
-                mime="application/pdf",
+                mime="application/octet-stream",
             )
         try:
-            preview = load_pdf_text(file_path)[:5000]
+            preview = load_document_text(file_path)[:5000]
         except Exception as error:
             st.error(f"텍스트 미리보기 실패: {error}")
         else:
@@ -201,8 +210,8 @@ def render_pending_reviews(pipeline: IngestionPipeline) -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="리포트 검토", layout="wide")
-    st.title("투자 리포트 검토")
+    st.set_page_config(page_title="투자 문서 검토", layout="wide")
+    st.title("투자 공시·리포트 검토")
     pipeline = IngestionPipeline()
 
     uploaded_file = st.file_uploader("PDF 업로드", type=("pdf",))

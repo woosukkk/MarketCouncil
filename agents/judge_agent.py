@@ -201,6 +201,10 @@ Bull 분석과 Bear 분석이다.
                 "bear_chunks",
                 [],
             ),
+            "filing_chunks": context.get(
+                "filing_chunks",
+                [],
+            ),
             "bull_web_context": context.get(
                 "bull_web_context",
                 "",

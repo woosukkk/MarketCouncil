@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any
 
-from rag.document_loader import load_pdf_text
+from rag.document_loader import SUPPORTED_DOCUMENT_SUFFIXES, load_document_text
 
 
 def validate_document(
@@ -11,11 +11,11 @@ def validate_document(
     errors: list[str] = []
     warnings: list[str] = []
 
-    if file_path.suffix.lower() != ".pdf":
-        errors.append("PDF 파일만 지원합니다.")
+    if file_path.suffix.lower() not in SUPPORTED_DOCUMENT_SUFFIXES:
+        errors.append("지원하지 않는 문서 형식입니다.")
 
     try:
-        text = load_pdf_text(file_path)
+        text = load_document_text(file_path)
     except Exception as error:
         errors.append(f"PDF 텍스트 추출 실패: {error}")
         text = ""
