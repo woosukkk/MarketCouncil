@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import streamlit as st
+from streamlit.runtime import get_instance
 
 from rag.document_loader import (
     SUPPORTED_DOCUMENT_SUFFIXES,
@@ -271,6 +272,14 @@ def _advance_review_queue(
     st.session_state[REVIEW_NOTICE_KEY] = notice
 
 
+def _stop_streamlit_server() -> bool:
+    try:
+        get_instance().stop()
+    except RuntimeError:
+        return False
+    return True
+
+
 def main() -> None:
     st.set_page_config(page_title="투자 문서 검토", layout="wide")
     st.title("투자 공시·리포트 검토")
@@ -306,7 +315,12 @@ def main() -> None:
             except Exception as error:
                 st.error(f"인덱싱 실패: {error}")
             else:
-                st.success("벡터 DB 반영이 완료되었습니다.")
+                st.success("벡터 DB 반영이 완료되었습니다. 서버를 종료합니다.")
+                if not _stop_streamlit_server():
+                    st.warning(
+                        "Streamlit 서버를 자동으로 종료하지 못했습니다. "
+                        "CMD 창에서 Ctrl+C를 눌러 종료하세요."
+                    )
 
 
 if __name__ == "__main__":
