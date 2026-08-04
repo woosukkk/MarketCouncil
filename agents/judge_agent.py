@@ -106,6 +106,7 @@ class JudgeAgent:
                 financial_data=financial_data,
                 bull_result=bull_result,
                 bear_result=bear_result,
+                baseline_result=baseline_result,
                 sentiment_summary=sentiment_summary,
                 video_summary=video_summary,
             )
@@ -214,6 +215,7 @@ Bull 분석과 Bear 분석이다.
     def _build_debate_summary(debate: dict) -> dict:
         rounds = debate.get("rounds", [])
         concessions = []
+        evidence_reviews = []
         for round_data in rounds:
             bull_issues = round_data.get("bull_response", {}).get("issues", [])
             bear_issues = round_data.get("bear_response", {}).get("issues", [])
@@ -230,6 +232,17 @@ Bull 분석과 Bear 분석이다.
                     if issue.get("concession")
                 ],
             })
+            evidence_reviews.append({
+                "round": round_data.get("round"),
+                "claim_reviews": round_data.get(
+                    "evidence_review",
+                    {},
+                ).get("claim_reviews", []),
+                "summary": round_data.get(
+                    "evidence_review",
+                    {},
+                ).get("summary", ""),
+            })
         summary = debate.get("moderator_summary", {}) or {}
         return {
             "created_at": debate.get("created_at", ""),
@@ -240,6 +253,7 @@ Bull 분석과 Bear 분석이다.
             "required_evidence": summary.get("required_evidence", []),
             "moderator_summary": summary.get("summary", ""),
             "concessions": concessions,
+            "evidence_reviews": evidence_reviews,
             "stop_reason": debate.get("stop_reason", ""),
         }
 

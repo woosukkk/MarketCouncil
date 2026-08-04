@@ -13,12 +13,13 @@ from tools.source_collector_schema import SOURCE_COLLECTION_SCHEMA
 
 class SourceCollector:
     SOURCE_LIMITS = {
-        "official": 2,
-        "news": 3,
-        "report": 2,
-        "blog": 1,
+        "official": 5,
+        "news": 6,
+        "report": 5,
+        "blog": 2,
         "youtube": 2,
     }
+    MAX_ARTICLES = 20
 
     def __init__(self) -> None:
         self.client = OpenAI(api_key=OPENAI_API_KEY)
@@ -71,6 +72,7 @@ class SourceCollector:
 
         normalized = self._normalize(result)
         normalized["collection_method"] = "searxng+crawl4ai"
+        normalized["search_failures"] = collected.get("search_failures", [])
         normalized["extraction_failures"] = collected["extraction_failures"]
         return normalized
 
@@ -79,6 +81,7 @@ class SourceCollector:
         articles: list[dict[str, Any]] = []
         for index, document in enumerate(documents):
             url = str(document.get("url", "")).strip()
+            source = (urlsplit(url).hostname or "").lower()
             focus = str(document.get("search_focus", "")).lower()
             if "youtube.com/" in url or "youtu.be/" in url:
                 source_type = "youtube"
@@ -95,8 +98,7 @@ class SourceCollector:
                 "source_type": source_type,
                 "sentiment": "neutral",
                 "reason": "LLM 분류 실패로 메타데이터만 사용한 임시 분류",
-                "source": str(document.get("engine", "unknown")).strip()
-                or "unknown",
+                "source": source or "unknown",
                 "published_date": str(
                     document.get("published_date", "")
                 ).strip(),
@@ -159,7 +161,8 @@ class SourceCollector:
                 continue
 
             source = str(article.get("source", "")).strip().lower()
-            if not source or publisher_counts.get(source, 0) >= 2:
+            publisher_limit = 5 if source_type == "official" else 3
+            if not source or publisher_counts.get(source, 0) >= publisher_limit:
                 continue
             normalized_url = cls._normalize_url(str(article.get("url", "")))
             event_key = str(article.get("event_key", "")).strip().lower()
@@ -180,7 +183,7 @@ class SourceCollector:
             if event_key:
                 seen_events.add(event_key)
 
-        result["articles"] = normalized_articles[:10]
+        result["articles"] = normalized_articles[: cls.MAX_ARTICLES]
         result["coverage"] = {
             **counts,
             "missing_types": [

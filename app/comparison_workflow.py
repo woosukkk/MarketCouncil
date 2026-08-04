@@ -61,7 +61,7 @@ class ComparisonWorkflow:
         bull_chunks = (
             self.bull_tools.search_company_reports(
                 state["company_name"],
-                top_k=3,
+                top_k=6,
             )
         )
 
@@ -80,7 +80,7 @@ class ComparisonWorkflow:
         bear_chunks = (
             self.bear_tools.search_company_reports(
                 state["company_name"],
-                top_k=3,
+                top_k=6,
             )
         )
 
@@ -154,7 +154,11 @@ class ComparisonWorkflow:
         print("[5] 웹/RAG 중복 근거 확인 시작")
 
         source_data = self.evidence_resolver.resolve(
-            state.get("source_data", {})
+            state.get("source_data", {}),
+            retrieved_chunks=(
+                state.get("bull_chunks", [])
+                + state.get("bear_chunks", [])
+            ),
         )
 
         print("[5] 웹/RAG 중복 근거 확인 완료")

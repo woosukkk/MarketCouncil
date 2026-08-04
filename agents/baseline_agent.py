@@ -1,12 +1,18 @@
+import json
+from typing import Any
+
 from openai import OpenAI
 
-from agents.baseline_prompt import BASELINE_SYSTEM_PROMPT
+from agents.baseline_prompt import (
+    BASELINE_EVIDENCE_REVIEW_PROMPT,
+    BASELINE_SYSTEM_PROMPT,
+)
 from config import MODEL_NAME, OPENAI_API_KEY
 
 
 class BaselineAgent:
-    def __init__(self) -> None:
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
+    def __init__(self, client: OpenAI | None = None) -> None:
+        self.client = client or OpenAI(api_key=OPENAI_API_KEY)
 
     def analyze_with_context(
         self,
@@ -49,3 +55,122 @@ class BaselineAgent:
             ) from error
 
         return response.output_text
+
+    def review_debate_evidence(
+        self,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        schema = {
+            "type": "object",
+            "properties": {
+                "claim_reviews": {
+                    "type": "array",
+                    "maxItems": 6,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "issue_id": {"type": "string"},
+                            "side": {
+                                "type": "string",
+                                "enum": ["bull", "bear"],
+                            },
+                            "claim": {"type": "string"},
+                            "status": {
+                                "type": "string",
+                                "enum": [
+                                    "VERIFIED",
+                                    "PARTIALLY_VERIFIED",
+                                    "HYPOTHESIS",
+                                    "EXPECTATION",
+                                    "CONTRADICTED",
+                                    "UNVERIFIABLE",
+                                    "DUPLICATE",
+                                ],
+                            },
+                            "supported_parts": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "unsupported_parts": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "conflicting_evidence": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "missing_evidence": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                        },
+                        "required": [
+                            "issue_id",
+                            "side",
+                            "claim",
+                            "status",
+                            "supported_parts",
+                            "unsupported_parts",
+                            "conflicting_evidence",
+                            "missing_evidence",
+                        ],
+                        "additionalProperties": False,
+                    },
+                },
+                "summary": {"type": "string"},
+            },
+            "required": ["claim_reviews", "summary"],
+            "additionalProperties": False,
+        }
+        last_error: Exception | None = None
+        for attempt in range(2):
+            token_limit = 2500 * (attempt + 1)
+            try:
+                response = self.client.responses.create(
+                    model=MODEL_NAME,
+                    instructions=BASELINE_EVIDENCE_REVIEW_PROMPT,
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": "baseline_evidence_review",
+                            "strict": True,
+                            "schema": schema,
+                        }
+                    },
+                    input=json.dumps(
+                        payload,
+                        ensure_ascii=False,
+                        default=str,
+                    ),
+                    reasoning={"effort": "minimal"},
+                    max_output_tokens=token_limit,
+                )
+                self._ensure_complete(response)
+                result = json.loads(response.output_text)
+                if not isinstance(result, dict):
+                    raise ValueError("응답이 JSON 객체가 아닙니다.")
+                return result
+            except (json.JSONDecodeError, ValueError) as error:
+                last_error = error
+                if attempt == 0:
+                    continue
+            except Exception as error:
+                raise RuntimeError(
+                    f"Baseline 증거 판별에 실패했습니다: {error}"
+                ) from error
+
+        raise RuntimeError(
+            f"Baseline 증거 판별 JSON 생성에 실패했습니다: "
+            f"{last_error}"
+        ) from last_error
+
+    @staticmethod
+    def _ensure_complete(response: Any) -> None:
+        status = getattr(response, "status", "completed")
+        if status == "completed":
+            return
+        details = getattr(response, "incomplete_details", None)
+        usage = getattr(response, "usage", None)
+        raise ValueError(
+            f"응답 상태={status}, 상세={details}, 사용량={usage}"
+        )

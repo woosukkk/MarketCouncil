@@ -12,9 +12,13 @@ class EvidenceResolver:
     def resolve(
         self,
         source_data: dict[str, Any],
+        retrieved_chunks: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         resolved = deepcopy(source_data)
         registry_by_url = self._registry_by_url()
+        retrieved_document_ids, retrieved_urls = self._retrieved_evidence(
+            retrieved_chunks or []
+        )
         primary_evidence = []
         supporting_evidence = []
 
@@ -34,12 +38,17 @@ class EvidenceResolver:
             status = str(record.get("status", "not_collected"))
             article["rag_status"] = status
             article["document_id"] = str(record.get("document_id", ""))
-            article["use_as_evidence"] = status not in {
-                "ingested",
-                "rejected",
-            }
+            document_id = str(record.get("document_id", ""))
+            is_retrieved = (
+                document_id in retrieved_document_ids
+                or normalized_url in retrieved_urls
+            )
+            article["use_as_evidence"] = (
+                status != "rejected"
+                and not (status == "ingested" and is_retrieved)
+            )
 
-            if status == "ingested":
+            if status == "ingested" and is_retrieved:
                 primary_evidence.append({
                     "document_id": record.get("document_id", ""),
                     "title": record.get("title", ""),
@@ -54,6 +63,28 @@ class EvidenceResolver:
             "supporting_evidence": supporting_evidence,
         }
         return resolved
+
+    @staticmethod
+    def _retrieved_evidence(
+        chunks: list[dict[str, Any]],
+    ) -> tuple[set[str], set[str]]:
+        document_ids: set[str] = set()
+        urls: set[str] = set()
+
+        for chunk in chunks:
+            metadata = chunk.get("metadata", {})
+            if not isinstance(metadata, dict):
+                continue
+            document_id = str(metadata.get("document_id", "")).strip()
+            normalized_url = SourceCollector._normalize_url(
+                str(metadata.get("source_url", ""))
+            )
+            if document_id:
+                document_ids.add(document_id)
+            if normalized_url:
+                urls.add(normalized_url)
+
+        return document_ids, urls
 
     def _registry_by_url(self) -> dict[str, dict[str, Any]]:
         indexed = {}
