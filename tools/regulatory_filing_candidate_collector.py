@@ -67,6 +67,7 @@ class RegulatoryFilingCandidateCollector:
                         "title": metadata.get("title", filing_id),
                         "publisher": metadata.get("publisher", provider),
                         "source_type": "regulatory_filing",
+                        "form_type": metadata.get("form_type", ""),
                         "source_url": source_url,
                         "published_at": metadata.get("filed_at", ""),
                         "event_date": (

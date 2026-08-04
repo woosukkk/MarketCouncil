@@ -330,12 +330,18 @@ class SourceCollector:
                     (datetime.now(timezone.utc) - published).days,
                     0,
                 )
-                if age_days <= 30:
-                    score += 1.0
+                if age_days <= 3:
+                    score += 3.0
+                elif age_days <= 7:
+                    score += 2.5
+                elif age_days <= 14:
+                    score += 2.0
+                elif age_days <= 30:
+                    score += 1.2
                 elif age_days <= 90:
-                    score += 0.7
+                    score += 0.5
                 elif age_days <= 365:
-                    score += 0.3
+                    score += 0.1
             except ValueError:
                 pass
         return score

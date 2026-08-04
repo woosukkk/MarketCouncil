@@ -9,7 +9,7 @@ from tools.searxng_search import SearxngSearch
 class OpenSourceWebCollector:
     MAX_CANDIDATES = 96
     SEARCH_RESULT_LIMIT = 16
-    PER_QUERY_LIMIT = 8
+    PER_QUERY_LIMIT = 4
     BLOCKED_DOMAINS = {
         "instagram.com",
         "www.instagram.com",
@@ -33,20 +33,36 @@ class OpenSourceWebCollector:
         identity = " ".join(
             value for value in (company_term, ticker_term) if value
         )
-        searches = [
-            (f"{identity} investor relations earnings", "general", "official", "year"),
-            (f"{identity} company presentation guidance", "general", "official", "year"),
-            (f"{identity} company latest news", "news", "news", "month"),
-            (f"{identity} industry market outlook", "general", "report", "year"),
-            (f"{identity} competitors market share", "general", "report", "year"),
-            (f"{identity} product technology growth", "general", "news", "year"),
-            (f"{identity} risk regulation margin cost", "news", "news", "year"),
-            (f"{identity} valuation consensus analysis", "general", "commentary", "year"),
-            (f"{identity} supply chain raw materials capacity", "news", "news", "year"),
-            (f"{identity} management capital allocation", "general", "official", "year"),
-            (f"{identity} customers orders contracts", "news", "news", "year"),
-            (f"{identity} interest rates foreign exchange macro", "general", "report", "year"),
+        topics = [
+            ("investor relations earnings", "general", "official"),
+            ("company presentation guidance", "general", "official"),
+            ("company latest news", "news", "news"),
+            ("industry market outlook", "general", "report"),
+            ("competitors market share", "general", "report"),
+            ("product technology growth", "general", "news"),
+            ("risk regulation margin cost", "news", "news"),
+            ("valuation consensus analysis", "general", "commentary"),
+            ("supply chain raw materials capacity", "news", "news"),
+            ("management capital allocation", "general", "official"),
+            ("customers orders contracts", "news", "news"),
+            ("interest rates foreign exchange macro", "general", "report"),
         ]
+        intraday_topics = {0, 2, 5, 6, 8, 9, 10, 11}
+        background_topics = {0, 3, 4, 7}
+        searches = [
+            (f"{identity} {topic}", category, focus, "day")
+            for index, (topic, category, focus) in enumerate(topics)
+            if index in intraday_topics
+        ]
+        searches.extend(
+            (f"{identity} {topic}", category, focus, "month")
+            for topic, category, focus in topics
+        )
+        searches.extend(
+            (f"{identity} {topic}", category, focus, "year")
+            for index, (topic, category, focus) in enumerate(topics)
+            if index in background_topics
+        )
 
         candidates: list[dict[str, Any]] = []
         search_failures: list[dict[str, str]] = []

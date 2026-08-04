@@ -75,28 +75,40 @@ class ReportRetriever:
                 continue
 
             age_days = None
-            recency_penalty = 0.1
+            recency_penalty = 0.4
             if published_timestamp:
                 age_days = max(
                     0,
                     (cutoff - published_timestamp) // 86400,
                 )
-                if age_days <= 30:
+                if age_days <= 3:
                     recency_penalty = 0.0
-                elif age_days <= 90:
+                elif age_days <= 7:
+                    recency_penalty = 0.01
+                elif age_days <= 14:
                     recency_penalty = 0.03
-                elif age_days <= 365:
-                    recency_penalty = 0.08
-                else:
+                elif age_days <= 30:
+                    recency_penalty = 0.06
+                elif age_days <= 90:
                     recency_penalty = 0.15
+                elif age_days <= 365:
+                    recency_penalty = 0.3
+                else:
+                    recency_penalty = 0.6
+
+            filing_penalty = self._filing_priority_penalty(metadata)
 
             retrieved_chunks.append({
                 "text": document,
                 "source": metadata["source"],
                 "chunk_id": metadata["chunk_id"],
                 "distance": distance,
-                "ranking_score": float(distance) + recency_penalty,
+                "ranking_score": (
+                    float(distance) + recency_penalty + filing_penalty
+                ),
                 "age_days": age_days,
+                "recency_penalty": recency_penalty,
+                "filing_priority_penalty": filing_penalty,
                 "metadata": metadata,
             })
 
@@ -104,6 +116,32 @@ class ReportRetriever:
             retrieved_chunks,
             key=lambda chunk: chunk["ranking_score"],
         )[:top_k]
+
+    @staticmethod
+    def _filing_priority_penalty(metadata: dict) -> float:
+        if metadata.get("source_type") != "regulatory_filing":
+            return 0.0
+
+        form_type = str(metadata.get("form_type", "")).upper()
+        current_filing_markers = (
+            "8-K",
+            "6-K",
+            "주요사항",
+            "잠정",
+            "영업(잠정)",
+        )
+        if any(marker in form_type for marker in current_filing_markers):
+            return 0.0
+        if "10-Q" in form_type or "분기보고서" in form_type:
+            return 0.03
+        if "반기보고서" in form_type:
+            return 0.05
+        if any(
+            marker in form_type
+            for marker in ("10-K", "20-F", "40-F", "사업보고서")
+        ):
+            return 0.1
+        return 0.06
 
 
 if __name__ == "__main__":

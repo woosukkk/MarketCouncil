@@ -40,6 +40,7 @@ class IngestionPipeline:
             "title": str(metadata.get("title", resolved_path.stem)).strip(),
             "publisher": str(metadata.get("publisher", "")).strip(),
             "source_type": str(metadata.get("source_type", "report")).strip(),
+            "form_type": str(metadata.get("form_type", "")).strip(),
             "source_url": str(metadata.get("source_url", "")).strip(),
             "original_file_path": str(
                 metadata.get("original_file_path", "")
