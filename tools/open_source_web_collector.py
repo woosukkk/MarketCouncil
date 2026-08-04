@@ -13,10 +13,14 @@ class OpenSourceWebCollector:
     BLOCKED_DOMAINS = {
         "instagram.com",
         "www.instagram.com",
+        "facebook.com",
+        "www.facebook.com",
         "scribd.com",
         "www.scribd.com",
         "t.me",
         "telegram.me",
+        "twstalker.com",
+        "www.twstalker.com",
     }
 
     def __init__(self, searxng_url: str) -> None:
@@ -91,7 +95,7 @@ class OpenSourceWebCollector:
                 domain_limit = 6 if search_focus == "official" else 3
                 if not domain or domain_counts.get(domain, 0) >= domain_limit:
                     continue
-                if domain in self.BLOCKED_DOMAINS:
+                if self._is_blocked_domain(domain):
                     continue
                 result["search_query"] = query
                 result["search_focus"] = search_focus
@@ -117,3 +121,10 @@ class OpenSourceWebCollector:
             "search_failures": search_failures,
             "extraction_failures": failed,
         }
+
+    @classmethod
+    def _is_blocked_domain(cls, domain: str) -> bool:
+        return any(
+            domain == blocked or domain.endswith(f".{blocked}")
+            for blocked in cls.BLOCKED_DOMAINS
+        )

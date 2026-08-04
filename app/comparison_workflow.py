@@ -2,6 +2,7 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from rag.retriever import ReportRetriever
 from tools.bull_tools import BullTools
 from tools.bear_tools import BearTools
 from tools.evidence_resolver import EvidenceResolver
@@ -30,8 +31,9 @@ class ComparisonState(TypedDict, total=False):
 
 class ComparisonWorkflow:
     def __init__(self) -> None:
-        self.bull_tools = BullTools()
-        self.bear_tools = BearTools()
+        retriever = ReportRetriever()
+        self.bull_tools = BullTools(retriever=retriever)
+        self.bear_tools = BearTools(retriever=retriever)
         self.source_collector = SourceCollector()
         self.evidence_resolver = EvidenceResolver()
         self.graph = self._build_graph()

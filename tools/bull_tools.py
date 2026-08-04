@@ -6,8 +6,8 @@ from tools.web_search_tool import WebSearchTool
 
 
 class BullTools:
-    def __init__(self) -> None:
-        self.retriever = ReportRetriever()
+    def __init__(self, retriever: ReportRetriever | None = None) -> None:
+        self.retriever = retriever or ReportRetriever()
         self.web_search = WebSearchTool()
 
     def get_company_financials(

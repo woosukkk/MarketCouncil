@@ -1,5 +1,6 @@
 import asyncio
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 
 class Crawl4AIExtractor:
@@ -57,7 +58,11 @@ class Crawl4AIExtractor:
         semaphore: Any,
     ) -> tuple[dict[str, Any] | None, dict[str, str] | None]:
         url = str(candidate.get("url", ""))
-        if "youtube.com/" in url or "youtu.be/" in url:
+        if (
+            "youtube.com/" in url
+            or "youtu.be/" in url
+            or self._looks_like_document_download(url)
+        ):
             return ({
                 **candidate,
                 "content": candidate.get("snippet", ""),
@@ -106,3 +111,15 @@ class Crawl4AIExtractor:
             if isinstance(value, str) and value.strip():
                 return value.strip()
         return str(markdown or "").strip()
+
+    @staticmethod
+    def _looks_like_document_download(url: str) -> bool:
+        decoded_url = unquote(url).lower()
+        parts = urlsplit(decoded_url)
+        return (
+            parts.path.endswith((".pdf", ".hwp", ".doc", ".docx"))
+            or ".pdf" in parts.query
+            or "/download/" in parts.path
+            or parts.path.endswith("download.cmd")
+            or "cmd=down" in parts.query
+        )
