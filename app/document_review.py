@@ -29,6 +29,9 @@ REJECTION_REASONS = (
     "저작권 또는 접근 권한 문제",
     "기타",
 )
+REVIEW_INDEX_KEY = "document_review_index"
+REVIEW_VERSION_KEY = "document_review_widget_version"
+REVIEW_NOTICE_KEY = "document_review_notice"
 
 
 def save_uploaded_file(uploaded_file) -> Path:
@@ -113,28 +116,65 @@ def render_registration(pipeline: IngestionPipeline) -> None:
 
 
 def render_pending_reviews(pipeline: IngestionPipeline) -> None:
-    pending = [
-        record
-        for record in pipeline.registry.load().values()
-        if record.get("status") == "pending"
-    ]
+    records = list(pipeline.registry.load().values())
+    pending = sorted(
+        [
+            record
+            for record in records
+            if record.get("status") == "pending"
+        ],
+        key=lambda record: (
+            str(record.get("collected_at", "")),
+            str(record.get("title", record.get("filename", ""))),
+        ),
+    )
+    approved_count = sum(
+        record.get("status") == "approved"
+        for record in records
+    )
+    ingested_count = sum(
+        record.get("status") == "ingested"
+        for record in records
+    )
+
+    pending_column, approved_column, ingested_column = st.columns(3)
+    pending_column.metric("검토 대기", len(pending))
+    approved_column.metric("승인 완료", approved_count)
+    ingested_column.metric("인덱싱 완료", ingested_count)
+
+    notice = st.session_state.pop(REVIEW_NOTICE_KEY, "")
+    if notice:
+        st.success(notice)
 
     if not pending:
-        st.info("검토 대기 중인 문서가 없습니다.")
+        st.session_state[REVIEW_INDEX_KEY] = 0
+        st.info("모든 문서 검토가 완료되었습니다.")
         return
 
+    selected_index = min(
+        max(int(st.session_state.get(REVIEW_INDEX_KEY, 0)), 0),
+        len(pending) - 1,
+    )
+    widget_version = int(
+        st.session_state.get(REVIEW_VERSION_KEY, 0)
+    )
+    pending_ids = [record["content_hash"] for record in pending]
     selected_id = st.selectbox(
         "검토할 문서",
-        [record["content_hash"] for record in pending],
+        pending_ids,
+        index=selected_index,
         format_func=lambda content_hash: next(
             record.get("title") or record.get("filename")
             for record in pending
             if record["content_hash"] == content_hash
         ),
+        key=f"pending_document_selector_{widget_version}",
     )
-    record = next(
-        item for item in pending if item["content_hash"] == selected_id
-    )
+    selected_index = pending_ids.index(selected_id)
+    st.session_state[REVIEW_INDEX_KEY] = selected_index
+    st.caption(f"현재 문서 {selected_index + 1} / {len(pending)}")
+
+    record = pending[selected_index]
     file_path = Path(record["file_path"])
 
     st.json({
@@ -188,7 +228,11 @@ def render_pending_reviews(pipeline: IngestionPipeline) -> None:
         except (KeyError, OSError, ValueError) as error:
             st.error(str(error))
         else:
-            st.success("문서를 승인했습니다. 아래 버튼으로 인덱싱하세요.")
+            _advance_review_queue(
+                selected_index,
+                len(pending),
+                "문서를 승인했습니다. 다음 문서로 이동합니다.",
+            )
             st.rerun()
 
     with st.form("reject_form"):
@@ -205,8 +249,26 @@ def render_pending_reviews(pipeline: IngestionPipeline) -> None:
         except (KeyError, OSError, ValueError) as error:
             st.error(str(error))
         else:
-            st.success("문서를 거절하고 사유를 기록했습니다.")
+            _advance_review_queue(
+                selected_index,
+                len(pending),
+                "문서를 거절하고 다음 문서로 이동합니다.",
+            )
             st.rerun()
+
+
+def _advance_review_queue(
+    selected_index: int,
+    pending_count: int,
+    notice: str,
+) -> None:
+    remaining_count = max(pending_count - 1, 0)
+    next_index = min(selected_index, max(remaining_count - 1, 0))
+    st.session_state[REVIEW_INDEX_KEY] = next_index
+    st.session_state[REVIEW_VERSION_KEY] = (
+        int(st.session_state.get(REVIEW_VERSION_KEY, 0)) + 1
+    )
+    st.session_state[REVIEW_NOTICE_KEY] = notice
 
 
 def main() -> None:
