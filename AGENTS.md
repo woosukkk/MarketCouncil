@@ -74,6 +74,7 @@ hypotheses and report confidence and evidence limitations.
 
 * Write commit messages in English only.
 * After completing and verifying a meaningful unit of work, create a local commit automatically.
+* Do not ask for separate user approval before creating that local commit.
 * Commit only changes made for the current approved task and leave unrelated user changes untouched.
 * Do not push, create branches, or open pull requests unless explicitly requested.
 
