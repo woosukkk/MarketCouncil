@@ -47,7 +47,23 @@ class SourceCollector:
         ticker: str | None = None,
     ) -> dict[str, Any]:
         ticker_text = ticker or "티커 정보 없음"
-        collected = self.web_collector.collect(company_name, ticker=ticker)
+        try:
+            collected = self.web_collector.collect(
+                company_name,
+                ticker=ticker,
+            )
+        except RuntimeError as error:
+            reason = str(error)
+            print(f"[WARN] 웹 근거 확인 불가: {reason}")
+            return {
+                "period": "확인 불가",
+                "summary": "웹 근거 확인 불가",
+                "coverage": {},
+                "articles": [],
+                "collection_method": "unavailable",
+                "search_failures": [{"query": "", "reason": reason}],
+                "extraction_failures": [],
+            }
         result = self._classify_batches(
             company_name,
             ticker_text,

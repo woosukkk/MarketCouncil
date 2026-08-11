@@ -109,6 +109,14 @@ class OpenSourceWebCollector:
         candidates = candidates[: self.MAX_CANDIDATES]
 
         if not candidates:
+            if search_failures:
+                reasons = list(dict.fromkeys(
+                    failure["reason"] for failure in search_failures
+                ))
+                raise RuntimeError(
+                    "SearXNG 검색 요청이 모두 실패했습니다: "
+                    + " / ".join(reasons)
+                )
             raise RuntimeError("SearXNG에서 분석할 웹 자료를 찾지 못했습니다.")
 
         extracted, failed = asyncio.run(
