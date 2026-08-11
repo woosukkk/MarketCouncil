@@ -58,6 +58,14 @@ def collect_evidence(debate: dict[str, Any]) -> dict[str, dict[str, Any]]:
                         legacy_number += 1
                         evidence_id = f"LEGACY-{legacy_number:03d}"
                     evidence.setdefault(evidence_id, {**item, "evidence_id": evidence_id})
+    for reasons in debate.get("regime_analysis", {}).get("reasons", {}).values():
+        for reason in reasons:
+            for item in reason.get("evidence", []):
+                if not isinstance(item, dict):
+                    continue
+                evidence_id = str(item.get("evidence_id", "")).strip()
+                if evidence_id:
+                    evidence.setdefault(evidence_id, item)
     return evidence
 
 

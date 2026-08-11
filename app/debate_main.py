@@ -4,6 +4,7 @@ from app.debate_workflow import DebateWorkflow
 from app.local_services import ensure_local_services
 from tools.analysis_debate_store import AnalysisDebateStore
 from tools.debate_transcript_renderer import DebateTranscriptRenderer
+from tools.regime_store import RegimeStore
 
 
 def main() -> int:
@@ -26,10 +27,15 @@ def main() -> int:
         debate = DebateWorkflow().run(company_name)
         json_path = AnalysisDebateStore().save(company_name, debate)
         markdown_path = DebateTranscriptRenderer().save(debate)
+        regime_path = RegimeStore().save(
+            company_name,
+            debate.get("regime_analysis", {}),
+        )
 
         print("\n===== 투자 토론 완료 =====")
         print(f"토론 원본 JSON: {json_path}")
         print(f"토론 기록 Markdown: {markdown_path}")
+        print(f"시장 국면 JSON: {regime_path}")
         print("토론 원문 뷰어: view_debate.bat")
         print("최종 투자 판단은 토론 내용과 근거를 확인한 사용자가 내립니다.")
         return 0

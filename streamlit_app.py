@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 import streamlit as st
+import pandas as pd
 
 from app.debate_view_data import (
     collect_evidence,
@@ -120,6 +121,117 @@ def show_evidence(item: dict[str, Any]) -> None:
         )
 
 
+def show_regime_view(
+    analysis: dict[str, Any],
+    evidence: dict[str, dict[str, Any]],
+) -> None:
+    if not analysis.get("regimes"):
+        st.info("이 결과에는 시장 국면 비교 데이터가 없습니다.")
+        for limitation in analysis.get("limitations", []):
+            st.caption(limitation)
+        return
+
+    bull = analysis["regimes"]["past_bull"]
+    bear = analysis["regimes"]["recent_bear"]
+    st.subheader("시장 국면 비교")
+    st.caption(analysis.get("methodology", {}).get("description", ""))
+    period_columns = st.columns(2)
+    with period_columns[0]:
+        st.metric(
+            "과거 상승 구간",
+            f"{bull['metrics']['cumulative_return_pct']:+.2f}%",
+            border=True,
+        )
+        st.caption(f"{bull['start_date']} ~ {bull['end_date']}")
+    with period_columns[1]:
+        st.metric(
+            "최근 하락 구간",
+            f"{bear['metrics']['cumulative_return_pct']:+.2f}%",
+            border=True,
+        )
+        st.caption(f"{bear['start_date']} ~ {bear['end_date']}")
+
+    price_series = pd.DataFrame(analysis.get("price_series", []))
+    if not price_series.empty:
+        st.line_chart(price_series, x="date", y="close", x_label="날짜", y_label="종가")
+
+    comparison_rows = [
+        {
+            "비교 항목": row.get("metric", ""),
+            "과거 상승장": _metric_text(row.get("past_bull"), row.get("unit", "")),
+            "최근 하락장": _metric_text(row.get("recent_bear"), row.get("unit", "")),
+            "변화": _metric_text(row.get("change"), row.get("unit", "")),
+        }
+        for row in analysis.get("comparison", [])
+    ]
+    st.dataframe(comparison_rows, hide_index=True, width="stretch")
+
+    reasons = analysis.get("reasons", {})
+    bull_reasons = reasons.get("past_bull", [])
+    bear_reasons = reasons.get("recent_bear", [])
+    reason_rows = []
+    for index in range(max(len(bull_reasons), len(bear_reasons), 2)):
+        bull_reason = bull_reasons[index] if index < len(bull_reasons) else {}
+        bear_reason = bear_reasons[index] if index < len(bear_reasons) else {}
+        reason_rows.append({
+            "순위": index + 1,
+            "과거 상승장의 이유": bull_reason.get("claim", "추가 데이터 필요"),
+            "상승 근거": _reason_evidence_ids(bull_reason),
+            "최근 하락장의 이유": bear_reason.get("claim", "추가 데이터 필요"),
+            "하락 근거": _reason_evidence_ids(bear_reason),
+        })
+    st.subheader("상승·하락 이유 비교")
+    st.dataframe(reason_rows, hide_index=True, width="stretch")
+
+    regime_evidence = {
+        key: item for key, item in evidence.items() if key.startswith("RE-")
+    }
+    main, source = st.columns([2.3, 1.2], gap="large")
+    with main:
+        event_rows = []
+        for regime_id, regime_reasons in reasons.items():
+            label = "과거 상승장" if regime_id == "past_bull" else "최근 하락장"
+            for reason in regime_reasons:
+                for item in reason.get("evidence", []):
+                    event_rows.append({
+                        "날짜": item.get("event_date", ""),
+                        "국면": label,
+                        "사건·해석": reason.get("claim", ""),
+                        "분류": reason.get("classification", ""),
+                        "1일 반응": _metric_text(item.get("price_reaction_1d_pct"), "%"),
+                        "5일 반응": _metric_text(item.get("price_reaction_5d_pct"), "%"),
+                        "시장조정 5일": _metric_text(item.get("market_adjusted_5d_pct"), "%"),
+                        "근거": item.get("evidence_id", ""),
+                    })
+        st.subheader("사건과 가격 반응")
+        if event_rows:
+            st.dataframe(event_rows, hide_index=True, width="stretch")
+        else:
+            st.info("기간 안에서 검증된 사건 근거를 찾지 못했습니다.")
+    with source:
+        st.subheader("국면 근거 원문")
+        if regime_evidence:
+            selected = st.selectbox("근거 선택", list(regime_evidence), key="regime_evidence")
+            show_evidence(regime_evidence[selected])
+        else:
+            st.info("표에 연결된 검증 근거가 없습니다.")
+
+    for limitation in analysis.get("limitations", []):
+        st.warning(limitation, icon=":material/warning:")
+
+
+def _metric_text(value: Any, unit: str) -> str:
+    if value is None:
+        return "확인 불가"
+    prefix = "+" if isinstance(value, (int, float)) and value > 0 and unit == "%" else ""
+    return f"{prefix}{value}{unit}"
+
+
+def _reason_evidence_ids(reason: dict[str, Any]) -> str:
+    values = [str(item.get("evidence_id", "")) for item in reason.get("evidence", [])]
+    return ", ".join(value for value in values if value) or "확인 불가"
+
+
 files = list_debate_files()
 st.title("투자 토론 원문 뷰어")
 st.caption("결론을 대신 내리지 않고 쟁점, 반론, 근거 원문을 읽기 쉽게 보여줍니다.")
@@ -156,6 +268,23 @@ with st.sidebar:
     )
 
 st.header(str(debate.get("company_name", "기업명 확인 불가")))
+view_mode = st.segmented_control(
+    "분석 보기",
+    ["시장 국면 비교", "토론 원문"],
+    default="시장 국면 비교" if debate.get("regime_analysis", {}).get("regimes") else "토론 원문",
+    width="stretch",
+)
+if view_mode == "시장 국면 비교":
+    show_regime_view(debate.get("regime_analysis", {}), evidence)
+    st.download_button(
+        "시장 국면 JSON 내려받기",
+        json.dumps(debate.get("regime_analysis", {}), ensure_ascii=False, indent=2),
+        file_name=f"regime_{selected_path.stem}.json",
+        mime="application/json",
+        icon=":material/download:",
+        width="stretch",
+    )
+    st.stop()
 metric_columns = st.columns(3)
 metric_columns[0].metric("라운드", len(rounds))
 metric_columns[1].metric("쟁점", len(agenda))

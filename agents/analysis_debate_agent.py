@@ -99,6 +99,7 @@ class AnalysisDebateAgent:
         bear_result: str,
         sentiment_summary: dict[str, Any],
         evidence_catalog: list[dict[str, Any]],
+        regime_analysis: dict[str, Any] | None = None,
         video_summary: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         debate_input = self._build_input(
@@ -108,6 +109,7 @@ class AnalysisDebateAgent:
             bear_result=bear_result,
             sentiment_summary=sentiment_summary,
             evidence_catalog=evidence_catalog,
+            regime_analysis=regime_analysis,
             video_summary=video_summary,
         )
         result = self.graph.invoke(
@@ -315,6 +317,7 @@ class AnalysisDebateAgent:
         bear_result: str,
         sentiment_summary: dict[str, Any],
         evidence_catalog: list[dict[str, Any]],
+        regime_analysis: dict[str, Any] | None,
         video_summary: dict[str, Any] | None,
     ) -> str:
         return f"""기업명: {company_name}
@@ -333,6 +336,9 @@ class AnalysisDebateAgent:
 
 [검증 가능한 근거 카탈로그]
 {json.dumps(evidence_catalog, ensure_ascii=False, indent=2, default=str)}
+
+[시계열 시장 국면 비교]
+{json.dumps(regime_analysis, ensure_ascii=False, indent=2, default=str) if regime_analysis else "추가 데이터 필요"}
 
 [영상 관점별 요약]
 {json.dumps(video_summary, ensure_ascii=False, indent=2) if video_summary else "사용하지 않음"}

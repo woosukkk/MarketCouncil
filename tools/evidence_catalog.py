@@ -123,6 +123,16 @@ class EvidenceCatalog:
             "chunk_id": str(source.get("chunk_id", "")) if source else "",
         }
 
+    @classmethod
+    def resolve_quote(
+        cls,
+        item: dict[str, Any],
+        catalog: list[dict[str, Any]],
+        evidence_id: str,
+    ) -> dict[str, Any]:
+        by_id = {str(entry.get("source_id", "")): entry for entry in catalog}
+        return cls._resolve_item(item, by_id, evidence_id)
+
     @staticmethod
     def _paragraph_for_quote(content: str, quote: str) -> str:
         if not content or not quote:

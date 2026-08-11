@@ -42,3 +42,18 @@ def test_round_change_returns_selected_issue_and_round() -> None:
 
     assert round_change(debate, "growth", 2)["bull_change"] == "새 근거"
     assert round_change(debate, "growth", 1) == {}
+
+
+def test_collect_evidence_includes_regime_sources() -> None:
+    debate = {
+        "rounds": [],
+        "regime_analysis": {
+            "reasons": {
+                "past_bull": [
+                    {"evidence": [{"evidence_id": "RE-001", "verified": True}]}
+                ]
+            }
+        },
+    }
+
+    assert collect_evidence(debate)["RE-001"]["verified"] is True
