@@ -53,29 +53,40 @@ class DebateTranscriptRenderer:
             )
         )
 
-        for round_data in rounds:
-            round_number = round_data.get("round", "")
-            sections.append(f"## {round_number}라운드")
-            anchor_round = self._round_number(round_number)
-            bull = round_data.get("bull_response", {}) or {}
-            bear = round_data.get("bear_response", {}) or {}
-            review = round_data.get("moderator_review", {}) or {}
-            reviews = review.get("issue_reviews", [])
-
-            for index, issue in enumerate(agenda, 1):
+        navigation = debate.get("navigation", {}) or {}
+        for index, issue in enumerate(agenda, 1):
+            issue_id = str(issue.get("issue_id", ""))
+            sections.append("\n".join([
+                f'<a id="issue-{self._anchor(issue_id)}"></a>',
+                f"## 논제 {index}. {self._safe(issue.get('title', ''))}",
+                f"> {self._safe(issue.get('question', ''))}",
+            ]))
+            for round_data in rounds:
+                round_number = self._round_number(round_data.get("round", ""))
+                bull = round_data.get("bull_response", {}) or {}
+                bear = round_data.get("bear_response", {}) or {}
+                reviews = (
+                    round_data.get("moderator_review", {}) or {}
+                ).get("issue_reviews", [])
                 sections.append(
-                    self._render_issue(
-                        index,
+                    self._render_issue_round(
                         issue,
                         bull,
                         bear,
                         reviews,
-                        anchor_round,
-                        debate.get("navigation", {}) or {},
+                        round_number,
+                        navigation,
                     )
                 )
 
-            sections.append(self._render_round_review(review))
+        sections.append("## 라운드 진행 기록")
+        for round_data in rounds:
+            round_number = round_data.get("round", "")
+            review = round_data.get("moderator_review", {}) or {}
+            sections.append("\n".join([
+                f"### {self._safe(round_number)}라운드",
+                self._render_round_review(review),
+            ]))
 
         sections.append(self._render_evidence_cards(rounds))
         sections.append(
@@ -86,9 +97,8 @@ class DebateTranscriptRenderer:
         )
         return "\n\n".join(section for section in sections if section).strip() + "\n"
 
-    def _render_issue(
+    def _render_issue_round(
         self,
-        index: int,
         agenda: dict[str, Any],
         bull: dict[str, Any],
         bear: dict[str, Any],
@@ -112,8 +122,7 @@ class DebateTranscriptRenderer:
         )
         return "\n".join([
             f'<a id="issue-{self._anchor(issue_id)}-round-{round_number}"></a>',
-            f"### 논제 {index}. {self._safe(agenda.get('title', ''))}",
-            f"> {self._safe(agenda.get('question', ''))}",
+            f"### {round_number}라운드",
             self._render_round_change(navigation, issue_id, round_number),
             "",
             "| 구분 | 상승 관점 원문 | 하락 관점 원문 |",
@@ -190,7 +199,7 @@ class DebateTranscriptRenderer:
             status_code = str(guide.get("status") or status_by_id.get(issue_id, ""))
             status = self.STATUS_LABELS.get(status_code, status_code or "미평가")
             title = self._safe(issue.get("title", ""))
-            link = f"[{title}](#issue-{self._anchor(issue_id)}-round-1)"
+            link = f"[{title}](#issue-{self._anchor(issue_id)})"
             disagreement = self._cell(guide.get("core_disagreement", "확인 불가"))
             lines.append(f"| {link} | {self._safe(status)} | {disagreement} |")
         return "\n".join(lines)
@@ -231,8 +240,6 @@ class DebateTranscriptRenderer:
 
     def _render_round_review(self, review: dict[str, Any]) -> str:
         return "\n".join([
-            "### 라운드 중재 기록",
-            "",
             f"- 반복 주장: {self._list(review.get('repeated_claims', []))}",
             f"- 부족한 근거: {self._list(review.get('missing_evidence', []))}",
             f"- 진행 판단: {self._safe(review.get('reason', ''))}",

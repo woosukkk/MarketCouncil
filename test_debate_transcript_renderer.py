@@ -9,7 +9,12 @@ def test_render_keeps_every_round_and_original_statement() -> None:
                 "issue_id": "growth",
                 "title": "성장 지속 여부",
                 "question": "성장이 지속되는가?",
-            }
+            },
+            {
+                "issue_id": "risk",
+                "title": "위험 요인",
+                "question": "위험은 통제 가능한가?",
+            },
         ],
         "rounds": [
             _round(1, "1라운드 상승 원문", "1라운드 하락 원문"),
@@ -48,8 +53,8 @@ def test_render_keeps_every_round_and_original_statement() -> None:
 
     markdown = DebateTranscriptRenderer().render(debate)
 
-    assert "## 1라운드" in markdown
-    assert "## 2라운드" in markdown
+    assert "### 1라운드" in markdown
+    assert "### 2라운드" in markdown
     assert "1라운드 상승 원문" in markdown
     assert "1라운드 하락 원문" in markdown
     assert "2라운드 상승 원문" in markdown
@@ -57,10 +62,15 @@ def test_render_keeps_every_round_and_original_statement() -> None:
     assert "최종 등급" not in markdown
     assert "상승 점수" not in markdown
     assert "## 쟁점 지도" in markdown
-    assert "[성장 지속 여부](#issue-growth-round-1)" in markdown
+    assert "[성장 지속 여부](#issue-growth)" in markdown
     assert "**이 라운드의 변화**" in markdown
     assert "연결 논리" in markdown
     assert "조건·한계" in markdown
+    growth_start = markdown.index("## 논제 1. 성장 지속 여부")
+    risk_start = markdown.index("## 논제 2. 위험 요인")
+    growth_section = markdown[growth_start:risk_start]
+    assert "1라운드 상승 원문" in growth_section
+    assert "2라운드 상승 원문" in growth_section
 
 
 def _round(number: int, bull_claim: str, bear_claim: str) -> dict:

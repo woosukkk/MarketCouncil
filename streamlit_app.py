@@ -327,7 +327,7 @@ with left:
                 st.write(f"남은 질문: {change.get('remaining_question', '없음')}")
 
 with center:
-    st.subheader("토론 원문")
+    st.subheader("논제별 토론 원문")
     visible_rounds = [item for item in rounds if int(item.get("round", 0)) in (selected_rounds or [])]
     for round_data in visible_rounds:
         number = int(round_data.get("round", 0))
