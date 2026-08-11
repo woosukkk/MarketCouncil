@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import altair as alt
 import streamlit as st
 import pandas as pd
 
@@ -156,12 +157,41 @@ def show_regime_view(
         selected_rows = available_options.get(selected_label, [])
         series_frame = pd.DataFrame(selected_rows)
         if not series_frame.empty:
-            st.line_chart(
-                series_frame,
-                x="period",
-                y="close",
-                x_label="기간",
-                y_label="종가",
+            series_frame["date"] = pd.to_datetime(series_frame["end_date"])
+            selected_return = (
+                series_frame.iloc[-1]["close"] / series_frame.iloc[0]["open"] - 1
+            ) * 100
+            drawdown = (
+                series_frame["close"].div(series_frame["close"].cummax()).sub(1).min()
+                * 100
+            )
+            benchmark_return = _compounded_return(
+                series_frame["benchmark_return_pct"]
+            )
+            with st.container(horizontal=True):
+                st.metric(
+                    "현재 종가",
+                    f"{series_frame.iloc[-1]['close']:,.2f}",
+                    border=True,
+                    chart_data=series_frame["close"].tolist(),
+                    chart_type="line",
+                )
+                st.metric("선택 구간 수익률", f"{selected_return:+.2f}%", border=True)
+                st.metric("선택 구간 최대 낙폭", f"{drawdown:.2f}%", border=True)
+                st.metric(
+                    "시장 대비",
+                    (
+                        f"{selected_return - benchmark_return:+.2f}%"
+                        if benchmark_return is not None
+                        else "확인 불가"
+                    ),
+                    border=True,
+                )
+
+            st.altair_chart(
+                _regime_price_chart(series_frame, bull, bear),
+                width="stretch",
+                key=f"regime_price_{selected_label}",
             )
             display_columns = {
                 "period": "기간",
@@ -178,11 +208,22 @@ def show_regime_view(
                 "benchmark_return_pct": "시장 수익률(%)",
                 "excess_return_pct": "시장 대비(%)",
             }
-            st.dataframe(
-                series_frame.rename(columns=display_columns)[list(display_columns.values())],
-                hide_index=True,
-                width="stretch",
-            )
+            with st.expander("시계열 상세 데이터", icon=":material/table_chart:"):
+                st.dataframe(
+                    series_frame.rename(columns=display_columns)[
+                        list(display_columns.values())
+                    ],
+                    column_config={
+                        "수익률(%)": st.column_config.NumberColumn(format="%.2f%%"),
+                        "최대 낙폭(%)": st.column_config.NumberColumn(format="%.2f%%"),
+                        "연환산 변동성(%)": st.column_config.NumberColumn(format="%.2f%%"),
+                        "시장 수익률(%)": st.column_config.NumberColumn(format="%.2f%%"),
+                        "시장 대비(%)": st.column_config.NumberColumn(format="%.2f%%"),
+                        "평균 거래량": st.column_config.NumberColumn(format="localized"),
+                    },
+                    hide_index=True,
+                    width="stretch",
+                )
 
     st.subheader("시장 국면 비교")
     st.caption(analysis.get("methodology", {}).get("description", ""))
@@ -265,6 +306,92 @@ def show_regime_view(
 
     for limitation in analysis.get("limitations", []):
         st.warning(limitation, icon=":material/warning:")
+
+
+def _regime_price_chart(
+    frame: pd.DataFrame,
+    bull: dict[str, Any],
+    bear: dict[str, Any],
+) -> alt.VConcatChart:
+    rising = "datum.open <= datum.close"
+    colors = alt.condition(rising, alt.value("#16a34a"), alt.value("#dc2626"))
+    base = alt.Chart(frame)
+    regime_frame = pd.DataFrame([
+        {
+            "start": pd.to_datetime(bull["start_date"]),
+            "end": pd.to_datetime(bull["end_date"]),
+            "regime": "과거 상승장",
+        },
+        {
+            "start": pd.to_datetime(bear["start_date"]),
+            "end": pd.to_datetime(bear["end_date"]),
+            "regime": "최근 하락장",
+        },
+    ])
+    backgrounds = (
+        alt.Chart(regime_frame)
+        .mark_rect(opacity=0.08)
+        .encode(
+            x=alt.X("start:T"),
+            x2="end:T",
+            color=alt.Color(
+                "regime:N",
+                scale=alt.Scale(
+                    domain=["과거 상승장", "최근 하락장"],
+                    range=["#16a34a", "#dc2626"],
+                ),
+                legend=alt.Legend(title="선택 국면", orient="top"),
+            ),
+        )
+    )
+    wicks = base.mark_rule().encode(
+        x=alt.X("date:T", title=None),
+        y=alt.Y("low:Q", title="가격", scale=alt.Scale(zero=False)),
+        y2="high:Q",
+        color=colors,
+    )
+    candles = base.mark_bar(size=8).encode(
+        x=alt.X("date:T", title=None),
+        y=alt.Y("open:Q", title="가격", scale=alt.Scale(zero=False)),
+        y2="close:Q",
+        color=colors,
+        tooltip=[
+            alt.Tooltip("period:N", title="기간"),
+            alt.Tooltip("open:Q", title="시가", format=",.2f"),
+            alt.Tooltip("high:Q", title="고가", format=",.2f"),
+            alt.Tooltip("low:Q", title="저가", format=",.2f"),
+            alt.Tooltip("close:Q", title="종가", format=",.2f"),
+            alt.Tooltip("return_pct:Q", title="수익률", format="+.2f"),
+        ],
+    )
+    price = (backgrounds + wicks + candles).properties(height=360)
+    volume = base.mark_bar().encode(
+        x=alt.X("date:T", title=None),
+        y=alt.Y("average_volume:Q", title="거래량"),
+        color=colors,
+        tooltip=[
+            alt.Tooltip("period:N", title="기간"),
+            alt.Tooltip("average_volume:Q", title="거래량", format=","),
+        ],
+    ).properties(height=100)
+    zoom = alt.selection_interval(
+        name="regime_zoom",
+        bind="scales",
+        encodings=["x"],
+    )
+    return (
+        alt.vconcat(price.add_params(zoom), volume, spacing=8)
+        .resolve_scale(x="shared")
+        .configure_view(stroke=None)
+        .configure_axis(gridColor="#94a3b8", gridOpacity=0.15)
+    )
+
+
+def _compounded_return(values: pd.Series) -> float | None:
+    valid = pd.to_numeric(values, errors="coerce").dropna()
+    if valid.empty:
+        return None
+    return float(((valid.div(100).add(1)).prod() - 1) * 100)
 
 
 def _metric_text(value: Any, unit: str) -> str:
