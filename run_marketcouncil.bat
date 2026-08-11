@@ -78,7 +78,7 @@ if /I "%~1"=="--check" goto :check_complete
 
 echo [4/4] Starting MarketCouncil...
 echo.
-"%MARKETCOUNCIL_PYTHON%" -m app.compare_main
+"%MARKETCOUNCIL_PYTHON%" -m app.debate_main
 if errorlevel 1 goto :failed
 
 popd

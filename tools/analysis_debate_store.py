@@ -16,7 +16,6 @@ class AnalysisDebateStore:
         self,
         company_name: str,
         debate: dict[str, Any],
-        included_in_judge: bool = False,
     ) -> str:
         save_dir = self._company_dir(company_name)
         save_dir.mkdir(parents=True, exist_ok=True)
@@ -27,7 +26,6 @@ class AnalysisDebateStore:
             "company_name": company_name,
             "created_at": datetime.now().isoformat(timespec="seconds"),
             **debate,
-            "included_in_judge": included_in_judge,
         }
         file_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),

@@ -110,7 +110,6 @@ class AnalysisDebateAgent:
             "moderator_summary": result.get("moderator_summary", {}),
             "bull_rebuttal": latest.get("bull_response", {}),
             "bear_rebuttal": latest.get("bear_response", {}),
-            "included_in_judge": False,
         }
 
     def create_agenda(self, state: DebateState) -> DebateState:
