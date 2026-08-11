@@ -95,6 +95,11 @@ class DebateTranscriptRenderer:
                 str(debate.get("stop_reason", "")),
             )
         )
+        sections.append(
+            self._render_regime_analysis(
+                debate.get("regime_analysis", {}) or {},
+            )
+        )
         return "\n\n".join(section for section in sections if section).strip() + "\n"
 
     def _render_issue_round(
@@ -318,6 +323,112 @@ class DebateTranscriptRenderer:
             f"| 중재자 정리 | {self._cell(summary.get('summary', ''))} |",
             f"| 종료 사유 | {self._cell(stop_reason)} |",
         ])
+
+    def _render_regime_analysis(self, analysis: dict[str, Any]) -> str:
+        regimes = analysis.get("regimes", {})
+        if not regimes:
+            return ""
+        bull = regimes.get("past_bull", {})
+        bear = regimes.get("recent_bear", {})
+        lines = [
+            "## 시장 국면 비교",
+            "",
+            self._safe(analysis.get("methodology", {}).get("description", "")),
+            "",
+            "| 구분 | 과거 상승장 | 최근 하락장 |",
+            "|---|---|---|",
+            (
+                f"| 기간 | {self._cell(self._period(bull))} | "
+                f"{self._cell(self._period(bear))} |"
+            ),
+        ]
+        for row in analysis.get("comparison", []):
+            unit = str(row.get("unit", ""))
+            lines.append(
+                f"| {self._cell(row.get('metric'))} | "
+                f"{self._cell(self._metric(row.get('past_bull'), unit))} | "
+                f"{self._cell(self._metric(row.get('recent_bear'), unit))} |"
+            )
+
+        reasons = analysis.get("reasons", {})
+        bull_reasons = reasons.get("past_bull", [])
+        bear_reasons = reasons.get("recent_bear", [])
+        lines.extend([
+            "",
+            "### 상승·하락 이유 비교",
+            "",
+            "| 순위 | 과거 상승장의 이유 | 근거 | 최근 하락장의 이유 | 근거 |",
+            "|---:|---|---|---|---|",
+        ])
+        for index in range(max(len(bull_reasons), len(bear_reasons), 2)):
+            bull_reason = bull_reasons[index] if index < len(bull_reasons) else {}
+            bear_reason = bear_reasons[index] if index < len(bear_reasons) else {}
+            lines.append(
+                f"| {index + 1} | {self._cell(bull_reason.get('claim', '추가 데이터 필요'))} | "
+                f"{self._regime_evidence_links(bull_reason)} | "
+                f"{self._cell(bear_reason.get('claim', '추가 데이터 필요'))} | "
+                f"{self._regime_evidence_links(bear_reason)} |"
+            )
+
+        evidence_items: dict[str, dict[str, Any]] = {}
+        for regime_reasons in reasons.values():
+            for reason in regime_reasons:
+                for item in reason.get("evidence", []):
+                    evidence_id = str(item.get("evidence_id", ""))
+                    if evidence_id:
+                        evidence_items.setdefault(evidence_id, item)
+        if evidence_items:
+            lines.extend(["", "### 국면 근거 원문"])
+        for evidence_id, item in evidence_items.items():
+            source_url = str(item.get("source_page_url") or item.get("source_url", ""))
+            lines.extend([
+                "",
+                f'<a id="regime-evidence-{evidence_id.lower()}"></a>',
+                f"#### [{self._safe(evidence_id)}] {self._safe(item.get('title', '출처 확인 불가'))}",
+                f"- 게시일: {self._safe(item.get('published_at', '') or '확인 불가')}",
+                f"- PDF 페이지: {self._safe(item.get('page_number', '') or '확인 불가')}",
+                f"- 1일 가격 반응: {self._safe(self._metric(item.get('price_reaction_1d_pct'), '%'))}",
+                f"- 5일 가격 반응: {self._safe(self._metric(item.get('price_reaction_5d_pct'), '%'))}",
+                f"- 시장조정 5일 반응: {self._safe(self._metric(item.get('market_adjusted_5d_pct'), '%'))}",
+            ])
+            if source_url:
+                lines.append(f"- [외부 원문 열기]({source_url})")
+            lines.extend([
+                "",
+                "**정확 인용**",
+                "",
+                self._blockquote(str(item.get("exact_quote", "확인 불가"))),
+                "",
+                "**인용 문단 전체**",
+                "",
+                self._blockquote(str(item.get("context_text", "확인 불가"))),
+            ])
+
+        limitations = analysis.get("limitations", [])
+        if limitations:
+            lines.extend(["", "### 분석 한계", "", *[f"- {self._safe(item)}" for item in limitations]])
+        return "\n".join(lines)
+
+    def _regime_evidence_links(self, reason: dict[str, Any]) -> str:
+        links = [
+            f"[{self._safe(item.get('evidence_id'))}]"
+            f"(#regime-evidence-{str(item.get('evidence_id', '')).lower()})"
+            for item in reason.get("evidence", [])
+            if item.get("evidence_id")
+        ]
+        return "<br>".join(links) or "확인 불가"
+
+    @staticmethod
+    def _period(regime: dict[str, Any]) -> str:
+        start = str(regime.get("start_date", ""))
+        end = str(regime.get("end_date", ""))
+        return f"{start} ~ {end}" if start and end else "확인 불가"
+
+    @staticmethod
+    def _metric(value: Any, unit: str) -> str:
+        if value is None:
+            return "확인 불가"
+        return f"{value}{unit}"
 
     def _row(self, label: str, bull: Any, bear: Any) -> str:
         return f"| {label} | {self._cell(bull)} | {self._cell(bear)} |"

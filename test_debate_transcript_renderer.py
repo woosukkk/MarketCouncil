@@ -111,3 +111,63 @@ def _round(number: int, bull_claim: str, bear_claim: str) -> dict:
             "reason": "추가 토론 필요",
         },
     }
+
+
+def test_render_appends_market_regime_after_debate_status() -> None:
+    debate = {
+        "company_name": "테스트기업",
+        "agenda": [],
+        "rounds": [],
+        "moderator_summary": {},
+        "stop_reason": "테스트 종료",
+        "regime_analysis": {
+            "methodology": {"description": "60거래일 기준 비교"},
+            "regimes": {
+                "past_bull": {
+                    "start_date": "2025-01-01",
+                    "end_date": "2025-03-31",
+                },
+                "recent_bear": {
+                    "start_date": "2026-05-01",
+                    "end_date": "2026-07-31",
+                },
+            },
+            "comparison": [
+                {
+                    "metric": "누적수익률",
+                    "past_bull": 20.0,
+                    "recent_bear": -10.0,
+                    "unit": "%",
+                }
+            ],
+            "reasons": {
+                "past_bull": [
+                    {
+                        "claim": "수요가 증가했다.",
+                        "evidence": [
+                            {
+                                "evidence_id": "RE-001",
+                                "title": "테스트 보고서",
+                                "published_at": "2025-02-01",
+                                "exact_quote": "수요가 증가했습니다.",
+                                "context_text": "해당 기간 수요가 증가했습니다.",
+                                "source_url": "https://example.com/report",
+                                "price_reaction_1d_pct": 1.0,
+                                "price_reaction_5d_pct": 3.0,
+                                "market_adjusted_5d_pct": 2.0,
+                            }
+                        ],
+                    }
+                ],
+                "recent_bear": [],
+            },
+            "limitations": ["인과관계는 확인되지 않았다."],
+        },
+    }
+
+    markdown = DebateTranscriptRenderer().render(debate)
+
+    assert markdown.index("## 토론 종료 상태") < markdown.index("## 시장 국면 비교")
+    assert "| 누적수익률 | 20.0% | -10.0% |" in markdown
+    assert "[RE-001](#regime-evidence-re-001)" in markdown
+    assert "수요가 증가했습니다." in markdown

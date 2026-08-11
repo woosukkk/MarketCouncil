@@ -372,6 +372,10 @@ with right:
     else:
         st.info("선택한 상태에 해당하는 근거가 없습니다.")
 
+if debate.get("regime_analysis", {}).get("regimes"):
+    st.divider()
+    show_regime_view(debate["regime_analysis"], evidence)
+
 st.divider()
 download_json = json.dumps(debate, ensure_ascii=False, indent=2)
 download_markdown = DebateTranscriptRenderer().render(debate)
