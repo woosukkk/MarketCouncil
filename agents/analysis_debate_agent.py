@@ -26,6 +26,8 @@ PARTICIPANT_SCHEMA = {
                     "claim": {"type": "string"},
                     "target_claim": {"type": "string"},
                     "response": {"type": "string"},
+                    "warrant": {"type": "string"},
+                    "qualifier": {"type": "string"},
                     "evidence": {
                         "type": "array",
                         "items": {
@@ -49,7 +51,8 @@ PARTICIPANT_SCHEMA = {
                 },
                 "required": [
                     "issue_id", "claim", "target_claim", "response",
-                    "evidence", "example_or_data", "concession",
+                    "warrant", "qualifier", "evidence",
+                    "example_or_data", "concession",
                     "missing_evidence",
                 ],
                 "additionalProperties": False,

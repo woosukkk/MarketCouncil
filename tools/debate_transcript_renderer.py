@@ -45,10 +45,18 @@ class DebateTranscriptRenderer:
                 "아래 토론과 근거를 바탕으로 사용자가 직접 판단합니다."
             ),
         ]
+        sections.append(
+            self._render_issue_map(
+                debate.get("navigation", {}) or {},
+                agenda,
+                debate.get("issue_statuses", []),
+            )
+        )
 
         for round_data in rounds:
             round_number = round_data.get("round", "")
             sections.append(f"## {round_number}라운드")
+            anchor_round = self._round_number(round_number)
             bull = round_data.get("bull_response", {}) or {}
             bear = round_data.get("bear_response", {}) or {}
             review = round_data.get("moderator_review", {}) or {}
@@ -56,7 +64,15 @@ class DebateTranscriptRenderer:
 
             for index, issue in enumerate(agenda, 1):
                 sections.append(
-                    self._render_issue(index, issue, bull, bear, reviews)
+                    self._render_issue(
+                        index,
+                        issue,
+                        bull,
+                        bear,
+                        reviews,
+                        anchor_round,
+                        debate.get("navigation", {}) or {},
+                    )
                 )
 
             sections.append(self._render_round_review(review))
@@ -77,6 +93,8 @@ class DebateTranscriptRenderer:
         bull: dict[str, Any],
         bear: dict[str, Any],
         reviews: list[dict[str, Any]],
+        round_number: int,
+        navigation: dict[str, Any],
     ) -> str:
         issue_id = str(agenda.get("issue_id", ""))
         bull_issue = self._find_issue(bull, issue_id)
@@ -93,8 +111,10 @@ class DebateTranscriptRenderer:
             str(review.get("status", "미평가")),
         )
         return "\n".join([
+            f'<a id="issue-{self._anchor(issue_id)}-round-{round_number}"></a>',
             f"### 논제 {index}. {self._safe(agenda.get('title', ''))}",
             f"> {self._safe(agenda.get('question', ''))}",
+            self._render_round_change(navigation, issue_id, round_number),
             "",
             "| 구분 | 상승 관점 원문 | 하락 관점 원문 |",
             "|---|---|---|",
@@ -105,6 +125,16 @@ class DebateTranscriptRenderer:
                 bear_issue.get("target_claim"),
             ),
             self._row("반론", bull_issue.get("response"), bear_issue.get("response")),
+            self._row(
+                "연결 논리",
+                bull_issue.get("warrant"),
+                bear_issue.get("warrant"),
+            ),
+            self._row(
+                "조건·한계",
+                bull_issue.get("qualifier"),
+                bear_issue.get("qualifier"),
+            ),
             self._row(
                 "근거",
                 self._evidence_links(bull_issue.get("evidence", [])),
@@ -133,6 +163,70 @@ class DebateTranscriptRenderer:
             f"**상승 관점 다음 질문:** {self._safe(review.get('question_for_bull', ''))}",
             "",
             f"**하락 관점 다음 질문:** {self._safe(review.get('question_for_bear', ''))}",
+        ])
+
+    def _render_issue_map(
+        self,
+        navigation: dict[str, Any],
+        agenda: list[dict[str, Any]],
+        statuses: list[dict[str, Any]],
+    ) -> str:
+        navigation_issues = {
+            str(issue.get("issue_id", "")): issue
+            for issue in navigation.get("issues", [])
+        }
+        status_by_id = {
+            str(item.get("issue_id", "")): str(item.get("status", ""))
+            for item in statuses
+        }
+        lines = ["## 쟁점 지도"]
+        overview = str(navigation.get("overview", "")).strip()
+        if overview:
+            lines.extend(["", self._safe(overview)])
+        lines.extend(["", "| 쟁점 | 상태 | 핵심 대립 |", "|---|---|---|"])
+        for issue in agenda:
+            issue_id = str(issue.get("issue_id", ""))
+            guide = navigation_issues.get(issue_id, {})
+            status_code = str(guide.get("status") or status_by_id.get(issue_id, ""))
+            status = self.STATUS_LABELS.get(status_code, status_code or "미평가")
+            title = self._safe(issue.get("title", ""))
+            link = f"[{title}](#issue-{self._anchor(issue_id)}-round-1)"
+            disagreement = self._cell(guide.get("core_disagreement", "확인 불가"))
+            lines.append(f"| {link} | {self._safe(status)} | {disagreement} |")
+        return "\n".join(lines)
+
+    def _render_round_change(
+        self,
+        navigation: dict[str, Any],
+        issue_id: str,
+        round_number: int,
+    ) -> str:
+        issue = next(
+            (
+                item for item in navigation.get("issues", [])
+                if str(item.get("issue_id", "")) == issue_id
+            ),
+            {},
+        )
+        change = next(
+            (
+                item for item in issue.get("round_changes", [])
+                if item.get("round") == round_number
+            ),
+            {},
+        )
+        if not change:
+            return ""
+        evidence = ", ".join(change.get("new_evidence_ids", [])) or "없음"
+        concessions = "; ".join(change.get("concessions", [])) or "없음"
+        return "\n".join([
+            "",
+            "**이 라운드의 변화**",
+            f"- 상승 관점: {self._safe(change.get('bull_change', ''))}",
+            f"- 하락 관점: {self._safe(change.get('bear_change', ''))}",
+            f"- 새 근거: {self._safe(evidence)}",
+            f"- 인정 사항: {self._safe(concessions)}",
+            f"- 남은 질문: {self._safe(change.get('remaining_question', ''))}",
         ])
 
     def _render_round_review(self, review: dict[str, Any]) -> str:
@@ -248,6 +342,17 @@ class DebateTranscriptRenderer:
         return "\n".join(
             f"> {self._safe(line)}" for line in value.splitlines()
         )
+
+    @staticmethod
+    def _anchor(value: str) -> str:
+        return re.sub(r"[^0-9A-Za-z가-힣_-]+", "-", value).strip("-").lower()
+
+    @staticmethod
+    def _round_number(value: Any) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
 
     @staticmethod
     def _find_issue(turn: dict[str, Any], issue_id: str) -> dict[str, Any]:

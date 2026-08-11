@@ -3,6 +3,7 @@ from typing import Any
 from agents.analysis_debate_agent import AnalysisDebateAgent
 from agents.bear_agent import BearAgent
 from agents.bull_agent import BullAgent
+from agents.debate_navigator_agent import DebateNavigatorAgent
 from agents.sentiment_agent import SentimentAgent
 from app.comparison_workflow import ComparisonWorkflow
 from tools.evidence_catalog import EvidenceCatalog
@@ -15,6 +16,7 @@ class DebateWorkflow:
         self.bear_agent = BearAgent()
         self.sentiment_agent = SentimentAgent()
         self.debate_agent = AnalysisDebateAgent()
+        self.navigator_agent = DebateNavigatorAgent()
 
     def run(self, company_name: str) -> dict[str, Any]:
         print("\n[공통 근거 수집 시작]")
@@ -73,6 +75,11 @@ class DebateWorkflow:
             evidence_catalog=evidence_catalog,
         )
         debate = EvidenceCatalog.resolve(debate, evidence_catalog)
+        try:
+            debate["navigation"] = self.navigator_agent.analyze(debate)
+        except RuntimeError as error:
+            print(f"[WARN] {error}")
+            debate["navigation"] = {}
 
         return {
             "company_name": company_name,
