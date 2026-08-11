@@ -30,6 +30,7 @@ def main() -> int:
         print("\n===== 투자 토론 완료 =====")
         print(f"토론 원본 JSON: {json_path}")
         print(f"토론 기록 Markdown: {markdown_path}")
+        print("토론 원문 뷰어: view_debate.bat")
         print("최종 투자 판단은 토론 내용과 근거를 확인한 사용자가 내립니다.")
         return 0
     except Exception as error:
