@@ -74,6 +74,7 @@ class SourceCollector:
         normalized["collection_method"] = "searxng+crawl4ai"
         normalized["search_failures"] = collected.get("search_failures", [])
         normalized["extraction_failures"] = collected["extraction_failures"]
+        normalized["source_documents"] = collected["documents"]
         return normalized
 
     def _classify_batches(

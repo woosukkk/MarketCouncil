@@ -26,7 +26,23 @@ PARTICIPANT_SCHEMA = {
                     "claim": {"type": "string"},
                     "target_claim": {"type": "string"},
                     "response": {"type": "string"},
-                    "evidence": {"type": "array", "items": {"type": "string"}},
+                    "evidence": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "source_id": {"type": "string"},
+                                "exact_quote": {"type": "string"},
+                                "reason": {"type": "string"},
+                            },
+                            "required": [
+                                "source_id",
+                                "exact_quote",
+                                "reason",
+                            ],
+                            "additionalProperties": False,
+                        },
+                    },
                     "example_or_data": {"type": "string"},
                     "concession": {"type": "string"},
                     "missing_evidence": {"type": "string"},
@@ -79,6 +95,7 @@ class AnalysisDebateAgent:
         bull_result: str,
         bear_result: str,
         sentiment_summary: dict[str, Any],
+        evidence_catalog: list[dict[str, Any]],
         video_summary: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         debate_input = self._build_input(
@@ -87,6 +104,7 @@ class AnalysisDebateAgent:
             bull_result=bull_result,
             bear_result=bear_result,
             sentiment_summary=sentiment_summary,
+            evidence_catalog=evidence_catalog,
             video_summary=video_summary,
         )
         result = self.graph.invoke(
@@ -293,6 +311,7 @@ class AnalysisDebateAgent:
         bull_result: str,
         bear_result: str,
         sentiment_summary: dict[str, Any],
+        evidence_catalog: list[dict[str, Any]],
         video_summary: dict[str, Any] | None,
     ) -> str:
         return f"""기업명: {company_name}
@@ -308,6 +327,9 @@ class AnalysisDebateAgent:
 
 [뉴스 민심 요약]
 {json.dumps(sentiment_summary, ensure_ascii=False, indent=2)}
+
+[검증 가능한 근거 카탈로그]
+{json.dumps(evidence_catalog, ensure_ascii=False, indent=2, default=str)}
 
 [영상 관점별 요약]
 {json.dumps(video_summary, ensure_ascii=False, indent=2) if video_summary else "사용하지 않음"}

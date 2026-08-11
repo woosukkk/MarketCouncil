@@ -61,6 +61,7 @@ class DebateTranscriptRenderer:
 
             sections.append(self._render_round_review(review))
 
+        sections.append(self._render_evidence_cards(rounds))
         sections.append(
             self._render_debate_status(
                 debate.get("moderator_summary", {}) or {},
@@ -106,8 +107,8 @@ class DebateTranscriptRenderer:
             self._row("반론", bull_issue.get("response"), bear_issue.get("response")),
             self._row(
                 "근거",
-                self._list(bull_issue.get("evidence", [])),
-                self._list(bear_issue.get("evidence", [])),
+                self._evidence_links(bull_issue.get("evidence", [])),
+                self._evidence_links(bear_issue.get("evidence", [])),
             ),
             self._row(
                 "사례·수치",
@@ -143,6 +144,61 @@ class DebateTranscriptRenderer:
             f"- 진행 판단: {self._safe(review.get('reason', ''))}",
         ])
 
+    def _render_evidence_cards(
+        self,
+        rounds: list[dict[str, Any]],
+    ) -> str:
+        evidence_items: list[dict[str, Any]] = []
+        for round_data in rounds:
+            for side in ("bull_response", "bear_response"):
+                for issue in round_data.get(side, {}).get("issues", []):
+                    for item in issue.get("evidence", []):
+                        if isinstance(item, dict):
+                            evidence_items.append(item)
+
+        if not evidence_items:
+            return "## 근거 원문\n\n연결된 원문 근거가 없습니다."
+
+        sections = ["## 근거 원문"]
+        for item in evidence_items:
+            evidence_id = str(item.get("evidence_id", ""))
+            verified = bool(item.get("verified"))
+            status = "검증 완료" if verified else "원문 확인 불가"
+            title = self._safe(item.get("title", "출처 확인 불가"))
+            source_url = str(item.get("source_url", ""))
+            context = str(item.get("context_text", ""))
+            lines = [
+                f'<a id="evidence-{evidence_id.lower()}"></a>',
+                f"### [{self._safe(evidence_id)}] {title}",
+                f"- 검증 상태: {status}",
+                f"- 자료 유형: {self._safe(item.get('source_type', ''))}",
+                f"- 게시일: {self._safe(item.get('published_at', '') or '확인 불가')}",
+                f"- 문서 ID: {self._safe(item.get('document_id', '') or '없음')}",
+                f"- 청크: {self._safe(item.get('chunk_id', '') or '없음')}",
+            ]
+            if source_url:
+                lines.append(f"- [외부 원문 열기]({source_url})")
+            else:
+                lines.append("- 외부 원문 링크: 확인 불가")
+            if verified:
+                lines.extend([
+                    "",
+                    "**사용된 정확 인용**",
+                    "",
+                    self._blockquote(str(item.get("exact_quote", ""))),
+                    "",
+                    "**인용 문단 전체**",
+                    "",
+                    self._blockquote(context),
+                ])
+            else:
+                lines.extend([
+                    "",
+                    "에이전트가 제출한 인용문을 실제 원문에서 찾지 못했습니다.",
+                ])
+            sections.append("\n".join(lines))
+        return "\n\n".join(sections)
+
     def _render_debate_status(
         self,
         summary: dict[str, Any],
@@ -170,6 +226,28 @@ class DebateTranscriptRenderer:
         if not isinstance(values, list) or not values:
             return "없음"
         return "<br>".join(f"• {self._cell(value)}" for value in values)
+
+    def _evidence_links(self, values: Any) -> str:
+        if not isinstance(values, list) or not values:
+            return "없음"
+        rendered = []
+        for value in values:
+            if not isinstance(value, dict):
+                rendered.append(f"• {self._cell(value)}")
+                continue
+            evidence_id = str(value.get("evidence_id", ""))
+            mark = "검증" if value.get("verified") else "미검증"
+            reason = self._cell(value.get("reason", ""))
+            rendered.append(
+                f"• [{self._safe(evidence_id)}](#evidence-{evidence_id.lower()}) "
+                f"({mark}) {reason}"
+            )
+        return "<br>".join(rendered)
+
+    def _blockquote(self, value: str) -> str:
+        return "\n".join(
+            f"> {self._safe(line)}" for line in value.splitlines()
+        )
 
     @staticmethod
     def _find_issue(turn: dict[str, Any], issue_id: str) -> dict[str, Any]:

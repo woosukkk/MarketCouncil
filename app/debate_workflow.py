@@ -5,6 +5,7 @@ from agents.bear_agent import BearAgent
 from agents.bull_agent import BullAgent
 from agents.sentiment_agent import SentimentAgent
 from app.comparison_workflow import ComparisonWorkflow
+from tools.evidence_catalog import EvidenceCatalog
 
 
 class DebateWorkflow:
@@ -45,13 +46,33 @@ class DebateWorkflow:
             company_name,
             source_data=context.get("source_data"),
         )
+        sentiment_summary = {
+            key: value
+            for key, value in sentiment_result.items()
+            if key != "source_documents"
+        }
+        retrieved_chunks = (
+            context.get("bull_chunks", [])
+            + context.get("bear_chunks", [])
+            + context.get("filing_chunks", [])
+        )
+        evidence_catalog = EvidenceCatalog.build(
+            financial_data=financial_data,
+            retrieved_chunks=retrieved_chunks,
+            web_documents=context.get("source_data", {}).get(
+                "source_documents",
+                [],
+            ),
+        )
         debate = self.debate_agent.run(
             company_name=company_name,
             financial_data=financial_data,
             bull_result=bull_result,
             bear_result=bear_result,
-            sentiment_summary=sentiment_result,
+            sentiment_summary=sentiment_summary,
+            evidence_catalog=evidence_catalog,
         )
+        debate = EvidenceCatalog.resolve(debate, evidence_catalog)
 
         return {
             "company_name": company_name,
@@ -59,6 +80,7 @@ class DebateWorkflow:
             "bull_analysis": bull_result,
             "bear_analysis": bear_result,
             "sentiment_result": sentiment_result,
+            "evidence_catalog": evidence_catalog,
             "evidence": {
                 "bull_chunks": context.get("bull_chunks", []),
                 "bear_chunks": context.get("bear_chunks", []),
