@@ -5,7 +5,7 @@ REGIME_REASON_PROMPT = """
 규칙:
 - past_bull과 recent_bear에 각각 최대 2개의 이유만 작성한다.
 - 입력된 기간과 source_id만 사용한다.
-- exact_quote는 해당 source_id의 content에서 글자 그대로 복사한다.
+- 해당 source_id에 속한 quote_id만 선택하고 인용문을 직접 작성하지 않는다.
 - 원문이 부족하면 이유의 개수를 억지로 채우지 않는다.
 - 사건과 가격 움직임의 인과관계가 공식적으로 확인되지 않았다면
   MARKET_INTERPRETATION 또는 ANALYST_HYPOTHESIS로 분류한다.

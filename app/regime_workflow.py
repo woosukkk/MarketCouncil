@@ -93,7 +93,7 @@ class RegimeWorkflow:
                     "title": source.get("title", ""),
                     "published_at": str(published),
                     "source_type": source.get("source_type", ""),
-                    "content": content[:4000],
+                    "quotes": source.get("quotes", []),
                 })
             selected[regime_id] = items[:20]
         return selected

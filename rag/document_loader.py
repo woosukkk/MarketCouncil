@@ -34,18 +34,13 @@ class _TextExtractor(HTMLParser):
         return "\n".join(self.parts)
 
 
-def load_pdf_text(file_path: Path) -> str:
+def load_pdf_pages(file_path: Path) -> list[str]:
     reader = PdfReader(file_path)
+    return [page.extract_text() or "" for page in reader.pages]
 
-    pages = []
 
-    for page in reader.pages:
-        text = page.extract_text()
-
-        if text:
-            pages.append(text)
-
-    return "\n".join(pages)
+def load_pdf_text(file_path: Path) -> str:
+    return "\n".join(text for text in load_pdf_pages(file_path) if text)
 
 
 def load_document_text(file_path: Path) -> str:

@@ -1,4 +1,5 @@
 import json
+import re
 from copy import deepcopy
 from typing import Any
 from urllib.parse import urlsplit
@@ -6,6 +7,7 @@ from urllib.parse import urlsplit
 
 class EvidenceCatalog:
     MAX_WEB_DOCUMENTS = 16
+    MAX_QUOTES_PER_SOURCE = 16
 
     @classmethod
     def build(
@@ -28,7 +30,7 @@ class EvidenceCatalog:
             if key in seen_chunks:
                 continue
             seen_chunks.add(key)
-            entries.append({
+            entry = {
                 "source_id": f"RAG-{len(seen_chunks):03d}",
                 "source_type": str(metadata.get("source_type", "report")),
                 "title": str(
@@ -40,14 +42,16 @@ class EvidenceCatalog:
                 "published_at": str(metadata.get("published_at", "")),
                 "document_id": str(metadata.get("document_id", "")),
                 "chunk_id": str(chunk.get("chunk_id", metadata.get("chunk_id", ""))),
+                "page_number": metadata.get("page_number"),
                 "content": str(chunk.get("text", "")),
-            })
+            }
+            entries.append(cls._with_quotes(entry))
 
         for index, document in enumerate(
             web_documents[: cls.MAX_WEB_DOCUMENTS],
             1,
         ):
-            entries.append({
+            entry = {
                 "source_id": f"WEB-{index:03d}",
                 "source_type": str(document.get("search_focus", "web")),
                 "title": str(document.get("title", "웹 자료")),
@@ -55,9 +59,22 @@ class EvidenceCatalog:
                 "published_at": str(document.get("published_date", "")),
                 "document_id": "",
                 "chunk_id": "",
+                "page_number": None,
                 "content": str(document.get("content", "")),
-            })
+            }
+            entries.append(cls._with_quotes(entry))
         return entries
+
+    @staticmethod
+    def for_prompt(catalog: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        fields = (
+            "source_id",
+            "source_type",
+            "title",
+            "published_at",
+            "quotes",
+        )
+        return [{key: entry.get(key) for key in fields} for entry in catalog]
 
     @classmethod
     def resolve(
@@ -102,8 +119,18 @@ class EvidenceCatalog:
         evidence_id: str,
     ) -> dict[str, Any]:
         source_id = str(item.get("source_id", ""))
-        quote = str(item.get("exact_quote", "")).strip()
         source = by_id.get(source_id)
+        quote_id = str(item.get("quote_id", "")).strip()
+        quote_entry = next(
+            (
+                quote for quote in (source or {}).get("quotes", [])
+                if str(quote.get("quote_id", "")) == quote_id
+            ),
+            {},
+        )
+        quote = str(
+            quote_entry.get("text") or item.get("exact_quote", "")
+        ).strip()
         context = cls._paragraph_for_quote(
             str(source.get("content", "")) if source else "",
             quote,
@@ -111,6 +138,7 @@ class EvidenceCatalog:
         return {
             "evidence_id": evidence_id,
             "source_id": source_id,
+            "quote_id": quote_id,
             "exact_quote": quote,
             "reason": str(item.get("reason", "")),
             "verified": bool(source and context),
@@ -121,6 +149,11 @@ class EvidenceCatalog:
             "published_at": str(source.get("published_at", "")) if source else "",
             "document_id": str(source.get("document_id", "")) if source else "",
             "chunk_id": str(source.get("chunk_id", "")) if source else "",
+            "page_number": source.get("page_number") if source else None,
+            "source_page_url": cls._page_url(
+                str(source.get("source_url", "")) if source else "",
+                source.get("page_number") if source else None,
+            ),
         }
 
     @classmethod
@@ -150,7 +183,7 @@ class EvidenceCatalog:
     def _financial_entry(financial_data: dict[str, Any]) -> dict[str, Any]:
         ticker = str(financial_data.get("ticker", "")).strip()
         url = f"https://finance.yahoo.com/quote/{ticker}" if ticker else ""
-        return {
+        return EvidenceCatalog._with_quotes({
             "source_id": "FIN-001",
             "source_type": "financial_data",
             "title": f"{ticker or '기업'} 금융 데이터",
@@ -158,13 +191,50 @@ class EvidenceCatalog:
             "published_at": str(financial_data.get("price_date", "")),
             "document_id": "",
             "chunk_id": "",
+            "page_number": None,
             "content": json.dumps(
                 financial_data,
                 ensure_ascii=False,
                 indent=2,
                 default=str,
             ),
-        }
+        })
+
+    @classmethod
+    def _with_quotes(cls, entry: dict[str, Any]) -> dict[str, Any]:
+        source_id = str(entry.get("source_id", ""))
+        content = str(entry.get("content", ""))
+        candidates: list[str] = []
+        for block in re.split(r"\n\s*\n|\n", content):
+            parts = re.split(r"(?<=[.!?。])\s+", block.strip())
+            for part in parts:
+                text = part.strip()
+                if len(text) < 15:
+                    continue
+                if len(text) <= 500:
+                    candidates.append(text)
+                else:
+                    candidates.extend(
+                        text[start : start + 500].strip()
+                        for start in range(0, len(text), 500)
+                    )
+                if len(candidates) >= cls.MAX_QUOTES_PER_SOURCE:
+                    break
+            if len(candidates) >= cls.MAX_QUOTES_PER_SOURCE:
+                break
+        entry["quotes"] = [
+            {"quote_id": f"{source_id}-Q{index:02d}", "text": text}
+            for index, text in enumerate(candidates[: cls.MAX_QUOTES_PER_SOURCE], 1)
+            if text
+        ]
+        return entry
+
+    @staticmethod
+    def _page_url(url: str, page_number: Any) -> str:
+        if not url or not page_number:
+            return url
+        separator = "&" if "#" in url else "#"
+        return f"{url}{separator}page={page_number}"
 
     @staticmethod
     def _public_url(value: Any) -> str:

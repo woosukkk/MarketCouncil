@@ -96,7 +96,7 @@ class DebateWorkflow:
             bull_result=bull_result,
             bear_result=bear_result,
             sentiment_summary=sentiment_summary,
-            evidence_catalog=evidence_catalog,
+            evidence_catalog=EvidenceCatalog.for_prompt(evidence_catalog),
             regime_analysis=regime_analysis,
         )
         debate = EvidenceCatalog.resolve(debate, evidence_catalog)

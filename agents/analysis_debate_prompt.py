@@ -11,9 +11,9 @@ BULL_ANALYSIS_DEBATE_PROMPT = """
   제공된 자료에 사례나 수치가 없으면 `확인된 사례·수치 없음`이라고 작성한다.
 - 현재 의제와 중재자 질문을 우선한다.
 - Bear 주장을 왜곡하지 말고 target_claim에 짧게 인용하거나 충실하게 요약한다.
-- evidence에는 제공된 근거 카탈로그의 source_id만 사용한다.
-- exact_quote는 해당 source_id의 content에서 주장을 뒷받침하는 문장을 글자 그대로 복사한다.
-- exact_quote를 원문에서 찾을 수 없으면 그 근거를 사용하지 않는다.
+- evidence에는 제공된 근거 카탈로그의 source_id와 그 출처에 속한 quote_id만 사용한다.
+- 인용문을 직접 작성하거나 여러 quote를 합치지 않는다.
+- 적합한 quote_id가 없으면 그 근거를 사용하지 않는다.
 - reason에는 인용문이 주장을 뒷받침하는 이유를 작성한다.
 - warrant에는 인용 근거가 왜 claim으로 이어지는지 연결 논리를 작성한다.
 - qualifier에는 주장이 성립하는 조건과 한계를 작성한다.
@@ -39,9 +39,9 @@ BEAR_ANALYSIS_DEBATE_PROMPT = """
   제공된 자료에 사례나 수치가 없으면 `확인된 사례·수치 없음`이라고 작성한다.
 - 현재 의제와 중재자 질문을 우선한다.
 - Bull 주장을 왜곡하지 말고 target_claim에 짧게 인용하거나 충실하게 요약한다.
-- evidence에는 제공된 근거 카탈로그의 source_id만 사용한다.
-- exact_quote는 해당 source_id의 content에서 주장을 뒷받침하는 문장을 글자 그대로 복사한다.
-- exact_quote를 원문에서 찾을 수 없으면 그 근거를 사용하지 않는다.
+- evidence에는 제공된 근거 카탈로그의 source_id와 그 출처에 속한 quote_id만 사용한다.
+- 인용문을 직접 작성하거나 여러 quote를 합치지 않는다.
+- 적합한 quote_id가 없으면 그 근거를 사용하지 않는다.
 - reason에는 인용문이 주장을 뒷받침하는 이유를 작성한다.
 - warrant에는 인용 근거가 왜 claim으로 이어지는지 연결 논리를 작성한다.
 - qualifier에는 주장이 성립하는 조건과 한계를 작성한다.

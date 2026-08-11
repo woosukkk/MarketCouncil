@@ -276,9 +276,11 @@ class DebateTranscriptRenderer:
                 f"- 게시일: {self._safe(item.get('published_at', '') or '확인 불가')}",
                 f"- 문서 ID: {self._safe(item.get('document_id', '') or '없음')}",
                 f"- 청크: {self._safe(item.get('chunk_id', '') or '없음')}",
+                f"- PDF 페이지: {self._safe(item.get('page_number', '') or '확인 불가')}",
             ]
-            if source_url:
-                lines.append(f"- [외부 원문 열기]({source_url})")
+            source_page_url = str(item.get("source_page_url") or source_url)
+            if source_page_url:
+                lines.append(f"- [외부 원문 열기]({source_page_url})")
             else:
                 lines.append("- 외부 원문 링크: 확인 불가")
             if verified:

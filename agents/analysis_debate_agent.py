@@ -34,12 +34,12 @@ PARTICIPANT_SCHEMA = {
                             "type": "object",
                             "properties": {
                                 "source_id": {"type": "string"},
-                                "exact_quote": {"type": "string"},
+                                "quote_id": {"type": "string"},
                                 "reason": {"type": "string"},
                             },
                             "required": [
                                 "source_id",
-                                "exact_quote",
+                                "quote_id",
                                 "reason",
                             ],
                             "additionalProperties": False,

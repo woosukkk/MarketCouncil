@@ -17,7 +17,7 @@ class FakeReasonAgent:
                     "evidence": [
                         {
                             "source_id": bull_source["source_id"],
-                            "exact_quote": "수주가 증가했습니다.",
+                            "quote_id": bull_source["quotes"][0]["quote_id"],
                             "reason": "수주 증가를 확인한다.",
                         }
                     ],
@@ -31,7 +31,7 @@ class FakeReasonAgent:
                     "evidence": [
                         {
                             "source_id": bear_source["source_id"],
-                            "exact_quote": "전망을 낮췄습니다.",
+                            "quote_id": bear_source["quotes"][0]["quote_id"],
                             "reason": "전망 하향을 확인한다.",
                         }
                     ],
@@ -64,6 +64,7 @@ def test_regime_workflow_limits_evidence_to_each_period_and_resolves_quotes() ->
             "published_at": bull_date,
             "title": "상승 자료",
             "content": "첫 문장. 수주가 증가했습니다. 다음 문장.",
+            "quotes": [{"quote_id": "RAG-001-Q01", "text": "수주가 증가했습니다."}],
             "source_url": "https://example.com/bull",
         },
         {
@@ -71,6 +72,7 @@ def test_regime_workflow_limits_evidence_to_each_period_and_resolves_quotes() ->
             "published_at": bear_date,
             "title": "하락 자료",
             "content": "첫 문장. 전망을 낮췄습니다. 다음 문장.",
+            "quotes": [{"quote_id": "WEB-001-Q01", "text": "전망을 낮췄습니다."}],
             "source_url": "https://example.com/bear",
         },
     ]
@@ -96,7 +98,7 @@ def test_resolve_reasons_rejects_source_from_the_other_regime() -> None:
                 "evidence": [
                     {
                         "source_id": "WEB-001",
-                        "exact_quote": "하락 구간 자료",
+                        "quote_id": "WEB-001-Q01",
                         "reason": "잘못 연결됨",
                     }
                 ],
@@ -104,7 +106,13 @@ def test_resolve_reasons_rejects_source_from_the_other_regime() -> None:
         ],
         "recent_bear": [],
     }
-    catalog = [{"source_id": "WEB-001", "content": "하락 구간 자료"}]
+    catalog = [
+        {
+            "source_id": "WEB-001",
+            "content": "하락 구간 자료",
+            "quotes": [{"quote_id": "WEB-001-Q01", "text": "하락 구간 자료"}],
+        }
+    ]
 
     reasons = RegimeWorkflow._resolve_reasons(
         raw,

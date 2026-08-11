@@ -9,6 +9,7 @@ from rag.document_loader import (
     DOCUMENTS_DIR,
     SUPPORTED_DOCUMENT_SUFFIXES,
     load_document_text,
+    load_pdf_pages,
 )
 from rag.document_registry import APPROVED_DIR, DocumentRegistry
 from rag.text_splitter import split_text
@@ -102,8 +103,21 @@ def build_vector_store() -> None:
             skipped_documents += 1
             continue
 
-        text = load_document_text(file_path)
-        chunks = split_text(text)
+        if file_path.suffix.lower() == ".pdf":
+            page_chunks = [
+                (chunk, page_number)
+                for page_number, page_text in enumerate(
+                    load_pdf_pages(file_path),
+                    1,
+                )
+                for chunk in split_text(page_text)
+            ]
+        else:
+            page_chunks = [
+                (chunk, 0)
+                for chunk in split_text(load_document_text(file_path))
+            ]
+        chunks = [chunk for chunk, _ in page_chunks]
         if not chunks:
             continue
 
@@ -118,6 +132,7 @@ def build_vector_store() -> None:
                 "document_id": document_id,
                 "source": str(record.get("filename", file_path.name)),
                 "chunk_id": index,
+                "page_number": page_chunks[index][1],
                 "company": str(record.get("company", "")),
                 "ticker": str(record.get("ticker", "")),
                 "title": str(record.get("title", "")),

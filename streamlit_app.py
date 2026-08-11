@@ -104,6 +104,8 @@ def show_evidence(item: dict[str, Any]) -> None:
     st.caption("검증 완료" if item.get("verified") else "원문 검증 불가")
     if item.get("title"):
         st.write(item["title"])
+    if item.get("page_number"):
+        st.caption(f"PDF {item['page_number']}페이지")
     st.markdown("**정확 인용**")
     st.info(item.get("exact_quote") or "확인 불가")
     st.markdown("**인용 문단 전체**")
@@ -111,7 +113,7 @@ def show_evidence(item: dict[str, Any]) -> None:
     if item.get("reason"):
         st.markdown("**이 근거를 사용한 이유**")
         st.write(item["reason"])
-    source_url = str(item.get("source_url", ""))
+    source_url = str(item.get("source_page_url") or item.get("source_url", ""))
     if source_url:
         st.link_button(
             "외부 원문 열기",
