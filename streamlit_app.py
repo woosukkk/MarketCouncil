@@ -135,6 +135,55 @@ def show_regime_view(
 
     bull = analysis["regimes"]["past_bull"]
     bear = analysis["regimes"]["recent_bear"]
+
+    display_series = analysis.get("display_series", {})
+    series_options = {
+        "최근 60거래일 · 일별": display_series.get("recent_daily", []),
+        "최근 1년 · 월별": display_series.get("medium_monthly", []),
+        "과거 · 분기별": display_series.get("historical_quarterly", []),
+    }
+    available_options = {
+        label: rows for label, rows in series_options.items() if rows
+    }
+    if available_options:
+        st.subheader("3년 시계열 흐름")
+        selected_label = st.segmented_control(
+            "표시 구간",
+            list(available_options),
+            default=next(iter(available_options)),
+            key="regime_series_granularity",
+        )
+        selected_rows = available_options.get(selected_label, [])
+        series_frame = pd.DataFrame(selected_rows)
+        if not series_frame.empty:
+            st.line_chart(
+                series_frame,
+                x="period",
+                y="close",
+                x_label="기간",
+                y_label="종가",
+            )
+            display_columns = {
+                "period": "기간",
+                "start_date": "시작일",
+                "end_date": "종료일",
+                "open": "시가",
+                "high": "고가",
+                "low": "저가",
+                "close": "종가",
+                "return_pct": "수익률(%)",
+                "max_drawdown_pct": "최대 낙폭(%)",
+                "annualized_volatility_pct": "연환산 변동성(%)",
+                "average_volume": "평균 거래량",
+                "benchmark_return_pct": "시장 수익률(%)",
+                "excess_return_pct": "시장 대비(%)",
+            }
+            st.dataframe(
+                series_frame.rename(columns=display_columns)[list(display_columns.values())],
+                hide_index=True,
+                width="stretch",
+            )
+
     st.subheader("시장 국면 비교")
     st.caption(analysis.get("methodology", {}).get("description", ""))
     period_columns = st.columns(2)
@@ -152,10 +201,6 @@ def show_regime_view(
             border=True,
         )
         st.caption(f"{bear['start_date']} ~ {bear['end_date']}")
-
-    price_series = pd.DataFrame(analysis.get("price_series", []))
-    if not price_series.empty:
-        st.line_chart(price_series, x="date", y="close", x_label="날짜", y_label="종가")
 
     comparison_rows = [
         {

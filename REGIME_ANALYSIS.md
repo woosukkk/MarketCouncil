@@ -1,9 +1,22 @@
 # Shared market regime analysis
 
 `RegimeWorkflow` creates a versioned JSON artifact that is independent of a
-debate or Judge implementation. It contains the full price series, two
+debate or Judge implementation. It collects three years of daily OHLCV data
+and contains the full price series, two
 non-overlapping regimes, comparable metrics, up to two evidence-backed reasons
 per regime, event price reactions, and explicit limitations.
+
+The result keeps calculation data and display data separate:
+
+- `price_series`: the complete daily OHLCV series used for calculations.
+- `display_series.recent_daily`: the latest 60 trading days, shown daily.
+- `display_series.medium_monthly`: trading days 61 through 252, grouped monthly.
+- `display_series.historical_quarterly`: data older than 252 trading days,
+  grouped quarterly.
+
+The UI and Markdown output show this three-year series as its own section and
+show the selected bull/bear regime comparison below it. Display aggregation
+does not change regime detection or metric calculations.
 
 ## Reuse in another build
 
@@ -33,9 +46,9 @@ the same value to the Judge prompt and require it to:
 - treat missing or unverified source text as a limitation;
 - avoid turning temporal coincidence into proven causation.
 
-`build_regime_context()` intentionally excludes `price_series` to keep LLM
-input compact. The complete series remains in the saved JSON for tables,
-charts, audits, and later evaluation.
+`build_regime_context()` intentionally excludes `price_series` and
+`display_series` to keep LLM input compact. Both remain in the saved JSON for
+tables, charts, audits, and later evaluation.
 
 The workflow also fetches `^KS11` for KOSPI stocks, `^KQ11` for KOSDAQ
 stocks, and `^GSPC` otherwise. It records regime excess return and each event's

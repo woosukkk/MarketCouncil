@@ -330,7 +330,18 @@ class DebateTranscriptRenderer:
             return ""
         bull = regimes.get("past_bull", {})
         bear = regimes.get("recent_bear", {})
-        lines = [
+        lines = ["## 3년 시계열 흐름"]
+        display_series = analysis.get("display_series", {})
+        series_sections = (
+            ("최근 60거래일 · 일별", display_series.get("recent_daily", [])),
+            ("최근 1년 · 월별", display_series.get("medium_monthly", [])),
+            ("과거 · 분기별", display_series.get("historical_quarterly", [])),
+        )
+        for title, rows in series_sections:
+            if rows:
+                lines.extend(self._render_series_table(title, rows))
+        lines.extend([
+            "",
             "## 시장 국면 비교",
             "",
             self._safe(analysis.get("methodology", {}).get("description", "")),
@@ -341,7 +352,7 @@ class DebateTranscriptRenderer:
                 f"| 기간 | {self._cell(self._period(bull))} | "
                 f"{self._cell(self._period(bear))} |"
             ),
-        ]
+        ])
         for row in analysis.get("comparison", []):
             unit = str(row.get("unit", ""))
             lines.append(
@@ -408,6 +419,31 @@ class DebateTranscriptRenderer:
         if limitations:
             lines.extend(["", "### 분석 한계", "", *[f"- {self._safe(item)}" for item in limitations]])
         return "\n".join(lines)
+
+    def _render_series_table(
+        self,
+        title: str,
+        rows: list[dict[str, Any]],
+    ) -> list[str]:
+        lines = [
+            "",
+            f"### {title}",
+            "",
+            "| 기간 | 시가 | 고가 | 저가 | 종가 | 수익률 | 최대 낙폭 | 변동성 | 평균 거래량 | 시장 대비 |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+        for row in rows:
+            lines.append(
+                f"| {self._cell(row.get('period'))} | "
+                f"{self._cell(row.get('open'))} | {self._cell(row.get('high'))} | "
+                f"{self._cell(row.get('low'))} | {self._cell(row.get('close'))} | "
+                f"{self._cell(self._metric(row.get('return_pct'), '%'))} | "
+                f"{self._cell(self._metric(row.get('max_drawdown_pct'), '%'))} | "
+                f"{self._cell(self._metric(row.get('annualized_volatility_pct'), '%'))} | "
+                f"{self._cell(row.get('average_volume'))} | "
+                f"{self._cell(self._metric(row.get('excess_return_pct'), '%'))} |"
+            )
+        return lines
 
     def _regime_evidence_links(self, reason: dict[str, Any]) -> str:
         links = [

@@ -122,6 +122,24 @@ def test_render_appends_market_regime_after_debate_status() -> None:
         "stop_reason": "테스트 종료",
         "regime_analysis": {
             "methodology": {"description": "60거래일 기준 비교"},
+            "display_series": {
+                "recent_daily": [
+                    {
+                        "period": "2026-07-31",
+                        "open": 101,
+                        "high": 103,
+                        "low": 99,
+                        "close": 100,
+                        "return_pct": -1.0,
+                        "max_drawdown_pct": None,
+                        "annualized_volatility_pct": None,
+                        "average_volume": 1000,
+                        "excess_return_pct": -0.5,
+                    }
+                ],
+                "medium_monthly": [],
+                "historical_quarterly": [],
+            },
             "regimes": {
                 "past_bull": {
                     "start_date": "2025-01-01",
@@ -167,7 +185,10 @@ def test_render_appends_market_regime_after_debate_status() -> None:
 
     markdown = DebateTranscriptRenderer().render(debate)
 
-    assert markdown.index("## 토론 종료 상태") < markdown.index("## 시장 국면 비교")
+    assert markdown.index("## 토론 종료 상태") < markdown.index("## 3년 시계열 흐름")
+    assert markdown.index("## 3년 시계열 흐름") < markdown.index("## 시장 국면 비교")
+    assert "### 최근 60거래일 · 일별" in markdown
+    assert "| 2026-07-31 | 101 | 103 | 99 | 100 | -1.0% |" in markdown
     assert "| 누적수익률 | 20.0% | -10.0% |" in markdown
     assert "[RE-001](#regime-evidence-re-001)" in markdown
     assert "수요가 증가했습니다." in markdown

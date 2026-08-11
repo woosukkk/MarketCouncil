@@ -10,7 +10,7 @@ WINDOW_DAYS = 60
 RECENT_SEARCH_DAYS = 120
 
 
-def fetch_price_history(ticker: str, period: str = "2y") -> list[dict[str, Any]]:
+def fetch_price_history(ticker: str, period: str = "3y") -> list[dict[str, Any]]:
     try:
         history = yf.Ticker(ticker).history(
             period=period,
@@ -81,6 +81,7 @@ def detect_regimes(
         "benchmark_series": (
             _serializable_prices(benchmark_frame) if not benchmark_frame.empty else []
         ),
+        "display_series": _display_series(frame, benchmark_frame),
         "regimes": {"past_bull": bull, "recent_bear": recent},
         "comparison": _comparison(bull, recent),
         "reasons": {"past_bull": [], "recent_bear": []},
@@ -154,9 +155,13 @@ def _frame(prices: list[dict[str, Any]]) -> pd.DataFrame:
     required = {"date", "close", "volume"}
     if not required.issubset(frame.columns):
         raise ValueError(f"가격 데이터에 필수 열이 없습니다: {sorted(required)}")
-    frame = frame.loc[:, ["date", "close", "volume"]].copy()
+    for column in ("open", "high", "low"):
+        if column not in frame:
+            frame[column] = frame["close"]
+    frame = frame.loc[:, ["date", "open", "high", "low", "close", "volume"]].copy()
     frame["date"] = pd.to_datetime(frame["date"], errors="coerce").dt.strftime("%Y-%m-%d")
-    frame["close"] = pd.to_numeric(frame["close"], errors="coerce")
+    for column in ("open", "high", "low", "close"):
+        frame[column] = pd.to_numeric(frame[column], errors="coerce")
     frame["volume"] = pd.to_numeric(frame["volume"], errors="coerce")
     frame = frame.dropna(subset=["date", "close"]).sort_values("date").drop_duplicates("date")
     frame["volume"] = frame["volume"].fillna(0)
@@ -186,6 +191,9 @@ def _records(history: pd.DataFrame) -> list[dict[str, Any]]:
     return [
         {
             "date": index.strftime("%Y-%m-%d"),
+            "open": float(row.get("Open", row["Close"])),
+            "high": float(row.get("High", row["Close"])),
+            "low": float(row.get("Low", row["Close"])),
             "close": float(row["Close"]),
             "volume": float(row.get("Volume", 0) or 0),
         }
@@ -195,9 +203,126 @@ def _records(history: pd.DataFrame) -> list[dict[str, Any]]:
 
 def _serializable_prices(frame: pd.DataFrame) -> list[dict[str, Any]]:
     return [
-        {"date": row.date, "close": float(row.close), "volume": float(row.volume)}
+        {
+            "date": row.date,
+            "open": float(row.open),
+            "high": float(row.high),
+            "low": float(row.low),
+            "close": float(row.close),
+            "volume": float(row.volume),
+        }
         for row in frame.itertuples(index=False)
     ]
+
+
+def _display_series(
+    frame: pd.DataFrame,
+    benchmark: pd.DataFrame,
+) -> dict[str, list[dict[str, Any]]]:
+    recent_start = max(0, len(frame) - 60)
+    medium_start = max(0, len(frame) - 252)
+    daily_returns = frame["close"].pct_change().mul(100)
+    recent_daily = []
+    for index in range(recent_start, len(frame)):
+        row = frame.iloc[index]
+        benchmark_return = _daily_benchmark_return(benchmark, str(row["date"]))
+        stock_return = _round(daily_returns.iloc[index], 2)
+        recent_daily.append({
+            "period": str(row["date"]),
+            "start_date": str(row["date"]),
+            "end_date": str(row["date"]),
+            "open": _round(row["open"], 2),
+            "high": _round(row["high"], 2),
+            "low": _round(row["low"], 2),
+            "close": _round(row["close"], 2),
+            "return_pct": stock_return,
+            "max_drawdown_pct": None,
+            "annualized_volatility_pct": None,
+            "average_volume": _round(row["volume"], 0),
+            "benchmark_return_pct": benchmark_return,
+            "excess_return_pct": (
+                _round(stock_return - benchmark_return, 2)
+                if stock_return is not None and benchmark_return is not None
+                else None
+            ),
+        })
+    return {
+        "recent_daily": recent_daily,
+        "medium_monthly": _aggregate_periods(
+            frame.iloc[medium_start:recent_start],
+            benchmark,
+            "M",
+        ),
+        "historical_quarterly": _aggregate_periods(
+            frame.iloc[:medium_start],
+            benchmark,
+            "Q",
+        ),
+    }
+
+
+def _aggregate_periods(
+    frame: pd.DataFrame,
+    benchmark: pd.DataFrame,
+    frequency: str,
+) -> list[dict[str, Any]]:
+    if frame.empty:
+        return []
+    grouped = frame.copy()
+    grouped["period"] = pd.to_datetime(grouped["date"]).dt.to_period(frequency).astype(str)
+    rows = []
+    for period_name, period in grouped.groupby("period", sort=True):
+        close = period["close"]
+        returns = close.pct_change().dropna()
+        benchmark_return = _benchmark_period_return(
+            benchmark,
+            str(period.iloc[0]["date"]),
+            str(period.iloc[-1]["date"]),
+        )
+        stock_return = _round((close.iloc[-1] / close.iloc[0] - 1) * 100, 2)
+        rows.append({
+            "period": period_name.replace("Q", "-Q"),
+            "start_date": str(period.iloc[0]["date"]),
+            "end_date": str(period.iloc[-1]["date"]),
+            "open": _round(period.iloc[0]["open"], 2),
+            "high": _round(period["high"].max(), 2),
+            "low": _round(period["low"].min(), 2),
+            "close": _round(period.iloc[-1]["close"], 2),
+            "return_pct": stock_return,
+            "max_drawdown_pct": _round(close.div(close.cummax()).sub(1).min() * 100, 2),
+            "annualized_volatility_pct": _round(returns.std() * math.sqrt(252) * 100, 2),
+            "average_volume": _round(period["volume"].mean(), 0),
+            "benchmark_return_pct": benchmark_return,
+            "excess_return_pct": (
+                _round(stock_return - benchmark_return, 2)
+                if stock_return is not None and benchmark_return is not None
+                else None
+            ),
+        })
+    return rows
+
+
+def _benchmark_period_return(
+    benchmark: pd.DataFrame,
+    start_date: str,
+    end_date: str,
+) -> float | None:
+    if benchmark.empty:
+        return None
+    period = benchmark[benchmark["date"].between(start_date, end_date)]
+    if len(period) < 2:
+        return None
+    return _round((period.iloc[-1]["close"] / period.iloc[0]["close"] - 1) * 100, 2)
+
+
+def _daily_benchmark_return(benchmark: pd.DataFrame, target_date: str) -> float | None:
+    if benchmark.empty:
+        return None
+    matches = benchmark.index[benchmark["date"] == target_date].tolist()
+    if not matches or matches[0] == 0:
+        return None
+    index = matches[0]
+    return _round((benchmark.iloc[index]["close"] / benchmark.iloc[index - 1]["close"] - 1) * 100, 2)
 
 
 def _unavailable(
@@ -215,6 +340,11 @@ def _unavailable(
         "methodology": {"window_days": WINDOW_DAYS, "recent_search_days": RECENT_SEARCH_DAYS},
         "price_series": prices,
         "benchmark_series": [],
+        "display_series": {
+            "recent_daily": [],
+            "medium_monthly": [],
+            "historical_quarterly": [],
+        },
         "regimes": {},
         "comparison": [],
         "reasons": {"past_bull": [], "recent_bear": []},
