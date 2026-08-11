@@ -8,7 +8,6 @@ from agents.analysis_debate_prompt import (
     BEAR_ANALYSIS_DEBATE_PROMPT,
     BULL_ANALYSIS_DEBATE_PROMPT,
 )
-from agents.baseline_agent import BaselineAgent
 from agents.moderator_agent import ModeratorAgent
 from config import MODEL_NAME, OPENAI_API_KEY
 
@@ -54,7 +53,6 @@ class DebateState(TypedDict, total=False):
     rounds: list[dict[str, Any]]
     bull_response: dict[str, Any]
     bear_response: dict[str, Any]
-    evidence_review: dict[str, Any]
     moderator_review: dict[str, Any]
     stop_reason: str
     moderator_summary: dict[str, Any]
@@ -71,7 +69,6 @@ class AnalysisDebateAgent:
     ) -> None:
         self.client = client or OpenAI(api_key=OPENAI_API_KEY)
         self.moderator = ModeratorAgent(self.client)
-        self.baseline = BaselineAgent(self.client)
         self.max_rounds = min(max(max_rounds, self.MIN_ROUNDS), 3)
         self.graph = self._build_graph()
 
@@ -81,7 +78,6 @@ class AnalysisDebateAgent:
         financial_data: dict[str, Any],
         bull_result: str,
         bear_result: str,
-        baseline_result: str,
         sentiment_summary: dict[str, Any],
         video_summary: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -90,7 +86,6 @@ class AnalysisDebateAgent:
             financial_data=financial_data,
             bull_result=bull_result,
             bear_result=bear_result,
-            baseline_result=baseline_result,
             sentiment_summary=sentiment_summary,
             video_summary=video_summary,
         )
@@ -147,7 +142,6 @@ class AnalysisDebateAgent:
             "previous_rounds": state.get("rounds", []),
             "bull_response": state.get("bull_response", {}),
             "bear_response": state.get("bear_response", {}),
-            "baseline_evidence_review": state.get("evidence_review", {}),
             "original_evidence_and_analysis": state["debate_input"],
         })
         rounds = [
@@ -156,33 +150,17 @@ class AnalysisDebateAgent:
                 "round": round_number,
                 "bull_response": state.get("bull_response", {}),
                 "bear_response": state.get("bear_response", {}),
-                "evidence_review": state.get("evidence_review", {}),
                 "moderator_review": review,
             },
         ]
         print(f"[중재자 {round_number}라운드 검토 완료]")
         return {"rounds": rounds, "moderator_review": review}
 
-    def review_evidence(self, state: DebateState) -> DebateState:
-        round_number = state["current_round"]
-        print(f"\n[Baseline {round_number}라운드 증거 판별 시작]")
-        review = self.baseline.review_debate_evidence({
-            "round": round_number,
-            "agenda": state.get("agenda", []),
-            "previous_rounds": state.get("rounds", []),
-            "bull_response": state.get("bull_response", {}),
-            "bear_response": state.get("bear_response", {}),
-            "original_evidence_and_analysis": state["debate_input"],
-        })
-        print(f"[Baseline {round_number}라운드 증거 판별 완료]")
-        return {"evidence_review": review}
-
     def prepare_next_round(self, state: DebateState) -> DebateState:
         return {
             "current_round": state["current_round"] + 1,
             "bull_response": {},
             "bear_response": {},
-            "evidence_review": {},
         }
 
     def summarize(self, state: DebateState) -> DebateState:
@@ -292,7 +270,6 @@ class AnalysisDebateAgent:
         builder.add_node("create_agenda", self.create_agenda)
         builder.add_node("bull_turn", self.bull_turn)
         builder.add_node("bear_turn", self.bear_turn)
-        builder.add_node("review_evidence", self.review_evidence)
         builder.add_node("moderator_review", self.moderator_review)
         builder.add_node("next_round", self.prepare_next_round)
         builder.add_node("summary", self.summarize)
@@ -300,8 +277,7 @@ class AnalysisDebateAgent:
         builder.add_edge(START, "create_agenda")
         builder.add_edge("create_agenda", "bull_turn")
         builder.add_edge("bull_turn", "bear_turn")
-        builder.add_edge("bear_turn", "review_evidence")
-        builder.add_edge("review_evidence", "moderator_review")
+        builder.add_edge("bear_turn", "moderator_review")
         builder.add_conditional_edges(
             "moderator_review",
             self.route_after_review,
@@ -317,7 +293,6 @@ class AnalysisDebateAgent:
         financial_data: dict[str, Any],
         bull_result: str,
         bear_result: str,
-        baseline_result: str,
         sentiment_summary: dict[str, Any],
         video_summary: dict[str, Any] | None,
     ) -> str:
@@ -331,9 +306,6 @@ class AnalysisDebateAgent:
 
 [Bear 전체 분석]
 {bear_result}
-
-[Baseline 현재 상태 기준선]
-{baseline_result}
 
 [뉴스 민심 요약]
 {json.dumps(sentiment_summary, ensure_ascii=False, indent=2)}

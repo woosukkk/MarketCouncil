@@ -20,7 +20,6 @@ class HumanReadableReportAgent:
             "sentiment_result": analysis_data.get("sentiment_result", {}),
             "bull_result": analysis_data.get("bull_result", ""),
             "bear_result": analysis_data.get("bear_result", ""),
-            "baseline_result": analysis_data.get("baseline_result", ""),
             "analysis_debate": analysis_data.get("analysis_debate", {}),
             "debate_applied": analysis_data.get("debate_applied", False),
         }
@@ -93,7 +92,6 @@ class HumanReadableReportAgent:
             "Bull Agent",
             "Bear Agent",
             "Neutral Agent",
-            "Baseline Agent",
             "## 추가 확인 데이터",
             "## 추가 필요 증거",
         )

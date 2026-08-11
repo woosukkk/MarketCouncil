@@ -3,7 +3,6 @@ import json
 from openai import OpenAI
 
 from agents.bear_agent import BearAgent
-from agents.baseline_agent import BaselineAgent
 from agents.bull_agent import BullAgent
 from agents.analysis_debate_agent import AnalysisDebateAgent
 from agents.judge_prompt import JUDGE_SYSTEM_PROMPT
@@ -19,7 +18,6 @@ class JudgeAgent:
         self.workflow = ComparisonWorkflow()
         self.bull_agent = BullAgent()
         self.bear_agent = BearAgent()
-        self.baseline_agent = BaselineAgent()
         self.sentiment_agent = SentimentAgent()
         self.analysis_debate_agent = AnalysisDebateAgent()
 
@@ -66,17 +64,6 @@ class JudgeAgent:
 
         print("[Bear Agent 분석 완료]")
 
-        print("\n[Baseline Agent 분석 시작]")
-
-        baseline_result = self.baseline_agent.analyze_with_context(
-            company_name=company_name,
-            financial_data=financial_data,
-            report_context=context["shared_report_context"],
-            web_context=context["shared_web_context"],
-        )
-
-        print("[Baseline Agent 분석 완료]")
-
         print("\n[민심 Agent 분석 시작]")
 
         sentiment_result = self.sentiment_agent.analyze(
@@ -106,7 +93,6 @@ class JudgeAgent:
                 financial_data=financial_data,
                 bull_result=bull_result,
                 bear_result=bear_result,
-                baseline_result=baseline_result,
                 sentiment_summary=sentiment_summary,
                 video_summary=video_summary,
             )
@@ -139,10 +125,6 @@ Bull 분석과 Bear 분석이다.
 
 {bear_result}
 
-[Baseline 현재 상태 기준선]
-
-{baseline_result}
-
 [뉴스 민심 분석]
 
 {json.dumps(sentiment_summary, ensure_ascii=False, indent=2)}
@@ -170,7 +152,6 @@ Bull 분석과 Bear 분석이다.
 - 토론 결과는 보조 검증 자료이며 원본 금융 데이터나 공시와 충돌하면 영향도를 낮춘다.
 - 토론의 합의나 미해결 쟁점을 새로운 사실로 간주하지 않는다.
 - Bull Score와 Bear Score의 합은 100으로 작성한다.
-- Baseline은 독립 방향 점수가 아니라 Bull과 Bear를 비교하는 사실 기준선으로 사용한다.
 """
 
         response = self.client.responses.create(
@@ -186,7 +167,6 @@ Bull 분석과 Bear 분석이다.
             "financial_data": financial_data,
             "bull_result": bull_result,
             "bear_result": bear_result,
-            "baseline_result": baseline_result,
             "sentiment_result": sentiment_result,
             "video_debate": video_debate,
             "analysis_debate": analysis_debate,
@@ -219,7 +199,6 @@ Bull 분석과 Bear 분석이다.
     def _build_debate_summary(debate: dict) -> dict:
         rounds = debate.get("rounds", [])
         concessions = []
-        evidence_reviews = []
         for round_data in rounds:
             bull_issues = round_data.get("bull_response", {}).get("issues", [])
             bear_issues = round_data.get("bear_response", {}).get("issues", [])
@@ -236,17 +215,6 @@ Bull 분석과 Bear 분석이다.
                     if issue.get("concession")
                 ],
             })
-            evidence_reviews.append({
-                "round": round_data.get("round"),
-                "claim_reviews": round_data.get(
-                    "evidence_review",
-                    {},
-                ).get("claim_reviews", []),
-                "summary": round_data.get(
-                    "evidence_review",
-                    {},
-                ).get("summary", ""),
-            })
         summary = debate.get("moderator_summary", {}) or {}
         return {
             "created_at": debate.get("created_at", ""),
@@ -257,7 +225,6 @@ Bull 분석과 Bear 분석이다.
             "required_evidence": summary.get("required_evidence", []),
             "moderator_summary": summary.get("summary", ""),
             "concessions": concessions,
-            "evidence_reviews": evidence_reviews,
             "stop_reason": debate.get("stop_reason", ""),
         }
 
