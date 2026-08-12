@@ -8,7 +8,9 @@ from agents.sentiment_agent import SentimentAgent
 from app.comparison_workflow import ComparisonWorkflow
 from app.regime_workflow import RegimeWorkflow
 from tools.evidence_catalog import EvidenceCatalog
+from tools.historical_evidence_collector import HistoricalEvidenceCollector
 from tools.regime_context import build_regime_context
+from config import DART_API_KEY, SEARXNG_URL
 
 
 class DebateWorkflow:
@@ -20,6 +22,10 @@ class DebateWorkflow:
         self.debate_agent = AnalysisDebateAgent()
         self.navigator_agent = DebateNavigatorAgent()
         self.regime_workflow = RegimeWorkflow()
+        self.historical_collector = HistoricalEvidenceCollector(
+            SEARXNG_URL,
+            DART_API_KEY,
+        )
 
     def run(self, company_name: str) -> dict[str, Any]:
         print("\n[공통 근거 수집 시작]")
@@ -40,6 +46,21 @@ class DebateWorkflow:
                 [],
             ),
         )
+        try:
+            historical_documents = self.historical_collector.collect(
+                company_name,
+                str(financial_data.get("ticker", "")),
+            )
+            existing_urls = {
+                str(item.get("source_url", "")) for item in evidence_catalog
+                if item.get("source_url")
+            }
+            evidence_catalog.extend(
+                item for item in EvidenceCatalog.from_web_documents(historical_documents)
+                if item.get("source_url") not in existing_urls
+            )
+        except RuntimeError as error:
+            print(f"[WARN] 3년 역사 근거 수집 실패: {error}")
         try:
             regime_analysis = self.regime_workflow.run(
                 company_name,

@@ -339,7 +339,49 @@ class DebateTranscriptRenderer:
         )
         for title, rows in series_sections:
             if rows:
-                lines.extend(self._render_series_table(title, rows))
+                lines.extend(self._render_series_table(
+                    title,
+                    rows,
+                    analysis.get("timeline_evidence", {}).get(
+                        {
+                            "최근 60거래일 · 일별": "recent_daily",
+                            "최근 1년 · 월별": "medium_monthly",
+                            "과거 · 분기별": "historical_quarterly",
+                        }[title],
+                        {},
+                    ),
+                ))
+        timeline_items: dict[str, dict[str, Any]] = {}
+        for periods in analysis.get("timeline_evidence", {}).values():
+            for items in periods.values():
+                for item in items:
+                    evidence_id = str(item.get("evidence_id", ""))
+                    if evidence_id:
+                        timeline_items.setdefault(evidence_id, item)
+        if timeline_items:
+            lines.extend(["", "### 시계열 기간 근거 원문"])
+            for evidence_id, item in timeline_items.items():
+                source_url = str(item.get("source_page_url") or item.get("source_url", ""))
+                lines.extend([
+                    "",
+                    f'<a id="timeline-evidence-{evidence_id.lower()}"></a>',
+                    f"#### {self._safe(evidence_id)} · {self._safe(item.get('title', '출처 확인 불가'))}",
+                    f"- 게시일: {self._safe(item.get('published_at', '') or '확인 불가')}",
+                    f"- 1일 가격 반응: {self._safe(self._metric(item.get('price_reaction_1d_pct'), '%'))}",
+                    f"- 5일 가격 반응: {self._safe(self._metric(item.get('price_reaction_5d_pct'), '%'))}",
+                ])
+                if source_url:
+                    lines.append(f"- [외부 원문 열기]({source_url})")
+                lines.extend([
+                    "",
+                    "**정확 인용**",
+                    "",
+                    self._blockquote(str(item.get("exact_quote", "확인 불가"))),
+                    "",
+                    "**인용 문단 전체**",
+                    "",
+                    self._blockquote(str(item.get("context_text", "확인 불가"))),
+                ])
         lines.extend([
             "",
             "## 시장 국면 비교",
@@ -424,13 +466,14 @@ class DebateTranscriptRenderer:
         self,
         title: str,
         rows: list[dict[str, Any]],
+        timeline: dict[str, list[dict[str, Any]]],
     ) -> list[str]:
         lines = [
             "",
             f"### {title}",
             "",
-            "| 기간 | 시가 | 고가 | 저가 | 종가 | 수익률 | 최대 낙폭 | 변동성 | 평균 거래량 | 시장 대비 |",
-            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            "| 기간 | 시가 | 고가 | 저가 | 종가 | 수익률 | 최대 낙폭 | 변동성 | 평균 거래량 | 시장 대비 | 기간 근거 |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
         ]
         for row in rows:
             lines.append(
@@ -441,9 +484,19 @@ class DebateTranscriptRenderer:
                 f"{self._cell(self._metric(row.get('max_drawdown_pct'), '%'))} | "
                 f"{self._cell(self._metric(row.get('annualized_volatility_pct'), '%'))} | "
                 f"{self._cell(row.get('average_volume'))} | "
-                f"{self._cell(self._metric(row.get('excess_return_pct'), '%'))} |"
+                f"{self._cell(self._metric(row.get('excess_return_pct'), '%'))} | "
+                f"{self._timeline_evidence_links(timeline.get(str(row.get('period', '')), []))} |"
             )
         return lines
+
+    def _timeline_evidence_links(self, items: list[dict[str, Any]]) -> str:
+        links = [
+            f"[{self._safe(item.get('evidence_id'))}]"
+            f"(#timeline-evidence-{str(item.get('evidence_id', '')).lower()})"
+            for item in items
+            if item.get("evidence_id")
+        ]
+        return "<br>".join(links) or "확인된 주요 사건 없음"
 
     def _regime_evidence_links(self, reason: dict[str, Any]) -> str:
         links = [

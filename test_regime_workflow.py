@@ -123,3 +123,40 @@ def test_resolve_reasons_rejects_source_from_the_other_regime() -> None:
     )
 
     assert reasons["past_bull"][0]["verified"] is False
+
+
+def test_timeline_evidence_is_attached_to_matching_display_period() -> None:
+    catalog = [
+        {
+            "source_id": "HIST-001",
+            "published_at": "2024-02-15",
+            "title": "분기 실적",
+            "content": "매출이 전년 대비 증가했습니다.",
+            "quotes": [
+                {"quote_id": "HIST-001-Q01", "text": "매출이 전년 대비 증가했습니다."}
+            ],
+            "source_url": "https://example.com/history",
+        }
+    ]
+    timeline = RegimeWorkflow._timeline_evidence(
+        {
+            "historical_quarterly": [
+                {
+                    "period": "2024-Q1",
+                    "start_date": "2024-01-02",
+                    "end_date": "2024-03-29",
+                }
+            ]
+        },
+        catalog,
+        [
+            {"date": "2024-02-15", "close": 100},
+            {"date": "2024-02-16", "close": 102},
+        ],
+        [],
+    )
+
+    evidence = timeline["historical_quarterly"]["2024-Q1"][0]
+    assert evidence["evidence_id"] == "TE-HIST-001"
+    assert evidence["verified"] is True
+    assert evidence["price_reaction_1d_pct"] == 2.0

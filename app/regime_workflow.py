@@ -39,6 +39,12 @@ class RegimeWorkflow:
             benchmark_prices=benchmark_prices,
             benchmark_ticker=benchmark_ticker,
         )
+        analysis["timeline_evidence"] = self._timeline_evidence(
+            analysis.get("display_series", {}),
+            evidence_catalog,
+            analysis.get("price_series", []),
+            analysis.get("benchmark_series", []),
+        )
         if benchmark_error:
             analysis["limitations"].append(
                 f"벤치마크 비교를 수행하지 못했습니다: {benchmark_error}"
@@ -72,6 +78,50 @@ class RegimeWorkflow:
             },
         )
         return analysis
+
+    @staticmethod
+    def _timeline_evidence(
+        display_series: dict[str, list[dict[str, Any]]],
+        catalog: list[dict[str, Any]],
+        prices: list[dict[str, Any]],
+        benchmark_prices: list[dict[str, Any]],
+    ) -> dict[str, dict[str, list[dict[str, Any]]]]:
+        limits = {"recent_daily": 2, "medium_monthly": 3, "historical_quarterly": 5}
+        timeline: dict[str, dict[str, list[dict[str, Any]]]] = {}
+        for group, rows in display_series.items():
+            timeline[group] = {}
+            for row in rows:
+                period = str(row.get("period", ""))
+                matched = []
+                for source in catalog:
+                    published = RegimeWorkflow._date(source.get("published_at"))
+                    if published is None or not (
+                        str(row.get("start_date", ""))
+                        <= published.isoformat()
+                        <= str(row.get("end_date", ""))
+                    ):
+                        continue
+                    quote = next(iter(source.get("quotes", [])), {})
+                    if not quote:
+                        continue
+                    source_id = str(source.get("source_id", ""))
+                    evidence = EvidenceCatalog.resolve_quote(
+                        {
+                            "source_id": source_id,
+                            "quote_id": quote.get("quote_id", ""),
+                            "reason": "해당 기간에 게시된 자료",
+                        },
+                        catalog,
+                        f"TE-{source_id}",
+                    )
+                    evidence.update(RegimeWorkflow._price_reaction(
+                        evidence,
+                        prices,
+                        benchmark_prices,
+                    ))
+                    matched.append(evidence)
+                timeline[group][period] = matched[: limits.get(group, 3)]
+        return timeline
 
     @staticmethod
     def _candidates(

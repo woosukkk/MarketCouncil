@@ -13,6 +13,15 @@ The result keeps calculation data and display data separate:
 - `display_series.medium_monthly`: trading days 61 through 252, grouped monthly.
 - `display_series.historical_quarterly`: data older than 252 trading days,
   grouped quarterly.
+- `timeline_evidence`: verified, dated disclosures and web sources grouped into
+  the same daily, monthly, and quarterly rows. Each row keeps only a small
+  number of sources and links to its quote, context, and original page.
+
+Historical evidence collection is separate from the latest-debate collector.
+It uses three years of OpenDART filings as the official baseline for Korean
+stocks and supplements them only with web documents whose publication dates
+can be verified. Missing periods remain explicitly unsupported rather than
+receiving an inferred cause.
 
 The UI and Markdown output show this three-year series as its own section and
 show the selected bull/bear regime comparison below it. Display aggregation

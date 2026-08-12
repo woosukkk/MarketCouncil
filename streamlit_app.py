@@ -157,6 +157,22 @@ def show_regime_view(
         selected_rows = available_options.get(selected_label, [])
         series_frame = pd.DataFrame(selected_rows)
         if not series_frame.empty:
+            group_key = next(
+                key for key, label in (
+                    ("recent_daily", "최근 60거래일 · 일별"),
+                    ("medium_monthly", "최근 1년 · 월별"),
+                    ("historical_quarterly", "과거 · 분기별"),
+                )
+                if label == selected_label
+            )
+            period_evidence = analysis.get("timeline_evidence", {}).get(group_key, {})
+            series_frame["evidence_ids"] = series_frame["period"].map(
+                lambda period: ", ".join(
+                    str(item.get("evidence_id", ""))
+                    for item in period_evidence.get(str(period), [])
+                    if item.get("evidence_id")
+                ) or "확인된 주요 사건 없음"
+            )
             series_frame["date"] = pd.to_datetime(series_frame["end_date"])
             selected_return = (
                 series_frame.iloc[-1]["close"] / series_frame.iloc[0]["open"] - 1
@@ -207,6 +223,7 @@ def show_regime_view(
                 "average_volume": "평균 거래량",
                 "benchmark_return_pct": "시장 수익률(%)",
                 "excess_return_pct": "시장 대비(%)",
+                "evidence_ids": "기간 근거",
             }
             with st.expander("시계열 상세 데이터", icon=":material/table_chart:"):
                 st.dataframe(
@@ -224,6 +241,25 @@ def show_regime_view(
                     hide_index=True,
                     width="stretch",
                 )
+            evidenced_periods = [
+                str(period) for period in series_frame["period"]
+                if period_evidence.get(str(period))
+            ]
+            if evidenced_periods:
+                st.markdown("**표의 기간별 근거 원문**")
+                for period in evidenced_periods:
+                    items = period_evidence[period]
+                    with st.expander(
+                        f"{period} · 근거 {len(items)}개",
+                        icon=":material/event_note:",
+                    ):
+                        for item in items:
+                            st.markdown(
+                                f"**{item.get('published_at', '날짜 확인 불가')} · "
+                                f"{item.get('evidence_id', '')} · "
+                                f"{item.get('title', '제목 확인 불가')}**"
+                            )
+                            show_evidence(item)
 
     st.subheader("시장 국면 비교")
     st.caption(analysis.get("methodology", {}).get("description", ""))

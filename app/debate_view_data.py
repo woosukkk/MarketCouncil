@@ -66,6 +66,12 @@ def collect_evidence(debate: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 evidence_id = str(item.get("evidence_id", "")).strip()
                 if evidence_id:
                     evidence.setdefault(evidence_id, item)
+    for periods in debate.get("regime_analysis", {}).get("timeline_evidence", {}).values():
+        for items in periods.values():
+            for item in items:
+                evidence_id = str(item.get("evidence_id", "")).strip()
+                if evidence_id:
+                    evidence.setdefault(evidence_id, item)
     return evidence
 
 

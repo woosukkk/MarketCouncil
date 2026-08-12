@@ -65,6 +65,27 @@ class EvidenceCatalog:
             entries.append(cls._with_quotes(entry))
         return entries
 
+    @classmethod
+    def from_web_documents(
+        cls,
+        documents: list[dict[str, Any]],
+        prefix: str = "HIST",
+    ) -> list[dict[str, Any]]:
+        return [
+            cls._with_quotes({
+                "source_id": f"{prefix}-{index:03d}",
+                "source_type": str(document.get("search_focus", "web")),
+                "title": str(document.get("title", "역사 자료")),
+                "source_url": cls._public_url(document.get("url", "")),
+                "published_at": str(document.get("published_date", "")),
+                "document_id": "",
+                "chunk_id": "",
+                "page_number": None,
+                "content": str(document.get("content", "")),
+            })
+            for index, document in enumerate(documents, 1)
+        ]
+
     @staticmethod
     def for_prompt(catalog: list[dict[str, Any]]) -> list[dict[str, Any]]:
         fields = (
