@@ -189,6 +189,8 @@ class AnalysisDebateAgent:
         review = state.get("moderator_review", {})
         if state["current_round"] >= state["max_rounds"]:
             stop_reason = f"최대 {state['max_rounds']}라운드에 도달했습니다."
+        elif safety_reason := self._continuation_block_reason(state):
+            stop_reason = safety_reason
         else:
             stop_reason = str(review.get("reason", "중재자가 토론 종료를 결정했습니다."))
         print("\n[중재자 토론 최종 정리 시작]")
@@ -209,9 +211,70 @@ class AnalysisDebateAgent:
             return "next_round"
         if state["current_round"] >= state["max_rounds"]:
             return "summary"
-        if state.get("moderator_review", {}).get("continue_debate", False):
-            return "next_round"
-        return "summary"
+        if not state.get("moderator_review", {}).get(
+            "continue_debate",
+            False,
+        ):
+            return "summary"
+        return (
+            "summary"
+            if self._continuation_block_reason(state)
+            else "next_round"
+        )
+
+    @classmethod
+    def _continuation_block_reason(
+        cls,
+        state: DebateState,
+    ) -> str | None:
+        issue_reviews = state.get("moderator_review", {}).get(
+            "issue_reviews",
+            [],
+        )
+        if not any(
+            issue.get("status") in {"OPEN", "CONTESTED"}
+            for issue in issue_reviews
+        ):
+            return "계속 검토할 OPEN 또는 CONTESTED 쟁점이 없습니다."
+        if not cls._has_new_information(state):
+            return (
+                "직전 라운드 대비 새로운 주장, 근거 또는 "
+                "인정 사항이 없습니다."
+            )
+        return None
+
+    @classmethod
+    def _has_new_information(cls, state: DebateState) -> bool:
+        rounds = state.get("rounds", [])
+        if len(rounds) < 2:
+            return True
+
+        previous = rounds[-2]
+        current_items = cls._debate_items(
+            state.get("bull_response", {}),
+            state.get("bear_response", {}),
+        )
+        previous_items = cls._debate_items(
+            previous.get("bull_response", {}),
+            previous.get("bear_response", {}),
+        )
+        return bool(current_items - previous_items)
+
+    @staticmethod
+    def _debate_items(*responses: dict[str, Any]) -> set[tuple[str, str, str]]:
+        items: set[tuple[str, str, str]] = set()
+        for response in responses:
+            for issue in response.get("issues", []):
+                issue_id = str(issue.get("issue_id", ""))
+                for field in ("claim", "concession"):
+                    value = " ".join(str(issue.get(field, "")).split())
+                    if value:
+                        items.add((issue_id, field, value))
+                for evidence in issue.get("evidence", []):
+                    value = " ".join(str(evidence).split())
+                    if value:
+                        items.add((issue_id, "evidence", value))
+        return items
 
     def _participant_response(
         self,

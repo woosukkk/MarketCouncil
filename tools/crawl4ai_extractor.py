@@ -92,6 +92,24 @@ class Crawl4AIExtractor:
                 "extraction_method": "crawl4ai",
             }, None)
         except Exception as error:
+            crawl_error = str(error)
+            try:
+                content = await asyncio.to_thread(
+                    self._read_with_agent_reach,
+                    url,
+                )
+                if content:
+                    return ({
+                        **candidate,
+                        "content": content[: self.MAX_CONTENT_CHARS],
+                        "extraction_method": "agent_reach_jina",
+                    }, None)
+            except Exception as fallback_error:
+                crawl_error = (
+                    f"Crawl4AI: {crawl_error}; "
+                    f"Agent Reach: {fallback_error}"
+                )
+
             snippet = str(candidate.get("snippet", ""))
             fallback = None
             if snippet:
@@ -100,7 +118,18 @@ class Crawl4AIExtractor:
                     "content": snippet,
                     "extraction_method": "search_snippet_fallback",
                 }
-            return fallback, {"url": url, "reason": str(error)}
+            return fallback, {"url": url, "reason": crawl_error}
+
+    @staticmethod
+    def _read_with_agent_reach(url: str) -> str:
+        try:
+            from agent_reach.channels.web import WebChannel
+        except ImportError as error:
+            raise RuntimeError(
+                "Agent Reach is not installed. Install requirements.txt."
+            ) from error
+
+        return WebChannel().read(url).strip()
 
     @staticmethod
     def _markdown_text(markdown: Any) -> str:

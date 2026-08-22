@@ -14,7 +14,7 @@ class ReportRetriever:
             path=DB_PATH
             )
 
-        self.collection = self.client.get_collection(
+        self.collection = self.client.get_or_create_collection(
             name=COLLECTION_NAME
             )
 

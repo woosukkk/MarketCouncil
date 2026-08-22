@@ -3,7 +3,6 @@ import math
 from datetime import datetime
 
 import pandas as pd
-\
 
 
 TICKER_MAP = {
@@ -47,6 +46,105 @@ def format_percent(value) -> str:
         return "데이터 없음"
 
     return f"{value:.1f}%"
+
+
+def _number(value) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _statement_value(
+    statement: pd.DataFrame,
+    names: tuple[str, ...],
+    column: object,
+) -> float | None:
+    if statement.empty or column not in statement.columns:
+        return None
+    for name in names:
+        if name in statement.index:
+            return _number(statement.loc[name, column])
+    return None
+
+
+def _get_market_cap(company: yf.Ticker) -> float | None:
+    try:
+        return _number(company.fast_info["market_cap"])
+    except Exception as error:
+        print(f"[시가총액 조회 실패] {error}")
+        return None
+
+
+def _build_annual_history(
+    financials: pd.DataFrame,
+    cash_flow: pd.DataFrame,
+    balance_sheet: pd.DataFrame,
+) -> list[dict]:
+    history: list[dict] = []
+    if financials.empty:
+        return history
+
+    for column in financials.columns[:5]:
+        revenue = _statement_value(
+            financials,
+            ("Total Revenue",),
+            column,
+        )
+        operating_income = _statement_value(
+            financials,
+            ("Operating Income",),
+            column,
+        )
+        operating_margin = (
+            operating_income / revenue
+            if operating_income is not None and revenue not in (None, 0)
+            else None
+        )
+        history.append({
+            "period": str(column)[:10],
+            "revenue": revenue,
+            "operating_income": operating_income,
+            "operating_margin": operating_margin,
+            "net_income": _statement_value(
+                financials,
+                ("Net Income", "Net Income Common Stockholders"),
+                column,
+            ),
+            "operating_cash_flow": _statement_value(
+                cash_flow,
+                ("Operating Cash Flow", "Total Cash From Operating Activities"),
+                column,
+            ),
+            "capital_expenditure": _statement_value(
+                cash_flow,
+                ("Capital Expenditure", "Capital Expenditures"),
+                column,
+            ),
+            "free_cash_flow": _statement_value(
+                cash_flow,
+                ("Free Cash Flow",),
+                column,
+            ),
+            "total_debt": _statement_value(
+                balance_sheet,
+                ("Total Debt",),
+                column,
+            ),
+            "stockholders_equity": _statement_value(
+                balance_sheet,
+                ("Stockholders Equity", "Total Stockholder Equity"),
+                column,
+            ),
+            "shares_outstanding": _statement_value(
+                balance_sheet,
+                ("Ordinary Shares Number", "Share Issued"),
+                column,
+            ),
+        })
+
+    return history
     
 def get_latest_price(
     ticker: yf.Ticker,
@@ -107,7 +205,21 @@ def get_financial_data(company_name: str) -> dict:
     current_price, price_date = get_latest_price(company)
 
 
-    financials = company.financials
+    try:
+        financials = company.financials
+        cash_flow = company.cashflow
+        balance_sheet = company.balance_sheet
+    except Exception as error:
+        raise RuntimeError(
+            f"{company_name} 재무제표 조회에 실패했습니다: {error}"
+        ) from error
+
+    annual_history = _build_annual_history(
+        financials,
+        cash_flow,
+        balance_sheet,
+    )
+    market_cap = _get_market_cap(company)
 
     current_revenue = None
     previous_revenue = None
@@ -154,6 +266,15 @@ def get_financial_data(company_name: str) -> dict:
         previous_revenue,
     )
 
+    financial_facts = {
+        "classification": "verified_fact",
+        "ticker": ticker_symbol,
+        "current_price": current_price,
+        "price_date": price_date,
+        "market_cap": market_cap,
+        "annual_history": annual_history,
+    }
+
     return {
         "ticker": ticker_symbol,
         "current_price": format_number(current_price),
@@ -179,8 +300,7 @@ def get_financial_data(company_name: str) -> dict:
         "previous_operating_margin": format_percent(
             previous_operating_margin
         ),
-
-        
+        "financial_facts": financial_facts,
     }
 if __name__ == "__main__":
     print("[테스트 시작]")
