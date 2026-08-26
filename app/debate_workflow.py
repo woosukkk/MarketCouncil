@@ -5,11 +5,13 @@ from agents.bear_agent import BearAgent
 from agents.bull_agent import BullAgent
 from agents.debate_navigator_agent import DebateNavigatorAgent
 from agents.sentiment_agent import SentimentAgent
+from agents.video_debate_agent import VideoDebateAgent
 from app.comparison_workflow import ComparisonWorkflow
 from app.regime_workflow import RegimeWorkflow
 from tools.evidence_catalog import EvidenceCatalog
 from tools.historical_evidence_collector import HistoricalEvidenceCollector
 from tools.regime_context import build_regime_context
+from tools.youtube_channel_shorts import YouTubeChannelShorts
 from config import DART_API_KEY, SEARXNG_URL
 
 
@@ -19,6 +21,7 @@ class DebateWorkflow:
         self.bull_agent = BullAgent()
         self.bear_agent = BearAgent()
         self.sentiment_agent = SentimentAgent()
+        self.video_agent = VideoDebateAgent()
         self.debate_agent = AnalysisDebateAgent()
         self.navigator_agent = DebateNavigatorAgent()
         self.regime_workflow = RegimeWorkflow()
@@ -111,6 +114,18 @@ class DebateWorkflow:
             for key, value in sentiment_result.items()
             if key != "source_documents"
         }
+        try:
+            short_topics = self.video_agent.run_latest_short_topics(company_name)
+        except RuntimeError as error:
+            print(f"[WARN] 김단테 Shorts 주제 추출 실패: {error}")
+            short_topics = {
+                "channel_url": YouTubeChannelShorts.CHANNEL_URL,
+                "requested_count": 3,
+                "videos": [],
+                "skipped": [],
+                "topics": [],
+                "error": str(error),
+            }
         debate = self.debate_agent.run(
             company_name=company_name,
             financial_data=financial_data,
@@ -119,6 +134,7 @@ class DebateWorkflow:
             sentiment_summary=sentiment_summary,
             evidence_catalog=EvidenceCatalog.for_prompt(evidence_catalog),
             regime_analysis=regime_analysis,
+            video_summary=short_topics,
         )
         debate = EvidenceCatalog.resolve(debate, evidence_catalog)
         try:
@@ -135,6 +151,7 @@ class DebateWorkflow:
             "sentiment_result": sentiment_result,
             "evidence_catalog": evidence_catalog,
             "regime_analysis": regime_analysis,
+            "shorts_topics": short_topics,
             "evidence": {
                 "bull_chunks": context.get("bull_chunks", []),
                 "bear_chunks": context.get("bear_chunks", []),

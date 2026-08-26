@@ -1,3 +1,4 @@
+import json
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -6,6 +7,7 @@ from rag.retriever import ReportRetriever
 from tools.bull_tools import BullTools
 from tools.bear_tools import BearTools
 from tools.evidence_resolver import EvidenceResolver
+from tools.quality_valuation import calculate_quality_metrics
 from tools.source_collector import SourceCollector
 
 
@@ -75,6 +77,18 @@ class ComparisonWorkflow:
             "bull_chunks": bull_chunks,
         }
 
+    def calculate_quality_and_valuation(
+        self,
+        state: ComparisonState,
+    ) -> ComparisonState:
+        print("[1.1] 공통 품질·가치 지표 계산 시작")
+        financial_data = dict(state["financial_data"])
+        financial_data["derived_metrics"] = calculate_quality_metrics(
+            financial_data.get("financial_facts", {})
+        )
+        print("[1.1] 공통 품질·가치 지표 계산 완료")
+        return {"financial_data": financial_data}
+
     def retrieve_regulatory_filings(
         self,
         state: ComparisonState,
@@ -130,12 +144,20 @@ class ComparisonWorkflow:
                 + state.get("bear_chunks", [])
             )
         )
+        derived_metrics = json.dumps(
+            state.get("financial_data", {}).get("derived_metrics", {}),
+            ensure_ascii=False,
+            indent=2,
+            default=str,
+        )
 
         return {
             "bull_report_context": bull_report_context,
             "bear_report_context": bear_report_context,
             "filing_context": filing_context,
             "shared_report_context": (
+                "[공통 품질·가치 파생지표]\n\n"
+                f"{derived_metrics}\n\n"
                 "[공식 공시 근거]\n\n"
                 f"{filing_context}\n\n"
                 "[일반 리포트 근거]\n\n"
@@ -272,6 +294,10 @@ URL: {article.get("url", "")}"""
             self.collect_financial_data,
         )
         builder.add_node(
+            "calculate_quality_and_valuation",
+            self.calculate_quality_and_valuation,
+        )
+        builder.add_node(
             "retrieve_regulatory_filings",
             self.retrieve_regulatory_filings,
         )
@@ -306,6 +332,10 @@ URL: {article.get("url", "")}"""
         )
         builder.add_edge(
             "collect_financial_data",
+            "calculate_quality_and_valuation",
+        )
+        builder.add_edge(
+            "calculate_quality_and_valuation",
             "retrieve_regulatory_filings",
         )
         builder.add_edge(
