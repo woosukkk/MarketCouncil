@@ -1,0 +1,162 @@
+from typing import Any
+
+from agents.analysis_debate_agent import AnalysisDebateAgent
+from agents.bear_agent import BearAgent
+from agents.bull_agent import BullAgent
+from agents.debate_navigator_agent import DebateNavigatorAgent
+from agents.sentiment_agent import SentimentAgent
+from agents.video_debate_agent import VideoDebateAgent
+from app.comparison_workflow import ComparisonWorkflow
+from app.regime_workflow import RegimeWorkflow
+from tools.evidence_catalog import EvidenceCatalog
+from tools.historical_evidence_collector import HistoricalEvidenceCollector
+from tools.regime_context import build_regime_context
+from tools.youtube_channel_shorts import YouTubeChannelShorts
+from config import DART_API_KEY, SEARXNG_URL
+
+
+class DebateWorkflow:
+    def __init__(self) -> None:
+        self.evidence_workflow = ComparisonWorkflow()
+        self.bull_agent = BullAgent()
+        self.bear_agent = BearAgent()
+        self.sentiment_agent = SentimentAgent()
+        self.video_agent = VideoDebateAgent()
+        self.debate_agent = AnalysisDebateAgent()
+        self.navigator_agent = DebateNavigatorAgent()
+        self.regime_workflow = RegimeWorkflow()
+        self.historical_collector = HistoricalEvidenceCollector(
+            SEARXNG_URL,
+            DART_API_KEY,
+        )
+
+    def run(self, company_name: str) -> dict[str, Any]:
+        print("\n[공통 근거 수집 시작]")
+        context = self.evidence_workflow.run(company_name)
+        print("[공통 근거 수집 완료]")
+
+        financial_data = context["financial_data"]
+        retrieved_chunks = (
+            context.get("bull_chunks", [])
+            + context.get("bear_chunks", [])
+            + context.get("filing_chunks", [])
+        )
+        evidence_catalog = EvidenceCatalog.build(
+            financial_data=financial_data,
+            retrieved_chunks=retrieved_chunks,
+            web_documents=context.get("source_data", {}).get(
+                "source_documents",
+                [],
+            ),
+        )
+        try:
+            historical_documents = self.historical_collector.collect(
+                company_name,
+                str(financial_data.get("ticker", "")),
+            )
+            existing_urls = {
+                str(item.get("source_url", "")) for item in evidence_catalog
+                if item.get("source_url")
+            }
+            evidence_catalog.extend(
+                item for item in EvidenceCatalog.from_web_documents(historical_documents)
+                if item.get("source_url") not in existing_urls
+            )
+        except RuntimeError as error:
+            print(f"[WARN] 3년 역사 근거 수집 실패: {error}")
+        try:
+            regime_analysis = self.regime_workflow.run(
+                company_name,
+                str(financial_data.get("ticker", "")),
+                evidence_catalog,
+            )
+        except RuntimeError as error:
+            print(f"[WARN] {error}")
+            regime_analysis = {
+                "schema_version": 1,
+                "company_name": company_name,
+                "ticker": financial_data.get("ticker", ""),
+                "regimes": {},
+                "comparison": [],
+                "reasons": {"past_bull": [], "recent_bear": []},
+                "limitations": [str(error)],
+            }
+        report_context = (
+            f"{context['shared_report_context']}\n\n"
+            "[시계열 시장 국면 비교]\n"
+            f"{build_regime_context(regime_analysis)}"
+        )
+
+        print("\n[상승 관점 최초 분석 시작]")
+        bull_result = self.bull_agent.analyze_with_context(
+            company_name=company_name,
+            financial_data=financial_data,
+            report_context=report_context,
+            web_context=context["bull_web_context"],
+        )
+        print("[상승 관점 최초 분석 완료]")
+
+        print("\n[하락 관점 최초 분석 시작]")
+        bear_result = self.bear_agent.analyze_with_context(
+            company_name=company_name,
+            financial_data=financial_data,
+            report_context=report_context,
+            web_context=context["bear_web_context"],
+        )
+        print("[하락 관점 최초 분석 완료]")
+
+        sentiment_result = self.sentiment_agent.analyze(
+            company_name,
+            source_data=context.get("source_data"),
+        )
+        sentiment_summary = {
+            key: value
+            for key, value in sentiment_result.items()
+            if key != "source_documents"
+        }
+        try:
+            short_topics = self.video_agent.run_latest_short_topics(company_name)
+        except RuntimeError as error:
+            print(f"[WARN] 김단테 Shorts 주제 추출 실패: {error}")
+            short_topics = {
+                "channel_url": YouTubeChannelShorts.CHANNEL_URL,
+                "requested_count": 3,
+                "videos": [],
+                "skipped": [],
+                "topics": [],
+                "error": str(error),
+            }
+        debate = self.debate_agent.run(
+            company_name=company_name,
+            financial_data=financial_data,
+            bull_result=bull_result,
+            bear_result=bear_result,
+            sentiment_summary=sentiment_summary,
+            evidence_catalog=EvidenceCatalog.for_prompt(evidence_catalog),
+            regime_analysis=regime_analysis,
+            video_summary=short_topics,
+        )
+        debate = EvidenceCatalog.resolve(debate, evidence_catalog)
+        try:
+            debate["navigation"] = self.navigator_agent.analyze(debate)
+        except RuntimeError as error:
+            print(f"[WARN] {error}")
+            debate["navigation"] = {}
+
+        return {
+            "company_name": company_name,
+            "financial_data": financial_data,
+            "bull_analysis": bull_result,
+            "bear_analysis": bear_result,
+            "sentiment_result": sentiment_result,
+            "evidence_catalog": evidence_catalog,
+            "regime_analysis": regime_analysis,
+            "shorts_topics": short_topics,
+            "evidence": {
+                "bull_chunks": context.get("bull_chunks", []),
+                "bear_chunks": context.get("bear_chunks", []),
+                "filing_chunks": context.get("filing_chunks", []),
+                "source_data": context.get("source_data", {}),
+            },
+            **debate,
+        }

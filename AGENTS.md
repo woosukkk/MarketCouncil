@@ -73,8 +73,10 @@ hypotheses and report confidence and evidence limitations.
 ## Git Rules
 
 * Write commit messages in English only.
-* Do not commit, push, create branches, or open pull requests unless explicitly requested.
-* Suggest an English commit message after completing a meaningful unit of work.
+* After completing and verifying a meaningful unit of work, create a local commit automatically.
+* Do not ask for separate user approval before creating that local commit.
+* Commit only changes made for the current approved task and leave unrelated user changes untouched.
+* Do not push, create branches, or open pull requests unless explicitly requested.
 
 ### PR Convention
 

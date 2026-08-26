@@ -26,14 +26,33 @@ PARTICIPANT_SCHEMA = {
                     "claim": {"type": "string"},
                     "target_claim": {"type": "string"},
                     "response": {"type": "string"},
-                    "evidence": {"type": "array", "items": {"type": "string"}},
+                    "warrant": {"type": "string"},
+                    "qualifier": {"type": "string"},
+                    "evidence": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "source_id": {"type": "string"},
+                                "quote_id": {"type": "string"},
+                                "reason": {"type": "string"},
+                            },
+                            "required": [
+                                "source_id",
+                                "quote_id",
+                                "reason",
+                            ],
+                            "additionalProperties": False,
+                        },
+                    },
                     "example_or_data": {"type": "string"},
                     "concession": {"type": "string"},
                     "missing_evidence": {"type": "string"},
                 },
                 "required": [
                     "issue_id", "claim", "target_claim", "response",
-                    "evidence", "example_or_data", "concession",
+                    "warrant", "qualifier", "evidence",
+                    "example_or_data", "concession",
                     "missing_evidence",
                 ],
                 "additionalProperties": False,
@@ -79,6 +98,8 @@ class AnalysisDebateAgent:
         bull_result: str,
         bear_result: str,
         sentiment_summary: dict[str, Any],
+        evidence_catalog: list[dict[str, Any]],
+        regime_analysis: dict[str, Any] | None = None,
         video_summary: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         debate_input = self._build_input(
@@ -87,6 +108,8 @@ class AnalysisDebateAgent:
             bull_result=bull_result,
             bear_result=bear_result,
             sentiment_summary=sentiment_summary,
+            evidence_catalog=evidence_catalog,
+            regime_analysis=regime_analysis,
             video_summary=video_summary,
         )
         result = self.graph.invoke(
@@ -110,7 +133,6 @@ class AnalysisDebateAgent:
             "moderator_summary": result.get("moderator_summary", {}),
             "bull_rebuttal": latest.get("bull_response", {}),
             "bear_rebuttal": latest.get("bear_response", {}),
-            "included_in_judge": False,
         }
 
     def create_agenda(self, state: DebateState) -> DebateState:
@@ -167,6 +189,8 @@ class AnalysisDebateAgent:
         review = state.get("moderator_review", {})
         if state["current_round"] >= state["max_rounds"]:
             stop_reason = f"최대 {state['max_rounds']}라운드에 도달했습니다."
+        elif safety_reason := self._continuation_block_reason(state):
+            stop_reason = safety_reason
         else:
             stop_reason = str(review.get("reason", "중재자가 토론 종료를 결정했습니다."))
         print("\n[중재자 토론 최종 정리 시작]")
@@ -187,9 +211,53 @@ class AnalysisDebateAgent:
             return "next_round"
         if state["current_round"] >= state["max_rounds"]:
             return "summary"
-        if state.get("moderator_review", {}).get("continue_debate", False):
-            return "next_round"
-        return "summary"
+        if not state.get("moderator_review", {}).get(
+            "continue_debate", False
+        ):
+            return "summary"
+        return "summary" if self._continuation_block_reason(state) else "next_round"
+
+    @classmethod
+    def _continuation_block_reason(cls, state: DebateState) -> str | None:
+        issue_reviews = state.get("moderator_review", {}).get("issue_reviews", [])
+        if not any(
+            issue.get("status") in {"OPEN", "CONTESTED"}
+            for issue in issue_reviews
+        ):
+            return "계속 검토할 OPEN 또는 CONTESTED 쟁점이 없습니다."
+        if not cls._has_new_information(state):
+            return "직전 라운드 대비 새로운 주장, 근거 또는 인정 사항이 없습니다."
+        return None
+
+    @classmethod
+    def _has_new_information(cls, state: DebateState) -> bool:
+        rounds = state.get("rounds", [])
+        if len(rounds) < 2:
+            return True
+        previous = rounds[-2]
+        current_items = cls._debate_items(
+            state.get("bull_response", {}), state.get("bear_response", {})
+        )
+        previous_items = cls._debate_items(
+            previous.get("bull_response", {}), previous.get("bear_response", {})
+        )
+        return bool(current_items - previous_items)
+
+    @staticmethod
+    def _debate_items(*responses: dict[str, Any]) -> set[tuple[str, str, str]]:
+        items: set[tuple[str, str, str]] = set()
+        for response in responses:
+            for issue in response.get("issues", []):
+                issue_id = str(issue.get("issue_id", ""))
+                for field in ("claim", "concession"):
+                    value = " ".join(str(issue.get(field, "")).split())
+                    if value:
+                        items.add((issue_id, field, value))
+                for evidence in issue.get("evidence", []):
+                    value = " ".join(str(evidence).split())
+                    if value:
+                        items.add((issue_id, "evidence", value))
+        return items
 
     def _participant_response(
         self,
@@ -294,6 +362,8 @@ class AnalysisDebateAgent:
         bull_result: str,
         bear_result: str,
         sentiment_summary: dict[str, Any],
+        evidence_catalog: list[dict[str, Any]],
+        regime_analysis: dict[str, Any] | None,
         video_summary: dict[str, Any] | None,
     ) -> str:
         return f"""기업명: {company_name}
@@ -309,6 +379,12 @@ class AnalysisDebateAgent:
 
 [뉴스 민심 요약]
 {json.dumps(sentiment_summary, ensure_ascii=False, indent=2)}
+
+[검증 가능한 근거 카탈로그]
+{json.dumps(evidence_catalog, ensure_ascii=False, indent=2, default=str)}
+
+[시계열 시장 국면 비교]
+{json.dumps(regime_analysis, ensure_ascii=False, indent=2, default=str) if regime_analysis else "추가 데이터 필요"}
 
 [영상 관점별 요약]
 {json.dumps(video_summary, ensure_ascii=False, indent=2) if video_summary else "사용하지 않음"}

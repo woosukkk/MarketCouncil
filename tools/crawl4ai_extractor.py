@@ -1,8 +1,11 @@
+import asyncio
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 
 class Crawl4AIExtractor:
-    MAX_CONTENT_CHARS = 2000
+    MAX_CONTENT_CHARS = 1200
+    MAX_CONCURRENCY = 4
 
     async def extract_many(
         self,
@@ -27,52 +30,77 @@ class Crawl4AIExtractor:
             wait_until="domcontentloaded",
             remove_overlay_elements=True,
         )
-        extracted: list[dict[str, Any]] = []
-        failed: list[dict[str, str]] = []
-
         async with AsyncWebCrawler(config=browser_config) as crawler:
-            for candidate in candidates:
-                url = str(candidate.get("url", ""))
-                if "youtube.com/" in url or "youtu.be/" in url:
-                    extracted.append({
-                        **candidate,
-                        "content": candidate.get("snippet", ""),
-                        "extraction_method": "search_snippet",
-                    })
-                    continue
-                try:
-                    result = await crawler.arun(url=url, config=run_config)
-                    if not getattr(result, "success", False):
-                        raise RuntimeError(
-                            str(getattr(result, "error_message", "수집 실패"))
-                        )
-                    metadata = getattr(result, "metadata", {}) or {}
-                    markdown = self._markdown_text(getattr(result, "markdown", ""))
-                    extracted.append({
-                        **candidate,
-                        "title": str(
-                            metadata.get("title")
-                            or candidate.get("title", "")
-                        ),
-                        "published_date": str(
-                            metadata.get("article:published_time")
-                            or metadata.get("date")
-                            or candidate.get("published_date", "")
-                        ),
-                        "content": markdown[: self.MAX_CONTENT_CHARS],
-                        "extraction_method": "crawl4ai",
-                    })
-                except Exception as error:
-                    snippet = str(candidate.get("snippet", ""))
-                    if snippet:
-                        extracted.append({
-                            **candidate,
-                            "content": snippet,
-                            "extraction_method": "search_snippet_fallback",
-                        })
-                    failed.append({"url": url, "reason": str(error)})
+            semaphore = asyncio.Semaphore(self.MAX_CONCURRENCY)
+            outcomes = await asyncio.gather(*[
+                self._extract_one(crawler, candidate, run_config, semaphore)
+                for candidate in candidates
+            ])
+
+        extracted = [
+            document
+            for document, _ in outcomes
+            if document is not None
+        ]
+        failed = [
+            failure
+            for _, failure in outcomes
+            if failure is not None
+        ]
 
         return extracted, failed
+
+    async def _extract_one(
+        self,
+        crawler: Any,
+        candidate: dict[str, Any],
+        run_config: Any,
+        semaphore: Any,
+    ) -> tuple[dict[str, Any] | None, dict[str, str] | None]:
+        url = str(candidate.get("url", ""))
+        if (
+            "youtube.com/" in url
+            or "youtu.be/" in url
+            or self._looks_like_document_download(url)
+        ):
+            return ({
+                **candidate,
+                "content": candidate.get("snippet", ""),
+                "extraction_method": "search_snippet",
+            }, None)
+
+        try:
+            async with semaphore:
+                result = await crawler.arun(url=url, config=run_config)
+            if not getattr(result, "success", False):
+                raise RuntimeError(
+                    str(getattr(result, "error_message", "수집 실패"))
+                )
+            metadata = getattr(result, "metadata", {}) or {}
+            markdown = self._markdown_text(getattr(result, "markdown", ""))
+            return ({
+                **candidate,
+                "title": str(
+                    metadata.get("title") or candidate.get("title", "")
+                ),
+                "published_date": str(
+                    metadata.get("article:published_time")
+                    or metadata.get("date")
+                    or candidate.get("published_date", "")
+                ),
+                "content": markdown[: self.MAX_CONTENT_CHARS],
+                "extraction_method": "crawl4ai",
+            }, None)
+        except Exception as error:
+            snippet = str(candidate.get("snippet", ""))
+            fallback = None
+            if snippet:
+                fallback = {
+                    **candidate,
+                    "content": snippet,
+                    "extraction_method": "search_snippet_fallback",
+                }
+            return fallback, {"url": url, "reason": str(error)}
 
     @staticmethod
     def _markdown_text(markdown: Any) -> str:
@@ -83,3 +111,15 @@ class Crawl4AIExtractor:
             if isinstance(value, str) and value.strip():
                 return value.strip()
         return str(markdown or "").strip()
+
+    @staticmethod
+    def _looks_like_document_download(url: str) -> bool:
+        decoded_url = unquote(url).lower()
+        parts = urlsplit(decoded_url)
+        return (
+            parts.path.endswith((".pdf", ".hwp", ".doc", ".docx"))
+            or ".pdf" in parts.query
+            or "/download/" in parts.path
+            or parts.path.endswith("download.cmd")
+            or "cmd=down" in parts.query
+        )

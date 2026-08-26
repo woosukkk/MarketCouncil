@@ -8,12 +8,14 @@ from config import MODEL_NAME, OPENAI_API_KEY
 class BearAgent:
     def __init__(self) -> None:
         self.client = OpenAI(api_key=OPENAI_API_KEY)
-        self.workflow = BearGraphWorkflow()
+        self.workflow: BearGraphWorkflow | None = None
 
     def analyze(
         self,
         company_name: str,
     ) -> tuple[str, dict, list[dict]]:
+        if self.workflow is None:
+            self.workflow = BearGraphWorkflow()
         workflow_result = self.workflow.run(company_name)
 
         financial_data = workflow_result["financial_data"]

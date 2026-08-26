@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from openai import OpenAI
@@ -5,14 +6,119 @@ from openai import OpenAI
 from agents.video_debate_prompt import (
     VIDEO_SUMMARY_SYSTEM_PROMPT,
 )
+from agents.video_topic_prompt import VIDEO_TOPIC_SYSTEM_PROMPT
 from config import MODEL_NAME, OPENAI_API_KEY
+from tools.youtube_channel_shorts import YouTubeChannelShorts
 from tools.youtube_transcript_tool import YouTubeTranscriptTool
+
+
+TOPIC_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "topics": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "claim": {"type": "string"},
+                    "verification_question": {"type": "string"},
+                    "classification": {
+                        "type": "string",
+                        "enum": ["영상 발화자 가설"],
+                    },
+                    "source_video_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": [
+                    "title",
+                    "claim",
+                    "verification_question",
+                    "classification",
+                    "source_video_ids",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["topics"],
+    "additionalProperties": False,
+}
 
 
 class VideoDebateAgent:
     def __init__(self) -> None:
         self.client = OpenAI(api_key=OPENAI_API_KEY)
         self.transcript_tool = YouTubeTranscriptTool()
+        self.shorts_tool = YouTubeChannelShorts()
+
+    def run_latest_short_topics(self, company_name: str) -> dict[str, Any]:
+        shorts = self.shorts_tool.latest(limit=3)
+        transcripts: list[dict[str, Any]] = []
+        skipped: list[dict[str, str]] = []
+
+        for short in shorts:
+            try:
+                transcript = self.transcript_tool.fetch(short["video_url"])
+                transcripts.append({
+                    **short,
+                    "language": transcript["language"],
+                    "is_generated": transcript["is_generated"],
+                    "text": transcript["text"],
+                })
+            except (RuntimeError, ValueError) as error:
+                skipped.append({
+                    "video_id": short["video_id"],
+                    "reason": str(error),
+                })
+
+        topics = self._extract_topics(company_name, transcripts) if transcripts else []
+        return {
+            "channel_url": YouTubeChannelShorts.CHANNEL_URL,
+            "requested_count": 3,
+            "videos": [
+                {key: value for key, value in transcript.items() if key != "text"}
+                for transcript in transcripts
+            ],
+            "skipped": skipped,
+            "topics": topics,
+        }
+
+    def _extract_topics(
+        self,
+        company_name: str,
+        transcripts: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        payload = {
+            "company_name": company_name,
+            "channel_url": YouTubeChannelShorts.CHANNEL_URL,
+            "shorts": transcripts,
+        }
+        try:
+            response = self.client.responses.create(
+                model=MODEL_NAME,
+                instructions=VIDEO_TOPIC_SYSTEM_PROMPT,
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "shorts_debate_topics",
+                        "strict": True,
+                        "schema": TOPIC_SCHEMA,
+                    }
+                },
+                input=json.dumps(payload, ensure_ascii=False, default=str),
+                reasoning={"effort": "minimal"},
+                max_output_tokens=1800,
+            )
+            result = json.loads(response.output_text)
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+            raise RuntimeError("Shorts 토론 주제 응답이 올바르지 않습니다.") from error
+        except Exception as error:
+            raise RuntimeError("Shorts 토론 주제 추출에 실패했습니다.") from error
+        return result["topics"]
 
     def run(
         self,

@@ -30,9 +30,9 @@ class DartCollector:
         ticker: str,
         limit: int = 10,
     ) -> dict[str, Any]:
-        stock_code = ticker.strip().zfill(6)
+        stock_code = ticker.strip().split(".", 1)[0].zfill(6)
         corp_code = self._resolve_corp_code(company_name, stock_code)
-        filings = self._list_filings(corp_code, limit)
+        filings = self._list_filings(corp_code, limit, days=365)
         target_dir = self.base_dir / "dart" / self._safe_name(company_name)
         target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -116,33 +116,76 @@ class DartCollector:
                 return corp_code.strip()
         raise ValueError("Open DART에서 기업 고유번호를 찾지 못했습니다.")
 
-    def _list_filings(self, corp_code: str, limit: int) -> list[dict[str, Any]]:
-        end_date = date.today()
-        start_date = end_date - timedelta(days=365)
-        response = self._get(
-            f"{self.BASE_URL}/list.json",
-            params={
-                "crtfc_key": self.api_key,
-                "corp_code": corp_code,
-                "bgn_de": start_date.strftime("%Y%m%d"),
-                "end_de": end_date.strftime("%Y%m%d"),
-                "last_reprt_at": "Y",
-                "page_count": min(max(limit, 1), 100),
-            },
-        )
-        try:
-            payload = response.json()
-        except requests.JSONDecodeError as error:
-            raise RuntimeError("Open DART 공시 목록 응답이 JSON이 아닙니다.") from error
-        status = str(payload.get("status", ""))
-        if status == "013":
-            return []
-        if status != "000":
-            raise RuntimeError(
-                f"Open DART 오류 {status}: {payload.get('message', '알 수 없음')}"
+    def list_history(
+        self,
+        company_name: str,
+        ticker: str,
+        days: int = 365 * 3,
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        stock_code = ticker.strip().split(".", 1)[0].zfill(6)
+        corp_code = self._resolve_corp_code(company_name, stock_code)
+        segment_days = 365
+        segment_limit = max(1, limit // 3)
+        filings: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for offset in range(0, days, segment_days):
+            segment_end = date.today() - timedelta(days=offset)
+            for filing in self._list_filings(
+                corp_code,
+                segment_limit,
+                days=min(segment_days, days - offset),
+                end_date=segment_end,
+            ):
+                receipt_no = str(filing.get("rcept_no", ""))
+                if receipt_no and receipt_no not in seen:
+                    filings.append(filing)
+                    seen.add(receipt_no)
+        return filings[:limit]
+
+    def _list_filings(
+        self,
+        corp_code: str,
+        limit: int,
+        days: int,
+        end_date: date | None = None,
+    ) -> list[dict[str, Any]]:
+        end_date = end_date or date.today()
+        start_date = end_date - timedelta(days=days)
+        filings: list[dict[str, Any]] = []
+        page_no = 1
+        while len(filings) < limit:
+            response = self._get(
+                f"{self.BASE_URL}/list.json",
+                params={
+                    "crtfc_key": self.api_key,
+                    "corp_code": corp_code,
+                    "bgn_de": start_date.strftime("%Y%m%d"),
+                    "end_de": end_date.strftime("%Y%m%d"),
+                    "last_reprt_at": "Y",
+                    "page_count": 100,
+                    "page_no": page_no,
+                },
             )
-        filings = payload.get("list", [])
-        return filings[:limit] if isinstance(filings, list) else []
+            try:
+                payload = response.json()
+            except requests.JSONDecodeError as error:
+                raise RuntimeError("Open DART 공시 목록 응답이 JSON이 아닙니다.") from error
+            status = str(payload.get("status", ""))
+            if status == "013":
+                break
+            if status != "000":
+                raise RuntimeError(
+                    f"Open DART 오류 {status}: {payload.get('message', '알 수 없음')}"
+                )
+            page = payload.get("list", [])
+            if not isinstance(page, list) or not page:
+                break
+            filings.extend(page)
+            if page_no >= int(payload.get("total_page", page_no)):
+                break
+            page_no += 1
+        return filings[:limit]
 
     def _download_original(self, receipt_no: str) -> bytes:
         response = self._get(

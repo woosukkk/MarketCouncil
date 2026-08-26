@@ -1,10 +1,13 @@
+import json
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from rag.retriever import ReportRetriever
 from tools.bull_tools import BullTools
 from tools.bear_tools import BearTools
 from tools.evidence_resolver import EvidenceResolver
+from tools.quality_valuation import calculate_quality_metrics
 from tools.source_collector import SourceCollector
 
 
@@ -14,20 +17,25 @@ class ComparisonState(TypedDict, total=False):
 
     bull_chunks: list[dict]
     bear_chunks: list[dict]
+    filing_chunks: list[dict]
 
     bull_report_context: str
     bear_report_context: str
+    shared_report_context: str
+    filing_context: str
 
     bull_web_context: str
     bear_web_context: str
+    shared_web_context: str
     source_data: dict
     evidence_bundle: dict
 
 
 class ComparisonWorkflow:
     def __init__(self) -> None:
-        self.bull_tools = BullTools()
-        self.bear_tools = BearTools()
+        retriever = ReportRetriever()
+        self.bull_tools = BullTools(retriever=retriever)
+        self.bear_tools = BearTools(retriever=retriever)
         self.source_collector = SourceCollector()
         self.evidence_resolver = EvidenceResolver()
         self.graph = self._build_graph()
@@ -54,35 +62,59 @@ class ComparisonWorkflow:
         self,
         state: ComparisonState,
     ) -> ComparisonState:
-        print("[2] Bull 로컬 리포트 검색 시작")
+        print("[3] Bull 로컬 리포트 검색 시작")
 
         bull_chunks = (
             self.bull_tools.search_company_reports(
                 state["company_name"],
-                top_k=3,
+                top_k=12,
             )
         )
 
-        print("[2] Bull 로컬 리포트 검색 완료")
+        print("[3] Bull 로컬 리포트 검색 완료")
 
         return {
             "bull_chunks": bull_chunks,
         }
 
+    def calculate_quality_and_valuation(
+        self,
+        state: ComparisonState,
+    ) -> ComparisonState:
+        print("[1.1] 공통 품질·가치 지표 계산 시작")
+        financial_data = dict(state["financial_data"])
+        financial_data["derived_metrics"] = calculate_quality_metrics(
+            financial_data.get("financial_facts", {})
+        )
+        print("[1.1] 공통 품질·가치 지표 계산 완료")
+        return {"financial_data": financial_data}
+
+    def retrieve_regulatory_filings(
+        self,
+        state: ComparisonState,
+    ) -> ComparisonState:
+        print("[2] 공식 공시 검색 시작")
+        filing_chunks = self.bull_tools.search_regulatory_filings(
+            state["company_name"],
+            top_k=8,
+        )
+        print("[2] 공식 공시 검색 완료")
+        return {"filing_chunks": filing_chunks}
+
     def retrieve_bear_reports(
         self,
         state: ComparisonState,
     ) -> ComparisonState:
-        print("[3] Bear 로컬 리포트 검색 시작")
+        print("[4] Bear 로컬 리포트 검색 시작")
 
         bear_chunks = (
             self.bear_tools.search_company_reports(
                 state["company_name"],
-                top_k=3,
+                top_k=12,
             )
         )
 
-        print("[3] Bear 로컬 리포트 검색 완료")
+        print("[4] Bear 로컬 리포트 검색 완료")
 
         return {
             "bear_chunks": bear_chunks,
@@ -100,23 +132,51 @@ class ComparisonWorkflow:
             state.get("bear_chunks", [])
         )
 
+        filing_chunks = state.get("filing_chunks", [])
+        filing_context = (
+            self._build_context(filing_chunks)
+            if filing_chunks
+            else "검색된 공식 공시 근거 없음"
+        )
+        shared_report_context = self._build_context(
+            self._deduplicate_chunks(
+                state.get("bull_chunks", [])
+                + state.get("bear_chunks", [])
+            )
+        )
+        derived_metrics = json.dumps(
+            state.get("financial_data", {}).get("derived_metrics", {}),
+            ensure_ascii=False,
+            indent=2,
+            default=str,
+        )
+
         return {
             "bull_report_context": bull_report_context,
             "bear_report_context": bear_report_context,
+            "filing_context": filing_context,
+            "shared_report_context": (
+                "[공통 품질·가치 파생지표]\n\n"
+                f"{derived_metrics}\n\n"
+                "[공식 공시 근거]\n\n"
+                f"{filing_context}\n\n"
+                "[일반 리포트 근거]\n\n"
+                f"{shared_report_context}"
+            ),
         }
 
     def collect_web_sources(
         self,
         state: ComparisonState,
     ) -> ComparisonState:
-        print("[4] 통합 최신 뉴스 수집 시작")
+        print("[5] 통합 최신 뉴스 수집 시작")
 
         source_data = self.source_collector.collect(
             state["company_name"],
             ticker=state.get("financial_data", {}).get("ticker"),
         )
 
-        print("[4] 통합 최신 뉴스 수집 완료")
+        print("[5] 통합 최신 뉴스 수집 완료")
 
         return {
             "source_data": source_data,
@@ -131,28 +191,30 @@ class ComparisonWorkflow:
             [],
         )
 
+        shared_web_context = self._build_web_context(articles)
+
         return {
-            "bull_web_context": self._build_web_context(
-                articles,
-                "positive",
-            ),
-            "bear_web_context": self._build_web_context(
-                articles,
-                "negative",
-            ),
+            "bull_web_context": shared_web_context,
+            "bear_web_context": shared_web_context,
+            "shared_web_context": shared_web_context,
         }
 
     def resolve_evidence(
         self,
         state: ComparisonState,
     ) -> ComparisonState:
-        print("[5] 웹/RAG 중복 근거 확인 시작")
+        print("[6] 웹/RAG 중복 근거 확인 시작")
 
         source_data = self.evidence_resolver.resolve(
-            state.get("source_data", {})
+            state.get("source_data", {}),
+            retrieved_chunks=(
+                state.get("bull_chunks", [])
+                + state.get("bear_chunks", [])
+                + state.get("filing_chunks", [])
+            ),
         )
 
-        print("[5] 웹/RAG 중복 근거 확인 완료")
+        print("[6] 웹/RAG 중복 근거 확인 완료")
 
         return {
             "source_data": source_data,
@@ -180,18 +242,21 @@ class ComparisonWorkflow:
     @staticmethod
     def _build_web_context(
         articles: list[dict],
-        sentiment: str,
+        sentiment: str | None = None,
     ) -> str:
         selected = [
             article
             for article in articles
             if isinstance(article, dict)
-            and article.get("sentiment") == sentiment
+            and (
+                sentiment is None
+                or article.get("sentiment") == sentiment
+            )
             and article.get("use_as_evidence", True)
         ]
 
         if not selected:
-            return "해당 방향의 최신 웹 근거 없음"
+            return "사용 가능한 최신 웹 근거 없음"
 
         return "\n\n".join(
             f"""제목: {article.get("title", "알 수 없음")}
@@ -204,12 +269,37 @@ URL: {article.get("url", "")}"""
             for article in selected
         )
 
+    @staticmethod
+    def _deduplicate_chunks(chunks: list[dict]) -> list[dict]:
+        unique_chunks: list[dict] = []
+        seen: set[tuple[str, str]] = set()
+
+        for chunk in chunks:
+            key = (
+                str(chunk.get("source", "")),
+                str(chunk.get("chunk_id", "")),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_chunks.append(chunk)
+
+        return unique_chunks
+
     def _build_graph(self):
         builder = StateGraph(ComparisonState)
 
         builder.add_node(
             "collect_financial_data",
             self.collect_financial_data,
+        )
+        builder.add_node(
+            "calculate_quality_and_valuation",
+            self.calculate_quality_and_valuation,
+        )
+        builder.add_node(
+            "retrieve_regulatory_filings",
+            self.retrieve_regulatory_filings,
         )
         builder.add_node(
             "retrieve_bull_reports",
@@ -242,6 +332,14 @@ URL: {article.get("url", "")}"""
         )
         builder.add_edge(
             "collect_financial_data",
+            "calculate_quality_and_valuation",
+        )
+        builder.add_edge(
+            "calculate_quality_and_valuation",
+            "retrieve_regulatory_filings",
+        )
+        builder.add_edge(
+            "retrieve_regulatory_filings",
             "retrieve_bull_reports",
         )
         builder.add_edge(

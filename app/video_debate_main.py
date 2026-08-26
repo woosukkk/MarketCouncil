@@ -37,7 +37,7 @@ def main() -> None:
     print("\n===== Bear 영상 요약 =====\n")
     print(result["bear_summary"])
     print(f"\n저장 완료: {result_path}")
-    print("최종 판단은 compare_main 실행 시 Judge가 수행합니다.")
+    print("영상 요약은 필요할 때 투자 토론의 보조 근거로 사용할 수 있습니다.")
 
 
 if __name__ == "__main__":

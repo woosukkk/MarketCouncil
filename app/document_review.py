@@ -1,8 +1,12 @@
 from pathlib import Path
 
 import streamlit as st
+from streamlit.runtime import get_instance
 
-from rag.document_loader import load_pdf_text
+from rag.document_loader import (
+    SUPPORTED_DOCUMENT_SUFFIXES,
+    load_document_text,
+)
 from rag.document_registry import INBOX_DIR, DocumentRegistry
 from rag.ingestion_pipeline import IngestionPipeline
 
@@ -26,6 +30,9 @@ REJECTION_REASONS = (
     "저작권 또는 접근 권한 문제",
     "기타",
 )
+REVIEW_INDEX_KEY = "document_review_index"
+REVIEW_VERSION_KEY = "document_review_widget_version"
+REVIEW_NOTICE_KEY = "document_review_notice"
 
 
 def save_uploaded_file(uploaded_file) -> Path:
@@ -45,17 +52,22 @@ def render_registration(pipeline: IngestionPipeline) -> None:
     registered_hashes = set(records)
     unregistered_files = []
 
-    for file_path in INBOX_DIR.glob("*.pdf"):
+    for file_path in INBOX_DIR.iterdir():
+        if (
+            not file_path.is_file()
+            or file_path.suffix.lower() not in SUPPORTED_DOCUMENT_SUFFIXES
+        ):
+            continue
         content_hash = registry.file_hash(file_path)
         if content_hash not in registered_hashes:
             unregistered_files.append(file_path)
 
     if not unregistered_files:
-        st.info("메타데이터를 등록할 새 PDF가 없습니다.")
+        st.info("메타데이터를 등록할 새 문서가 없습니다.")
         return
 
     selected = st.selectbox(
-        "등록할 PDF",
+        "등록할 문서",
         unregistered_files,
         format_func=lambda path: path.name,
     )
@@ -105,28 +117,65 @@ def render_registration(pipeline: IngestionPipeline) -> None:
 
 
 def render_pending_reviews(pipeline: IngestionPipeline) -> None:
-    pending = [
-        record
-        for record in pipeline.registry.load().values()
-        if record.get("status") == "pending"
-    ]
+    records = list(pipeline.registry.load().values())
+    pending = sorted(
+        [
+            record
+            for record in records
+            if record.get("status") == "pending"
+        ],
+        key=lambda record: (
+            str(record.get("collected_at", "")),
+            str(record.get("title", record.get("filename", ""))),
+        ),
+    )
+    approved_count = sum(
+        record.get("status") == "approved"
+        for record in records
+    )
+    ingested_count = sum(
+        record.get("status") == "ingested"
+        for record in records
+    )
+
+    pending_column, approved_column, ingested_column = st.columns(3)
+    pending_column.metric("검토 대기", len(pending))
+    approved_column.metric("승인 완료", approved_count)
+    ingested_column.metric("인덱싱 완료", ingested_count)
+
+    notice = st.session_state.pop(REVIEW_NOTICE_KEY, "")
+    if notice:
+        st.success(notice)
 
     if not pending:
-        st.info("검토 대기 중인 문서가 없습니다.")
+        st.session_state[REVIEW_INDEX_KEY] = 0
+        st.info("모든 문서 검토가 완료되었습니다.")
         return
 
+    selected_index = min(
+        max(int(st.session_state.get(REVIEW_INDEX_KEY, 0)), 0),
+        len(pending) - 1,
+    )
+    widget_version = int(
+        st.session_state.get(REVIEW_VERSION_KEY, 0)
+    )
+    pending_ids = [record["content_hash"] for record in pending]
     selected_id = st.selectbox(
         "검토할 문서",
-        [record["content_hash"] for record in pending],
+        pending_ids,
+        index=selected_index,
         format_func=lambda content_hash: next(
             record.get("title") or record.get("filename")
             for record in pending
             if record["content_hash"] == content_hash
         ),
+        key=f"pending_document_selector_{widget_version}",
     )
-    record = next(
-        item for item in pending if item["content_hash"] == selected_id
-    )
+    selected_index = pending_ids.index(selected_id)
+    st.session_state[REVIEW_INDEX_KEY] = selected_index
+    st.caption(f"현재 문서 {selected_index + 1} / {len(pending)}")
+
+    record = pending[selected_index]
     file_path = Path(record["file_path"])
 
     st.json({
@@ -138,6 +187,7 @@ def render_pending_reviews(pipeline: IngestionPipeline) -> None:
             "publisher",
             "source_type",
             "source_url",
+            "original_file_path",
             "published_at",
             "event_date",
             "fiscal_period",
@@ -156,13 +206,13 @@ def render_pending_reviews(pipeline: IngestionPipeline) -> None:
     if file_path.exists():
         with file_path.open("rb") as file:
             st.download_button(
-                "원본 PDF 열기 또는 다운로드",
+                "검토 문서 열기 또는 다운로드",
                 data=file.read(),
                 file_name=file_path.name,
-                mime="application/pdf",
+                mime="application/octet-stream",
             )
         try:
-            preview = load_pdf_text(file_path)[:5000]
+            preview = load_document_text(file_path)[:5000]
         except Exception as error:
             st.error(f"텍스트 미리보기 실패: {error}")
         else:
@@ -179,7 +229,11 @@ def render_pending_reviews(pipeline: IngestionPipeline) -> None:
         except (KeyError, OSError, ValueError) as error:
             st.error(str(error))
         else:
-            st.success("문서를 승인했습니다. 아래 버튼으로 인덱싱하세요.")
+            _advance_review_queue(
+                selected_index,
+                len(pending),
+                "문서를 승인했습니다. 다음 문서로 이동합니다.",
+            )
             st.rerun()
 
     with st.form("reject_form"):
@@ -196,13 +250,39 @@ def render_pending_reviews(pipeline: IngestionPipeline) -> None:
         except (KeyError, OSError, ValueError) as error:
             st.error(str(error))
         else:
-            st.success("문서를 거절하고 사유를 기록했습니다.")
+            _advance_review_queue(
+                selected_index,
+                len(pending),
+                "문서를 거절하고 다음 문서로 이동합니다.",
+            )
             st.rerun()
 
 
+def _advance_review_queue(
+    selected_index: int,
+    pending_count: int,
+    notice: str,
+) -> None:
+    remaining_count = max(pending_count - 1, 0)
+    next_index = min(selected_index, max(remaining_count - 1, 0))
+    st.session_state[REVIEW_INDEX_KEY] = next_index
+    st.session_state[REVIEW_VERSION_KEY] = (
+        int(st.session_state.get(REVIEW_VERSION_KEY, 0)) + 1
+    )
+    st.session_state[REVIEW_NOTICE_KEY] = notice
+
+
+def _stop_streamlit_server() -> bool:
+    try:
+        get_instance().stop()
+    except RuntimeError:
+        return False
+    return True
+
+
 def main() -> None:
-    st.set_page_config(page_title="리포트 검토", layout="wide")
-    st.title("투자 리포트 검토")
+    st.set_page_config(page_title="투자 문서 검토", layout="wide")
+    st.title("투자 공시·리포트 검토")
     pipeline = IngestionPipeline()
 
     uploaded_file = st.file_uploader("PDF 업로드", type=("pdf",))
@@ -235,7 +315,12 @@ def main() -> None:
             except Exception as error:
                 st.error(f"인덱싱 실패: {error}")
             else:
-                st.success("벡터 DB 반영이 완료되었습니다.")
+                st.success("벡터 DB 반영이 완료되었습니다. 서버를 종료합니다.")
+                if not _stop_streamlit_server():
+                    st.warning(
+                        "Streamlit 서버를 자동으로 종료하지 못했습니다. "
+                        "CMD 창에서 Ctrl+C를 눌러 종료하세요."
+                    )
 
 
 if __name__ == "__main__":
