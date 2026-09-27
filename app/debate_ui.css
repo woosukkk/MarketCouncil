@@ -1,4 +1,14 @@
 /* Scoped to the debate viewer's native widgets; no external fonts or scripts. */
+[data-testid="stAppViewContainer"] {
+    background-color: #f1f5fb;
+    color: #172b3a;
+}
+[data-testid="stSidebar"] {
+    background-color: #e5edf9;
+    color: #172b3a;
+    border-right: 1px solid #cddbf0;
+}
+.stMainBlockContainer h1 { color: #173b70; }
 .stMainBlockContainer {
     max-width: 1680px;
     padding-top: 2.5rem;
@@ -13,8 +23,9 @@
 .st-key-launcher { border-bottom: 1px solid #dce4ea; padding-bottom: 12px; }
 .st-key-launcher h3 { padding: 0; letter-spacing: -0.5px; }
 .st-key-stat_strip {
-    background: #fff;
-    border: 1px solid #e7ecf1;
+    background: #e2ecff;
+    color: #173b70;
+    border: 1px solid #b9cef5;
     border-radius: 12px;
     padding: 12px 20px;
 }
@@ -34,7 +45,7 @@
 .st-key-agenda_picker [role="radiogroup"] > label:has(input:checked) {
     border-color: #bfd2fc;
     border-left-color: #2563eb;
-    background: #edf4ff;
+    background: #dbeafe;
 }
 .st-key-agenda_picker [role="radiogroup"] > label:focus-within {
     outline: 2px solid #2563eb;
@@ -48,11 +59,14 @@
     border-radius: 12px;
 }
 [class*="st-key-position_bull"] {
-    background: linear-gradient(180deg, #effaf6 0, #fff 110px);
+    background: #e5f5ef;
+    border-color: #a6d8c7;
+    border-top-color: #0f766e;
 }
 [class*="st-key-position_bear"] {
+    border-color: #efb9bc;
     border-top-color: #c85360;
-    background: linear-gradient(180deg, #fff3f2 0, #fff 110px);
+    background: #fcebed;
 }
 [class*="st-key-evidence_row_"] {
     border-bottom: 1px solid #edf0f3;
@@ -79,11 +93,11 @@
     border-radius: 12px;
     padding: 16px;
 }
-.st-key-summary_agreements { border-top: 3px solid #0f766e; }
-.st-key-summary_unresolved_issues { border-top: 3px solid #c58a28; }
-.st-key-summary_required_evidence { border-top: 3px solid #2563eb; }
-.st-key-round_changes { background: #f5f8ff; border-color: #dce6fa; }
-.st-key-evidence_panel { border-top: 3px solid #2563eb; }
+.st-key-summary_agreements { background: #e5f5ef; border-top: 3px solid #0f766e; }
+.st-key-summary_unresolved_issues { background: #fff3d9; border-top: 3px solid #b77a15; }
+.st-key-summary_required_evidence { background: #e3edff; border-top: 3px solid #2563eb; }
+.st-key-round_changes { background: #eaf0ff; border-color: #c4d4f5; }
+.st-key-evidence_panel { background: #f0f5ff; border-top: 3px solid #2563eb; }
 .st-key-agenda_section { padding-top: 8px; padding-bottom: 8px; }
 [data-testid="stSidebar"] [role="radiogroup"] > label:has(input:checked) {
     background: #dfeaff;
