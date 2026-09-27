@@ -25,6 +25,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+st.html(Path(__file__).parent / "app" / "debate_ui.css")
 
 STATUS_LABELS = {
     "OPEN": "논의 대기",
@@ -51,10 +52,14 @@ def show_analysis_launcher() -> None:
     runner = analysis_runner()
     company, future = runner.current()
     running = future is not None and not future.done()
-    with st.container(border=True):
+    with st.container(key="launcher"):
         with st.container(horizontal=True, vertical_alignment="bottom"):
+            with st.container(width="stretch"):
+                st.markdown("### MarketCouncil")
+                st.caption("근거로 읽는 투자 토론")
             selected_company = st.selectbox(
                 "새로 분석할 기업", list(TICKER_MAP), key="analysis_company", disabled=running,
+                width=220,
             )
             if st.button(
                 "분석 시작", key="start_analysis", type="primary",
@@ -66,7 +71,7 @@ def show_analysis_launcher() -> None:
                     st.error(str(error))
                 else:
                     st.rerun()
-        st.caption("공시·웹 근거 수집부터 토론까지 실행합니다. OpenAI API 사용 비용이 발생하며 수 분 이상 걸릴 수 있습니다.")
+        st.caption("새 분석은 OpenAI API를 사용하며 수 분 이상 걸릴 수 있습니다.")
         if running:
             st.status(f"{company} 분석 진행 중 · 완료되면 새 결과가 자동으로 열립니다.", state="running")
             st.caption("기존 토론은 계속 볼 수 있습니다. 분석 중에는 웹 서버를 종료하지 마세요.")
@@ -106,7 +111,7 @@ def show_position(
     evidence: dict[str, dict[str, Any]],
     key_prefix: str,
 ) -> None:
-    with st.container(border=True):
+    with st.container(key=f"position_{key_prefix}"):
         is_bull = title.startswith("Bull")
         st.badge(title, icon=":material/trending_up:" if is_bull else ":material/trending_down:",
                  color="green" if is_bull else "red")
@@ -126,22 +131,21 @@ def show_position(
             st.markdown("**사용 근거**")
             for index, evidence_id in enumerate(ids):
                 item = evidence.get(evidence_id, {})
-                icon = ":material/verified:" if item.get("verified") else ":material/help:"
-                st.button(
-                    str(item.get("title") or "출처명 확인 불가"),
-                    key=f"{key_prefix}_{index}_{evidence_id}",
-                    icon=icon,
-                    width="stretch",
-                    on_click=select_evidence,
-                    args=(evidence_id,),
-                )
                 source_type = {
                     "official_report": "공식 보고서", "official": "공식 자료",
                     "regulatory_filing": "공시", "news": "뉴스", "report": "리포트",
                     "financial_data": "금융 데이터", "web": "웹 자료",
                 }.get(str(item.get("source_type", "")), item.get("source_type") or "출처 유형 확인 불가")
                 verification = "인용 대조 완료" if item.get("verified") else "인용 확인 필요"
-                st.caption(f"{source_type} · {item.get('published_at') or '발행일 확인 불가'} · {verification} · {evidence_id}")
+                selected = st.session_state.get("selected_evidence_id") == evidence_id
+                with st.container(key=f"evidence_row_{key_prefix}_{index}_{'selected' if selected else 'idle'}"):
+                    st.button(
+                        str(item.get("title") or "출처명 확인 불가"),
+                        key=f"{key_prefix}_{index}_{evidence_id}",
+                        icon=":material/description:", type="tertiary", width="stretch",
+                        on_click=select_evidence, args=(evidence_id,),
+                    )
+                    st.caption(f"{source_type} · {item.get('published_at') or '발행일 확인 불가'} · {verification} · {evidence_id}")
 
 
 def select_evidence(evidence_id: str) -> None:
@@ -475,7 +479,7 @@ def _regime_price_chart(
         alt.vconcat(price.add_params(zoom), volume, spacing=8)
         .resolve_scale(x="shared")
         .configure_view(stroke=None)
-        .configure_axis(gridColor="#94a3b8", gridOpacity=0.15)
+        .configure_axis(gridColor="#94a3b8", gridOpacity=0.1, labelColor="#64748b", titleColor="#64748b")
     )
 
 
@@ -517,7 +521,6 @@ with st.sidebar:
         )
     st.caption("페이지 상단의 분석 시작 버튼으로 새 토론을 생성할 수 있습니다.")
 
-st.caption("MARKETCOUNCIL / RESEARCH WORKSPACE")
 if not files:
     st.title("첫 번째 투자 토론을 기다리고 있습니다")
     st.info("상단에서 기업을 선택하고 분석 시작을 누르세요. 완료되면 결과가 자동으로 표시됩니다.")
@@ -540,11 +543,12 @@ st.caption(
     f"분석 생성: {debate.get('created_at') or '확인 불가'}  ·  "
     f"가격 기준일: {price_date or '확인 불가'}  ·  저장된 분석"
 )
-with st.container(horizontal=True):
-    st.metric("핵심 의제", f"{len(agenda)}개", border=True)
-    st.metric("토론 라운드", f"{len(rounds)}회", border=True)
-    st.metric("인용 대조 완료", f"{sum(bool(item.get('verified')) for item in evidence.values())} / {len(evidence)}", border=True)
-    st.metric("미해결 쟁점", f"{len(summary.get('unresolved_issues', []))}개" if "unresolved_issues" in summary else "확인 불가", border=True)
+with st.container(horizontal=True, horizontal_alignment="distribute", key="stat_strip"):
+    st.markdown(f"핵심 의제 **{len(agenda)}개**")
+    st.markdown(f"토론 **{len(rounds)}라운드**")
+    st.markdown(f"인용 대조 **{sum(bool(item.get('verified')) for item in evidence.values())} / {len(evidence)}**")
+    unresolved = f"{len(summary.get('unresolved_issues', []))}개" if "unresolved_issues" in summary else "확인 불가"
+    st.markdown(f"미해결 **{unresolved}**")
 
 st.session_state.setdefault("view_mode", "토론 탐색")
 view_mode = st.segmented_control(
@@ -587,7 +591,7 @@ else:
         ("agreements", "unresolved_issues", "required_evidence"),
         ("양측 합의점", "미해결 쟁점", "다음 확인 자료"),
     ):
-        with column.container(border=True):
+        with column.container(key=f"summary_{field}"):
             st.markdown(f"**{label}**")
             items = summary.get(field, [])
             preview = str(items[0]) if items else "기록된 항목 없음"
@@ -604,14 +608,15 @@ else:
             st.subheader("01 · 의제")
             st.caption("무엇을 두고 의견이 갈리는가")
             issue_ids = [str(item.get("issue_id", "")) for item in agenda]
-            selected_issue_id = st.radio(
-                "의제 선택", issue_ids,
-                format_func=lambda value: next(
-                    str(item.get("title", value)) for item in agenda
-                    if str(item.get("issue_id", "")) == value
-                ),
-                key=f"issue_{selected_path}", label_visibility="collapsed",
-            )
+            with st.container(key="agenda_picker"):
+                selected_issue_id = st.radio(
+                    "의제 선택", issue_ids,
+                    format_func=lambda value: next(
+                        str(item.get("title", value)) for item in agenda
+                        if str(item.get("issue_id", "")) == value
+                    ),
+                    key=f"issue_{selected_path}", label_visibility="collapsed",
+                )
             selected_issue = next(item for item in agenda if str(item.get("issue_id", "")) == selected_issue_id)
             guide = navigation_issue(debate, selected_issue_id)
             status = issue_status(debate, selected_issue_id)
@@ -643,22 +648,25 @@ else:
                 st.session_state.evidence_filter = "전체"
             bull = find_issue_turn(round_data.get("bull_response", {}), selected_issue_id)
             bear = find_issue_turn(round_data.get("bear_response", {}), selected_issue_id)
+            active_ids = evidence_ids(bull, evidence) + evidence_ids(bear, evidence)
+            if st.session_state.get("selected_evidence_id") not in active_ids:
+                st.session_state.selected_evidence_id = next(iter(active_ids), "")
             change = round_change(debate, selected_issue_id, number)
             if change:
-                with st.container(border=True):
+                with st.container(key="round_changes"):
                     st.markdown("#### 이 라운드에서 달라진 점")
-                    st.markdown("**새로 추가된 근거**")
+                    st.badge("새 근거", color="blue", icon=":material/add:")
                     new_ids = change.get("new_evidence_ids", [])
                     for new_id in new_ids:
                         st.write(f"{evidence.get(new_id, {}).get('title') or '출처명 확인 불가'} · {new_id}")
                     if not new_ids:
                         st.caption("기록된 새 근거 없음")
-                    st.markdown("**상대 주장을 인정한 부분**")
+                    st.badge("인정한 부분", color="green", icon=":material/handshake:")
                     for concession in change.get("concessions", []):
                         st.write(concession)
                     if not change.get("concessions"):
                         st.caption("기록된 인정 사항 없음")
-                    st.markdown("**남아 있는 질문**")
+                    st.badge("남은 질문", color="orange", icon=":material/help:")
                     st.write(change.get("remaining_question") or "확인 불가")
                     with st.expander("양측 입장 변화 상세"):
                         st.markdown("**Bull 변화**")
@@ -700,7 +708,7 @@ else:
                 selected_evidence_id = st.selectbox(
                     "근거 선택", list(filtered_evidence), key="selected_evidence_id",
                 )
-                with st.container(border=True):
+                with st.container(key="evidence_panel"):
                     show_evidence(filtered_evidence[selected_evidence_id])
             else:
                 st.info("이 의제·라운드에서 선택한 상태에 해당하는 인용 근거가 없습니다.")

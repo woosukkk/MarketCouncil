@@ -2,14 +2,14 @@
 [theme]
 base = "light"
 primaryColor = "#0F766E"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F3F6F8"
+backgroundColor = "#F5F7FA"
+secondaryBackgroundColor = "#FFFFFF"
 textColor = "#172B3A"
 borderColor = "#DCE4EA"
 showWidgetBorder = true
 showSidebarBorder = true
-baseRadius = "8px"
-buttonRadius = "8px"
+baseRadius = "12px"
+buttonRadius = "10px"
 font = "sans-serif"
 baseFontSize = 15
 headingFontSizes = ["32px", "24px", "19px", "17px", "16px", "15px"]

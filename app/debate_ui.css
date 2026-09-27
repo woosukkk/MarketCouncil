@@ -1,0 +1,79 @@
+/* Scoped to the debate viewer's native widgets; no external fonts or scripts. */
+.stMainBlockContainer {
+    max-width: 1680px;
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+}
+[data-testid="stMarkdownContainer"] p { line-height: 1.65; }
+[data-testid="stCaptionContainer"] { color: #64748b; }
+[data-testid="stVerticalBlockBorderWrapper"] > div {
+    border-color: #e7ecf1;
+    border-radius: 12px;
+}
+.st-key-launcher { border-bottom: 1px solid #dce4ea; padding-bottom: 12px; }
+.st-key-launcher h3 { padding: 0; letter-spacing: -0.5px; }
+.st-key-stat_strip {
+    background: #fff;
+    border: 1px solid #e7ecf1;
+    border-radius: 12px;
+    padding: 12px 20px;
+}
+.st-key-stat_strip p { margin: 0; }
+.st-key-agenda_picker [role="radiogroup"] { gap: 10px; }
+.st-key-agenda_picker [role="radiogroup"] > label {
+    background: #fff;
+    border: 1px solid #e7ecf1;
+    border-left: 3px solid transparent;
+    border-radius: 10px;
+    padding: 14px 12px;
+    width: 100%;
+    margin: 0;
+    transition: border-color 120ms, background 120ms;
+}
+.st-key-agenda_picker [role="radiogroup"] > label:has(input:checked) {
+    border-left-color: #0f766e;
+    background: #eaf5f2;
+}
+.st-key-agenda_picker [role="radiogroup"] > label:focus-within {
+    outline: 2px solid #0f766e;
+    outline-offset: 2px;
+}
+[class*="st-key-position_"] {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #e7ecf1;
+    border-top: 3px solid #0f766e;
+    border-radius: 12px;
+}
+[class*="st-key-position_bear"] { border-top-color: #be4854; }
+[class*="st-key-evidence_row_"] {
+    border-bottom: 1px solid #edf0f3;
+    border-radius: 6px;
+    padding: 6px 8px;
+    gap: 2px;
+}
+[class*="st-key-evidence_row_"][class*="_selected"] {
+    background: #eaf5f2;
+    box-shadow: inset 3px 0 #0f766e;
+}
+[class*="st-key-evidence_row_"] button {
+    justify-content: flex-start;
+    text-align: left;
+    padding: 2px 0;
+}
+[class*="st-key-evidence_row_"] [data-testid="stCaptionContainer"] p {
+    font-size: 12px;
+    line-height: 1.5;
+}
+.st-key-evidence_panel, .st-key-round_changes, [class*="st-key-summary_"] {
+    background: #fff;
+    border: 1px solid #e7ecf1;
+    border-radius: 12px;
+    padding: 20px;
+}
+@media (max-width: 900px) {
+    .stMainBlockContainer { padding: 1rem; }
+    [class*="st-key-position_"], .st-key-evidence_panel, .st-key-round_changes {
+        padding: 14px;
+    }
+}
