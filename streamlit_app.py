@@ -19,9 +19,10 @@ from tools.debate_transcript_renderer import DebateTranscriptRenderer
 
 
 st.set_page_config(
-    page_title="MarketCouncil 토론",
+    page_title="MarketCouncil · 투자 토론",
     page_icon=":material/forum:",
     layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
 STATUS_LABELS = {
@@ -33,7 +34,7 @@ STATUS_LABELS = {
 }
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=8)
 def cached_load(path_text: str, modified_at: float) -> dict[str, Any]:
     del modified_at
     return load_debate(Path(path_text))
@@ -61,25 +62,19 @@ def show_position(
     key_prefix: str,
 ) -> None:
     with st.container(border=True):
-        st.subheader(title)
-        st.markdown("**주장**")
+        is_bull = title.startswith("Bull")
+        st.badge(title, icon=":material/trending_up:" if is_bull else ":material/trending_down:",
+                 color="green" if is_bull else "red")
+        st.markdown("#### 핵심 주장")
         st.write(turn.get("claim") or "확인 불가")
-        if turn.get("target_claim"):
-            st.caption(f"반박 대상: {turn['target_claim']}")
-        st.markdown("**직접 반론**")
-        st.write(turn.get("response") or "확인 불가")
-        if turn.get("warrant"):
-            st.markdown("**근거 → 주장 연결 논리**")
-            st.write(turn["warrant"])
-        if turn.get("qualifier"):
-            st.markdown("**성립 조건·한계**")
-            st.write(turn["qualifier"])
-        if turn.get("concession"):
-            st.markdown("**인정한 부분**")
-            st.write(turn["concession"])
-        if turn.get("missing_evidence"):
-            st.markdown("**부족한 근거**")
-            st.write(turn["missing_evidence"])
+        with st.expander("반론과 논리 읽기"):
+            for field, label in (
+                ("target_claim", "반박 대상"), ("response", "직접 반론"),
+                ("warrant", "근거 → 주장 연결 논리"), ("qualifier", "성립 조건·한계"),
+                ("concession", "인정한 부분"), ("missing_evidence", "부족한 근거"),
+            ):
+                st.markdown(f"**{label}**")
+                st.write(turn.get(field) or "확인 불가")
 
         ids = evidence_ids(turn, evidence)
         if ids:
@@ -87,13 +82,19 @@ def show_position(
             for index, evidence_id in enumerate(ids):
                 item = evidence.get(evidence_id, {})
                 icon = ":material/verified:" if item.get("verified") else ":material/help:"
-                if st.button(
+                st.button(
                     evidence_id,
                     key=f"{key_prefix}_{index}_{evidence_id}",
                     icon=icon,
                     width="stretch",
-                ):
-                    st.session_state.selected_evidence_id = evidence_id
+                    on_click=select_evidence,
+                    args=(evidence_id,),
+                )
+
+
+def select_evidence(evidence_id: str) -> None:
+    st.session_state.selected_evidence_id = evidence_id
+    st.session_state.evidence_filter = "전체"
 
 
 def show_evidence(item: dict[str, Any]) -> None:
@@ -102,15 +103,18 @@ def show_evidence(item: dict[str, Any]) -> None:
         return
     evidence_id = str(item.get("evidence_id", "근거"))
     st.subheader(evidence_id)
-    st.caption("검증 완료" if item.get("verified") else "원문 검증 불가")
+    st.badge("인용 대조 완료" if item.get("verified") else "인용 확인 필요",
+             color="green" if item.get("verified") else "orange")
+    st.caption("인용 대조는 원문 연결 여부이며, 투자 가설의 사실성을 보증하지 않습니다.")
     if item.get("title"):
         st.write(item["title"])
     if item.get("page_number"):
         st.caption(f"PDF {item['page_number']}페이지")
+    st.caption(f"출처 유형: {item.get('source_type') or '확인 불가'} · 발행일: {item.get('published_at') or '확인 불가'}")
     st.markdown("**정확 인용**")
     st.info(item.get("exact_quote") or "확인 불가")
-    st.markdown("**인용 문단 전체**")
-    st.write(item.get("context_text") or "확인 불가")
+    with st.expander("인용 문단 전체"):
+        st.write(item.get("context_text") or "확인 불가")
     if item.get("reason"):
         st.markdown("**이 근거를 사용한 이유**")
         st.write(item["reason"])
@@ -443,164 +447,188 @@ def _reason_evidence_ids(reason: dict[str, Any]) -> str:
 
 
 files = list_debate_files()
-st.title("투자 토론 원문 뷰어")
-st.caption("결론을 대신 내리지 않고 쟁점, 반론, 근거 원문을 읽기 쉽게 보여줍니다.")
+with st.sidebar:
+    st.title("MarketCouncil")
+    st.caption("근거를 읽고, 경쟁 가설을 비교하세요.")
+    if not files:
+        st.info("저장된 토론이 없습니다.")
+    else:
+        selected_path = st.selectbox(
+            "저장된 세션", files,
+            format_func=lambda path: f"{path.parent.name} · {path.stem.removeprefix('analysis_debate_')}",
+            key="debate_session",
+        )
+    st.caption("새 분석은 run_marketcouncil.bat에서 실행합니다.")
 
+st.caption("MARKETCOUNCIL / RESEARCH WORKSPACE")
 if not files:
-    st.info("저장된 토론이 없습니다. 먼저 run_marketcouncil.bat를 실행하세요.")
+    st.title("첫 번째 투자 토론을 기다리고 있습니다")
+    st.info("run_marketcouncil.bat로 분석을 완료한 뒤 이 페이지를 새로고침하세요.")
     st.stop()
 
-with st.sidebar:
-    st.header("토론 선택")
-    selected_path = st.selectbox(
-        "저장된 세션",
-        files,
-        format_func=lambda path: f"{path.parent.name} · {path.stem.removeprefix('analysis_debate_')}",
-    )
+try:
+    debate = cached_load(str(selected_path), selected_path.stat().st_mtime)
+except (ValueError, OSError) as error:
+    st.error(str(error))
+    st.stop()
 
-debate = cached_load(str(selected_path), selected_path.stat().st_mtime)
 agenda = debate.get("agenda", [])
 rounds = debate.get("rounds", [])
 evidence = collect_evidence(debate)
-
-with st.sidebar:
-    round_options = [int(item.get("round", index)) for index, item in enumerate(rounds, 1)]
-    selected_rounds = st.pills(
-        "라운드",
-        round_options,
-        default=round_options,
-        selection_mode="multi",
-    )
-    verification = st.segmented_control(
-        "근거 상태",
-        ["전체", "검증 완료", "검증 불가"],
-        default="전체",
-    )
-
-st.header(str(debate.get("company_name", "기업명 확인 불가")))
-view_mode = st.segmented_control(
-    "분석 보기",
-    ["시장 국면 비교", "토론 원문"],
-    default="시장 국면 비교" if debate.get("regime_analysis", {}).get("regimes") else "토론 원문",
-    width="stretch",
+summary = debate.get("moderator_summary", {})
+company_name = str(debate.get("company_name", "기업명 확인 불가"))
+st.title(f"{company_name} · 투자 토론")
+price_date = debate.get("financial_data", {}).get("financial_facts", {}).get("price_date")
+st.caption(
+    f"분석 생성: {debate.get('created_at') or '확인 불가'}  ·  "
+    f"가격 기준일: {price_date or '확인 불가'}  ·  저장된 분석"
 )
-if view_mode == "시장 국면 비교":
+with st.container(horizontal=True):
+    st.metric("핵심 의제", f"{len(agenda)}개", border=True)
+    st.metric("토론 라운드", f"{len(rounds)}회", border=True)
+    st.metric("인용 대조 완료", f"{sum(bool(item.get('verified')) for item in evidence.values())} / {len(evidence)}", border=True)
+    st.metric("미해결 쟁점", f"{len(summary.get('unresolved_issues', []))}개" if "unresolved_issues" in summary else "확인 불가", border=True)
+
+view_mode = st.segmented_control(
+    "분석 보기", ["토론 탐색", "시장 국면", "최종 정리"],
+    default="토론 탐색", key="view_mode", width="stretch",
+) or "토론 탐색"
+
+if view_mode == "시장 국면":
     show_regime_view(debate.get("regime_analysis", {}), evidence)
     st.download_button(
         "시장 국면 JSON 내려받기",
         json.dumps(debate.get("regime_analysis", {}), ensure_ascii=False, indent=2),
-        file_name=f"regime_{selected_path.stem}.json",
-        mime="application/json",
+        file_name=f"regime_{selected_path.stem}.json", mime="application/json",
         icon=":material/download:",
-        width="stretch",
     )
-    st.stop()
-metric_columns = st.columns(3)
-metric_columns[0].metric("라운드", len(rounds))
-metric_columns[1].metric("쟁점", len(agenda))
-metric_columns[2].metric("검증 근거", sum(bool(item.get("verified")) for item in evidence.values()))
+elif view_mode == "최종 정리":
+    st.subheader("토론이 남긴 결론")
+    st.write(summary.get("summary") or "추가 데이터 필요")
+    for field, label, icon in (
+        ("agreements", "양측 합의점", ":material/handshake:"),
+        ("unresolved_issues", "아직 풀리지 않은 쟁점", ":material/forum:"),
+        ("required_evidence", "다음 판단에 필요한 근거", ":material/search:"),
+    ):
+        with st.container(border=True):
+            st.subheader(label)
+            for value in summary.get(field, []):
+                st.markdown(f"{icon} {value}")
+            if not summary.get(field):
+                st.caption("기록된 항목 없음")
+    st.caption(f"토론 종료 사유: {debate.get('stop_reason') or '확인 불가'}")
+    st.caption("가설의 성립 조건·한계는 토론 탐색의 각 입장 카드에서 확인할 수 있습니다.")
+else:
+    with st.expander("핵심 결론 · 분석의 한계", expanded=False):
+        st.write(summary.get("summary") or debate.get("navigation", {}).get("overview") or "추가 데이터 필요")
+        st.caption(f"토론 종료 사유: {debate.get('stop_reason') or '확인 불가'}")
 
-if not agenda:
-    st.warning("이 토론에는 쟁점 정보가 없습니다.")
-    st.stop()
+    if not agenda or not rounds:
+        st.info("토론 의제 또는 라운드가 없습니다. 최종 정리와 시장 국면을 확인하세요.")
+    else:
+        left, center, right = st.columns([1.05, 2.8, 1.3], gap="large")
+        with left:
+            st.subheader("01 · 의제")
+            st.caption("무엇을 두고 의견이 갈리는가")
+            issue_ids = [str(item.get("issue_id", "")) for item in agenda]
+            selected_issue_id = st.radio(
+                "의제 선택", issue_ids,
+                format_func=lambda value: next(
+                    str(item.get("title", value)) for item in agenda
+                    if str(item.get("issue_id", "")) == value
+                ),
+                key=f"issue_{selected_path}", label_visibility="collapsed",
+            )
+            selected_issue = next(item for item in agenda if str(item.get("issue_id", "")) == selected_issue_id)
+            guide = navigation_issue(debate, selected_issue_id)
+            status = issue_status(debate, selected_issue_id)
+            st.badge(STATUS_LABELS.get(status, status), color={
+                "RESOLVED": "green", "CONTESTED": "orange", "OPEN": "blue",
+            }.get(status, "gray"))
+            st.caption("최종 쟁점 상태")
+            if guide.get("core_disagreement"):
+                st.markdown("**핵심 대립**")
+                st.write(guide["core_disagreement"])
 
-issue_ids = [str(item.get("issue_id", "")) for item in agenda]
-selected_issue_id = st.segmented_control(
-    "쟁점 지도",
-    issue_ids,
-    default=issue_ids[0],
-    format_func=lambda value: next(
-        str(item.get("title", value)) for item in agenda
-        if str(item.get("issue_id", "")) == value
-    ),
-    width="stretch",
-)
-selected_issue = next(
-    item for item in agenda if str(item.get("issue_id", "")) == selected_issue_id
-)
-guide = navigation_issue(debate, selected_issue_id)
-
-left, center, right = st.columns([1.1, 2.4, 1.5], gap="large")
-with left:
-    st.subheader("쟁점 안내")
-    st.write(selected_issue.get("question") or "질문 확인 불가")
-    status = issue_status(debate, selected_issue_id)
-    st.caption(f"현재 상태: {STATUS_LABELS.get(status, status)}")
-    st.markdown("**핵심 대립**")
-    st.write(guide.get("core_disagreement") or "추가 안내 정보 없음")
-    if guide.get("round_changes"):
-        st.markdown("**라운드 변화**")
-        for change in guide["round_changes"]:
-            with st.expander(f"{change.get('round', '?')}라운드"):
-                st.write(f"상승: {change.get('bull_change', '변화 없음')}")
-                st.write(f"하락: {change.get('bear_change', '변화 없음')}")
-                st.write(f"남은 질문: {change.get('remaining_question', '없음')}")
-
-with center:
-    st.subheader("논제별 토론 원문")
-    visible_rounds = [item for item in rounds if int(item.get("round", 0)) in (selected_rounds or [])]
-    for round_data in visible_rounds:
-        number = int(round_data.get("round", 0))
-        change = round_change(debate, selected_issue_id, number)
-        with st.expander(f"{number}라운드", expanded=number == visible_rounds[0].get("round")):
-            if change:
-                st.info(
-                    f"상승 변화: {change.get('bull_change', '')}\n\n"
-                    f"하락 변화: {change.get('bear_change', '')}",
-                    icon=":material/change_circle:",
-                )
+        with center:
+            st.subheader("02 · 주장과 반론")
+            st.caption(selected_issue.get("title", ""))
+            with st.container(border=True):
+                st.markdown("**이번 의제의 검증 질문**")
+                st.write(selected_issue.get("question") or "확인 불가")
+            round_options = [int(item.get("round", index)) for index, item in enumerate(rounds, 1)]
+            number = st.segmented_control(
+                "토론 진행", round_options, default=round_options[0],
+                format_func=lambda value: f"{value}라운드",
+                key=f"round_{selected_path}", width="stretch",
+            ) or round_options[0]
+            round_data = next(item for index, item in enumerate(rounds, 1) if int(item.get("round", index)) == number)
+            scope = (str(selected_path), selected_issue_id, number)
+            if st.session_state.get("evidence_scope") != scope:
+                st.session_state.evidence_scope = scope
+                st.session_state.pop("selected_evidence_id", None)
+                st.session_state.evidence_filter = "전체"
             bull = find_issue_turn(round_data.get("bull_response", {}), selected_issue_id)
             bear = find_issue_turn(round_data.get("bear_response", {}), selected_issue_id)
+            change = round_change(debate, selected_issue_id, number)
+            if change:
+                with st.expander("이 라운드에서 달라진 점", expanded=False):
+                    st.markdown("**Bull 변화**")
+                    st.write(change.get("bull_change") or "확인 불가")
+                    st.markdown("**Bear 변화**")
+                    st.write(change.get("bear_change") or "확인 불가")
+                    st.caption("새 근거: " + (", ".join(change.get("new_evidence_ids", [])) or "기록 없음"))
+                    for concession in change.get("concessions", []):
+                        st.write(f"인정한 부분: {concession}")
+                    st.write(f"남은 질문: {change.get('remaining_question') or '확인 불가'}")
+            else:
+                st.caption("이 라운드의 변화 요약은 기록되어 있지 않습니다.")
             bull_column, bear_column = st.columns(2, gap="medium")
             with bull_column:
-                show_position("Bull 원문", bull, evidence, f"bull_{selected_issue_id}_{number}")
+                show_position("Bull · 상승 가설", bull, evidence, f"bull_{selected_issue_id}_{number}")
             with bear_column:
-                show_position("Bear 원문", bear, evidence, f"bear_{selected_issue_id}_{number}")
+                show_position("Bear · 하락 가설", bear, evidence, f"bear_{selected_issue_id}_{number}")
+            review = next((item for item in round_data.get("moderator_review", {}).get("issue_reviews", [])
+                           if str(item.get("issue_id", "")) == selected_issue_id), {})
+            with st.container(border=True):
+                st.badge("Moderator · 라운드 검토", color="blue")
+                st.write(review.get("assessment") or "검토 기록 없음")
+                if review.get("status"):
+                    st.caption(f"이 라운드의 상태: {STATUS_LABELS.get(review['status'], review['status'])}")
 
-with right:
-    st.subheader("근거 원문")
-    filtered_evidence = {
-        key: item for key, item in evidence.items()
-        if verification == "전체"
-        or (verification == "검증 완료" and item.get("verified"))
-        or (verification == "검증 불가" and not item.get("verified"))
-    }
-    current_id = st.session_state.get("selected_evidence_id", "")
-    if current_id not in filtered_evidence:
-        current_id = next(iter(filtered_evidence), "")
-        st.session_state.selected_evidence_id = current_id
-    if filtered_evidence:
-        selected_evidence_id = st.selectbox(
-            "근거 선택",
-            list(filtered_evidence),
-            index=list(filtered_evidence).index(current_id),
+        with right:
+            st.subheader("03 · 인용 근거")
+            st.caption("선택한 의제·라운드에 연결된 원문")
+            verification = st.selectbox(
+                "인용 상태", ["전체", "인용 대조 완료", "인용 확인 필요"], key="evidence_filter",
+            )
+            active_ids = set(evidence_ids(bull, evidence) + evidence_ids(bear, evidence))
+            filtered_evidence = {
+                key: item for key, item in evidence.items() if key in active_ids and (
+                    verification == "전체"
+                    or (verification == "인용 대조 완료" and item.get("verified"))
+                    or (verification == "인용 확인 필요" and not item.get("verified"))
+                )
+            }
+            if filtered_evidence:
+                if st.session_state.get("selected_evidence_id") not in filtered_evidence:
+                    st.session_state.selected_evidence_id = next(iter(filtered_evidence))
+                selected_evidence_id = st.selectbox(
+                    "근거 선택", list(filtered_evidence), key="selected_evidence_id",
+                )
+                with st.container(border=True):
+                    show_evidence(filtered_evidence[selected_evidence_id])
+            else:
+                st.info("이 의제·라운드에서 선택한 상태에 해당하는 인용 근거가 없습니다.")
+
+with st.expander("분석 기록 내려받기", icon=":material/download:"):
+    with st.container(horizontal=True):
+        st.download_button(
+            "JSON 원문", json.dumps(debate, ensure_ascii=False, indent=2),
+            file_name=selected_path.name, mime="application/json",
         )
-        st.session_state.selected_evidence_id = selected_evidence_id
-        show_evidence(filtered_evidence[selected_evidence_id])
-    else:
-        st.info("선택한 상태에 해당하는 근거가 없습니다.")
-
-if debate.get("regime_analysis", {}).get("regimes"):
-    st.divider()
-    show_regime_view(debate["regime_analysis"], evidence)
-
-st.divider()
-download_json = json.dumps(debate, ensure_ascii=False, indent=2)
-download_markdown = DebateTranscriptRenderer().render(debate)
-download_columns = st.columns(2)
-download_columns[0].download_button(
-    "JSON 원문 내려받기",
-    download_json,
-    file_name=selected_path.name,
-    mime="application/json",
-    icon=":material/download:",
-    width="stretch",
-)
-download_columns[1].download_button(
-    "Markdown 기록 내려받기",
-    download_markdown,
-    file_name=f"{selected_path.stem}.md",
-    mime="text/markdown",
-    icon=":material/download:",
-    width="stretch",
-)
+        st.download_button(
+            "Markdown 기록", DebateTranscriptRenderer().render(debate),
+            file_name=f"{selected_path.stem}.md", mime="text/markdown",
+        )
+st.caption("MarketCouncil · 사실, 시장 기대, 투자 가설을 구분하고 근거의 한계를 함께 읽습니다.")
