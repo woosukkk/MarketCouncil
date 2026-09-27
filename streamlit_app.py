@@ -23,7 +23,7 @@ st.set_page_config(
     page_title="MarketCouncil · 투자 토론",
     page_icon=":material/forum:",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 st.html(Path(__file__).parent / "app" / "debate_ui.css")
 
@@ -502,15 +502,27 @@ def _reason_evidence_ids(reason: dict[str, Any]) -> str:
     return ", ".join(value for value in values if value) or "확인 불가"
 
 
-show_analysis_launcher()
 files = list_debate_files()
 pending_session = st.session_state.pop("pending_debate_session", None)
 if pending_session in files:
     st.session_state.debate_session = pending_session
     st.session_state.view_mode = "토론 탐색"
+    st.session_state.workspace_page = "토론 보기"
 with st.sidebar:
     st.title("MarketCouncil")
     st.caption("근거를 읽고, 경쟁 가설을 비교하세요.")
+    workspace_page = st.radio(
+        "페이지", ["토론 보기", "새 분석"], key="workspace_page",
+    )
+    st.caption("새 분석 메뉴에서 기업을 선택하고 토론을 시작하세요.")
+
+if workspace_page == "새 분석":
+    st.title("새 투자 분석")
+    st.caption("기업을 선택하면 근거 수집부터 Bull/Bear 토론까지 실행합니다.")
+    show_analysis_launcher()
+    st.stop()
+
+with st.sidebar:
     if not files:
         st.info("저장된 토론이 없습니다.")
     else:
@@ -519,11 +531,10 @@ with st.sidebar:
             format_func=lambda path: f"{path.parent.name} · {path.stem.removeprefix('analysis_debate_')}",
             key="debate_session",
         )
-    st.caption("페이지 상단의 분석 시작 버튼으로 새 토론을 생성할 수 있습니다.")
 
 if not files:
     st.title("첫 번째 투자 토론을 기다리고 있습니다")
-    st.info("상단에서 기업을 선택하고 분석 시작을 누르세요. 완료되면 결과가 자동으로 표시됩니다.")
+    st.info("왼쪽 새 분석 메뉴에서 첫 토론을 시작하세요.")
     st.stop()
 
 try:

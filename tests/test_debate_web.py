@@ -31,6 +31,8 @@ class DebateWebTest(unittest.TestCase):
 
                 runner.start.side_effect = start
                 app = AppTest.from_file(str(APP), default_timeout=30).run()
+                self.assertFalse(any(button.key == "start_analysis" for button in app.button))
+                app.radio(key="workspace_page").set_value("새 분석").run()
                 app.button(key="start_analysis").click().run()
                 runner.start.assert_called_once_with("삼성전자")
                 self.assertTrue(app.button(key="start_analysis").disabled)
@@ -41,13 +43,14 @@ class DebateWebTest(unittest.TestCase):
                 app.run()
                 self.assertEqual(app.selectbox(key="debate_session").value, result_path)
                 self.assertTrue(any("새 분석" in title.value for title in app.title))
-                self.assertFalse(app.button(key="start_analysis").disabled)
+                self.assertEqual(app.radio(key="workspace_page").value, "토론 보기")
+                self.assertFalse(any(button.key == "start_analysis" for button in app.button))
                 self.assertFalse(app.exception)
 
                 failed: Future[Path] = Future()
                 failed.set_exception(RuntimeError("테스트 API 실패"))
                 runner.current.return_value = ("삼성전자", failed)
-                app.run()
+                app.radio(key="workspace_page").set_value("새 분석").run()
                 self.assertTrue(any("분석 실패" in error.value for error in app.error))
                 self.assertFalse(app.button(key="start_analysis").disabled)
                 self.assertFalse(app.exception)
@@ -102,7 +105,7 @@ class DebateWebTest(unittest.TestCase):
 
                 app.get("button_group")[1].set_value(2).run()
                 self.assertEqual(app.selectbox(key="selected_evidence_id").options, ["A-2-1", "A-2-2"])
-                app.radio[0].set_value("B").run()
+                app.radio(key=f"issue_{first}").set_value("B").run()
                 self.assertEqual(app.selectbox(key="selected_evidence_id").options, ["B-2-1", "B-2-2"])
                 app.selectbox(key="debate_session").select(second).run()
                 self.assertEqual(app.selectbox(key="selected_evidence_id").options, ["A-1-1", "A-1-2"])
