@@ -66,6 +66,8 @@ PARTICIPANT_SCHEMA = {
 
 class DebateState(TypedDict, total=False):
     debate_input: str
+    evidence_catalog: list[dict[str, Any]]
+    financial_data: dict[str, Any]
     agenda: list[dict[str, Any]]
     current_round: int
     max_rounds: int
@@ -115,6 +117,8 @@ class AnalysisDebateAgent:
         result = self.graph.invoke(
             {
                 "debate_input": debate_input,
+                "evidence_catalog": evidence_catalog,
+                "financial_data": financial_data,
                 "current_round": 1,
                 "max_rounds": self.max_rounds,
                 "rounds": [],
@@ -198,6 +202,8 @@ class AnalysisDebateAgent:
             "agenda": state.get("agenda", []),
             "rounds": state.get("rounds", []),
             "final_issue_reviews": review.get("issue_reviews", []),
+            "financial_data": state.get("financial_data", {}),
+            "evidence_catalog": state.get("evidence_catalog", []),
             "stop_reason": stop_reason,
         })
         print("[중재자 토론 최종 정리 완료]")
@@ -226,7 +232,7 @@ class AnalysisDebateAgent:
         ):
             return "계속 검토할 OPEN 또는 CONTESTED 쟁점이 없습니다."
         if not cls._has_new_information(state):
-            return "직전 라운드 대비 새로운 주장, 근거 또는 인정 사항이 없습니다."
+            return "이전 전체 라운드 대비 새로운 유효 인용이나 실질적인 논점 변화가 없습니다."
         return None
 
     @classmethod
@@ -234,14 +240,19 @@ class AnalysisDebateAgent:
         rounds = state.get("rounds", [])
         if len(rounds) < 2:
             return True
-        previous = rounds[-2]
         current_items = cls._debate_items(
             state.get("bull_response", {}), state.get("bear_response", {})
         )
-        previous_items = cls._debate_items(
-            previous.get("bull_response", {}), previous.get("bear_response", {})
+        previous_items = set()
+        for previous in rounds[:-1]:
+            previous_items.update(cls._debate_items(
+                previous.get("bull_response", {}), previous.get("bear_response", {})
+            ))
+        return bool(current_items - previous_items) or any(
+            issue.get("material_change") is True
+            and bool(str(issue.get("change_reason", "")).strip())
+            for issue in state.get("moderator_review", {}).get("issue_reviews", [])
         )
-        return bool(current_items - previous_items)
 
     @staticmethod
     def _debate_items(*responses: dict[str, Any]) -> set[tuple[str, str, str]]:
@@ -249,14 +260,9 @@ class AnalysisDebateAgent:
         for response in responses:
             for issue in response.get("issues", []):
                 issue_id = str(issue.get("issue_id", ""))
-                for field in ("claim", "concession"):
-                    value = " ".join(str(issue.get(field, "")).split())
-                    if value:
-                        items.add((issue_id, field, value))
                 for evidence in issue.get("evidence", []):
-                    value = " ".join(str(evidence).split())
-                    if value:
-                        items.add((issue_id, "evidence", value))
+                    if isinstance(evidence, dict) and evidence.get("citation_valid") is True:
+                        items.add((issue_id, str(evidence["source_id"]), str(evidence["quote_id"])))
         return items
 
     def _participant_response(
@@ -304,7 +310,7 @@ class AnalysisDebateAgent:
                 result = json.loads(response.output_text)
                 if not isinstance(result, dict):
                     raise ValueError("응답이 JSON 객체가 아닙니다.")
-                return result
+                return self._validate_citations(result, state.get("evidence_catalog", []))
             except (json.JSONDecodeError, ValueError) as error:
                 last_error = error
                 if attempt == 0:
@@ -321,6 +327,28 @@ class AnalysisDebateAgent:
         raise RuntimeError(
             f"{role_label} 토론 JSON 응답 생성에 실패했습니다: {last_error}"
         ) from last_error
+
+    @staticmethod
+    def _validate_citations(
+        response: dict[str, Any], catalog: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        quotes = {
+            (source["source_id"], quote["quote_id"]): quote["text"]
+            for source in catalog
+            for quote in source.get("quotes", [])
+            if source.get("source_id") and quote.get("quote_id") and quote.get("text")
+        }
+        for issue in response.get("issues", []):
+            valid, errors = [], []
+            for evidence in issue.get("evidence", []):
+                key = (evidence.get("source_id"), evidence.get("quote_id"))
+                if key not in quotes:
+                    errors.append({**evidence, "error": "제공된 원문에서 인용 쌍을 확인할 수 없음"})
+                    continue
+                valid.append({**evidence, "citation_valid": True, "exact_quote": quotes[key]})
+            issue["evidence"] = valid
+            issue["citation_errors"] = errors
+        return response
 
     @staticmethod
     def _ensure_complete(response: Any) -> None:
