@@ -592,23 +592,29 @@ elif view_mode == "최종 정리":
     st.caption(f"토론 종료 사유: {debate.get('stop_reason') or '확인 불가'}")
     st.caption("가설의 성립 조건·한계는 토론 탐색의 각 입장 카드에서 확인할 수 있습니다.")
 else:
-    st.subheader("토론 한눈에 보기")
     overview = str(summary.get("summary") or debate.get("navigation", {}).get("overview") or "추가 데이터 필요")
-    st.write(overview[:240] + ("…" if len(overview) > 240 else ""))
-    if len(overview) > 240:
-        with st.expander("핵심 결론 전체 읽기"):
-            st.write(overview)
-    for column, field, label in zip(st.columns(3),
-        ("agreements", "unresolved_issues", "required_evidence"),
-        ("양측 합의점", "미해결 쟁점", "다음 확인 자료"),
-    ):
-        with column.container(key=f"summary_{field}"):
-            st.markdown(f"**{label}**")
-            items = summary.get(field, [])
-            preview = str(items[0]) if items else "기록된 항목 없음"
-            st.write(preview[:160] + ("…" if len(preview) > 160 else ""))
-            if items:
-                st.caption(f"총 {len(items)}개 · 전체 내용은 최종 정리에서 확인")
+    main_summary, supporting_summary = st.columns([2.2, 1], gap="medium")
+    with main_summary:
+        with st.container(key="conclusion_focus"):
+            st.subheader("토론 한눈에 보기")
+            st.caption("핵심 결론 · 저장된 분석 요약")
+            with st.container(key="conclusion_text"):
+                st.write(overview)
+        with st.container(key="summary_unresolved_issues"):
+            st.markdown("**아직 해결되지 않은 핵심 쟁점**")
+            unresolved_items = summary.get("unresolved_issues", [])
+            st.write(str(unresolved_items[0]) if unresolved_items else "기록된 항목 없음")
+            if len(unresolved_items) > 1:
+                st.caption(f"외 {len(unresolved_items) - 1}개 · 최종 정리에서 확인")
+    with supporting_summary:
+        for field, label in (("agreements", "양측 합의점"), ("required_evidence", "다음 확인 자료")):
+            with st.container(key=f"summary_{field}"):
+                st.markdown(f"**{label}**")
+                items = summary.get(field, [])
+                preview = str(items[0]) if items else "기록된 항목 없음"
+                st.write(preview[:160] + ("…" if len(preview) > 160 else ""))
+                if items:
+                    st.caption(f"총 {len(items)}개 · 전체 내용은 최종 정리에서 확인")
     st.caption(f"토론 종료 사유: {debate.get('stop_reason') or '확인 불가'}")
 
     if not agenda or not rounds:
@@ -638,11 +644,11 @@ else:
                 with st.expander("핵심 대립 읽기"):
                     st.write(guide["core_disagreement"])
 
-        center, right = st.columns([2.6, 1], gap="medium")
+        center, right = st.columns([3, 1], gap="medium")
         with center:
             st.subheader("주장과 반론")
             st.caption(selected_issue.get("title", ""))
-            with st.container(border=True):
+            with st.container(key="question_focus"):
                 st.markdown("**이번 의제의 검증 질문**")
                 st.write(selected_issue.get("question") or "확인 불가")
             round_options = [int(item.get("round", index)) for index, item in enumerate(rounds, 1)]

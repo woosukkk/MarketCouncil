@@ -98,6 +98,27 @@
 .st-key-summary_required_evidence { background: #e3edff; border-top: 3px solid #2563eb; }
 .st-key-round_changes { background: #eaf0ff; border-color: #c4d4f5; }
 .st-key-evidence_panel { background: #f0f5ff; border-top: 3px solid #2563eb; }
+.st-key-conclusion_focus {
+    background: #e2ecff;
+    border-left: 5px solid #2563eb;
+    border-radius: 14px;
+    padding: 26px;
+}
+.st-key-conclusion_focus h3 { color: #173b70; font-size: 26px; }
+.st-key-conclusion_text p { font-size: 20px; font-weight: 600; line-height: 1.75; }
+.st-key-question_focus {
+    background: #fff;
+    border-left: 4px solid #2563eb;
+    padding: 20px;
+    border-radius: 10px;
+}
+.st-key-question_focus p { font-size: 18px; }
+.st-key-summary_agreements, .st-key-summary_required_evidence {
+    background: #fff;
+    border-top-width: 2px;
+}
+.st-key-summary_unresolved_issues { border-left: 4px solid #b77a15; border-top: 0; }
+.st-key-evidence_panel { background: #fff; }
 .st-key-agenda_section { padding-top: 8px; padding-bottom: 8px; }
 [data-testid="stSidebar"] [role="radiogroup"] > label:has(input:checked) {
     background: #dfeaff;
@@ -108,4 +129,6 @@
     [class*="st-key-position_"], .st-key-evidence_panel, .st-key-round_changes {
         padding: 14px;
     }
+    .st-key-conclusion_focus { padding: 18px; }
+    .st-key-conclusion_text p { font-size: 18px; }
 }
