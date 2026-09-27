@@ -7,12 +7,37 @@ from concurrent.futures import Future
 
 import streamlit as st
 from streamlit.testing.v1 import AppTest
+from app.debate_view_data import ordered_agenda
 
 
 APP = Path(__file__).resolve().parents[1] / "streamlit_app.py"
 
 
 class DebateWebTest(unittest.TestCase):
+    def test_editorial_priority_and_article_navigation(self) -> None:
+        debate = {
+            "company_name": "기사 테스트",
+            "agenda": [{"issue_id": "A", "title": "첫 의제"}, {"issue_id": "B", "title": "둘째 의제"}],
+            "rounds": [{"round": 1}],
+            "moderator_summary": {"headline": "기대는 유지되지만 근거 확인 필요",
+                                  "lead": "단기 지표가 부족합니다.",
+                                  "priority_issue_ids": ["B", "missing", "B"]},
+        }
+        self.assertEqual([item["issue_id"] for item in ordered_agenda(debate)], ["B", "A"])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "analysis_debate_editorial.json"
+            path.write_text(json.dumps(debate), encoding="utf-8")
+            with patch("app.debate_view_data.list_debate_files", return_value=[path]):
+                app = AppTest.from_file(str(APP), default_timeout=30).run()
+                self.assertTrue(any(item.value == debate["moderator_summary"]["headline"] for item in app.header))
+                app.button(key="featured_article").click().run()
+                self.assertEqual(app.radio(key=f"issue_{path}").value, "B")
+                app.button(key="back_to_articles").click().run()
+                app.button(key="article_1").click().run()
+                self.assertEqual(app.radio(key=f"issue_{path}").value, "A")
+                self.assertTrue(any(item.value == "첫 의제" for item in app.header))
+                self.assertFalse(app.exception)
+
     def test_launch_pending_completion_and_failure(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result_path = Path(directory) / "analysis_debate_new.json"
@@ -92,9 +117,10 @@ class DebateWebTest(unittest.TestCase):
                 app = AppTest.from_file(str(APP), default_timeout=30).run()
                 self.assertFalse(app.exception)
                 self.assertEqual(app.get("button_group")[0].value, "토론 탐색")
+                self.assertTrue(any(item.value == "토론 한눈에 보기" for item in app.subheader))
+                app.button(key="featured_article").click().run()
                 self.assertEqual(app.button(key="bull_A_1_0_A-1-1").label, "공식 실적 보고서")
                 self.assertTrue(any("2026-08-01" in item.value for item in app.caption))
-                self.assertTrue(any(item.value == "토론 한눈에 보기" for item in app.subheader))
                 self.assertTrue(any(item.value == "현금흐름 확인 필요" for item in app.markdown))
                 app.selectbox(key="evidence_filter").select("인용 대조 완료").run()
                 self.assertEqual(app.selectbox(key="selected_evidence_id").options, ["A-1-1"])
@@ -108,6 +134,7 @@ class DebateWebTest(unittest.TestCase):
                 app.radio(key=f"issue_{first}").set_value("B").run()
                 self.assertEqual(app.selectbox(key="selected_evidence_id").options, ["B-2-1", "B-2-2"])
                 app.selectbox(key="debate_session").select(second).run()
+                app.button(key="featured_article").click().run()
                 self.assertEqual(app.selectbox(key="selected_evidence_id").options, ["A-1-1", "A-1-2"])
                 self.assertTrue(any("다른 기업" in title.value for title in app.title))
 

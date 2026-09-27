@@ -13,6 +13,7 @@ from app.debate_view_data import (
     list_debate_files,
     load_debate,
     navigation_issue,
+    ordered_agenda,
     round_change,
 )
 from tools.debate_transcript_renderer import DebateTranscriptRenderer
@@ -151,6 +152,15 @@ def show_position(
 def select_evidence(evidence_id: str) -> None:
     st.session_state.selected_evidence_id = evidence_id
     st.session_state.evidence_filter = "전체"
+
+
+def open_article(path: str, issue_id: str) -> None:
+    st.session_state.article_path = path
+    st.session_state[f"issue_{path}"] = issue_id
+
+
+def close_article() -> None:
+    st.session_state.pop("article_path", None)
 
 
 def show_evidence(item: dict[str, Any]) -> None:
@@ -543,7 +553,7 @@ except (ValueError, OSError) as error:
     st.error(str(error))
     st.stop()
 
-agenda = debate.get("agenda", [])
+agenda = ordered_agenda(debate)
 rounds = debate.get("rounds", [])
 evidence = collect_evidence(debate)
 summary = debate.get("moderator_summary", {})
@@ -593,28 +603,45 @@ elif view_mode == "최종 정리":
     st.caption("가설의 성립 조건·한계는 토론 탐색의 각 입장 카드에서 확인할 수 있습니다.")
 else:
     overview = str(summary.get("summary") or debate.get("navigation", {}).get("overview") or "추가 데이터 필요")
-    main_summary, supporting_summary = st.columns([2.2, 1], gap="medium")
-    with main_summary:
-        with st.container(key="conclusion_focus"):
-            st.subheader("토론 한눈에 보기")
-            st.caption("핵심 결론 · 저장된 분석 요약")
-            with st.container(key="conclusion_text"):
-                st.write(overview)
-        with st.container(key="summary_unresolved_issues"):
-            st.markdown("**아직 해결되지 않은 핵심 쟁점**")
-            unresolved_items = summary.get("unresolved_issues", [])
-            st.write(str(unresolved_items[0]) if unresolved_items else "기록된 항목 없음")
-            if len(unresolved_items) > 1:
-                st.caption(f"외 {len(unresolved_items) - 1}개 · 최종 정리에서 확인")
-    with supporting_summary:
-        for field, label in (("agreements", "양측 합의점"), ("required_evidence", "다음 확인 자료")):
-            with st.container(key=f"summary_{field}"):
-                st.markdown(f"**{label}**")
-                items = summary.get(field, [])
-                preview = str(items[0]) if items else "기록된 항목 없음"
-                st.write(preview[:160] + ("…" if len(preview) > 160 else ""))
-                if items:
-                    st.caption(f"총 {len(items)}개 · 전체 내용은 최종 정리에서 확인")
+    headline = str(summary.get("headline") or (agenda[0].get("title") if agenda else None) or "투자 토론 요약")
+    lead = str(summary.get("lead") or overview)
+    if agenda and rounds and st.session_state.get("article_path") != str(selected_path):
+        st.subheader("토론 한눈에 보기")
+        main_story, other_stories = st.columns([2.2, 1], gap="medium")
+        with main_story:
+            with st.container(key="conclusion_focus"):
+                st.caption("주요 분석" if summary.get("headline") else "저장된 토론 · 기존 의제 순서")
+                st.header(headline)
+                st.write(lead)
+                status = issue_status(debate, str(agenda[0].get("issue_id", "")))
+                st.badge(STATUS_LABELS.get(status, status), color="blue")
+                st.button("토론 읽기", key="featured_article", type="primary",
+                          icon=":material/arrow_forward:", on_click=open_article,
+                          args=(str(selected_path), str(agenda[0].get("issue_id", ""))))
+        with other_stories:
+            st.caption("함께 살펴볼 의제")
+            for index, item in enumerate(agenda[1:], 1):
+                with st.container(key=f"summary_article_{index}"):
+                    st.subheader(str(item.get("title") or "의제 제목 확인 불가"))
+                    st.write(item.get("question") or "추가 데이터 필요")
+                    st.button("쟁점 읽기", key=f"article_{index}", on_click=open_article,
+                              args=(str(selected_path), str(item.get("issue_id", ""))))
+            if len(agenda) == 1:
+                st.caption("이번 분석은 하나의 의제를 다룹니다.")
+        st.caption("토론에서 정리한 분석입니다. 출처 원문과 근거의 한계는 상세에서 확인하세요.")
+        st.stop()
+
+    if agenda and rounds:
+        st.button("기사 목록으로", icon=":material/arrow_back:", on_click=close_article, key="back_to_articles")
+        article_issue = next((item for item in agenda if str(item.get("issue_id", "")) ==
+                              st.session_state.get(f"issue_{selected_path}")), agenda[0])
+        if article_issue is not agenda[0]:
+            headline = str(article_issue.get("title") or "의제 제목 확인 불가")
+            lead = str(navigation_issue(debate, str(article_issue.get("issue_id", ""))).get("core_disagreement")
+                       or article_issue.get("question") or "추가 데이터 필요")
+    with st.container(key="conclusion_focus"):
+        st.header(headline)
+        st.write(lead)
     st.caption(f"토론 종료 사유: {debate.get('stop_reason') or '확인 불가'}")
 
     if not agenda or not rounds:

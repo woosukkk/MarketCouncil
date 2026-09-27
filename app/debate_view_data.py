@@ -85,6 +85,17 @@ def navigation_issue(debate: dict[str, Any], issue_id: str) -> dict[str, Any]:
     )
 
 
+def ordered_agenda(debate: dict[str, Any]) -> list[dict[str, Any]]:
+    """Ignore unknown/duplicate editorial IDs and retain every original issue."""
+    agenda = debate.get("agenda", [])
+    by_id = {str(item.get("issue_id", "")): item for item in agenda}
+    priority = debate.get("moderator_summary", {}).get("priority_issue_ids", [])
+    if not isinstance(priority, list):
+        priority = []
+    ids = dict.fromkeys(str(value) for value in [*priority, *by_id])
+    return [by_id[value] for value in ids if value in by_id]
+
+
 def issue_status(debate: dict[str, Any], issue_id: str) -> str:
     guide = navigation_issue(debate, issue_id)
     if guide.get("status"):

@@ -78,8 +78,12 @@ SUMMARY_SCHEMA = {
         "unresolved_issues": {"type": "array", "items": {"type": "string"}},
         "required_evidence": {"type": "array", "items": {"type": "string"}},
         "summary": {"type": "string"},
+        "headline": {"type": "string"},
+        "lead": {"type": "string"},
+        "priority_issue_ids": {"type": "array", "items": {"type": "string"}},
     },
-    "required": ["agreements", "unresolved_issues", "required_evidence", "summary"],
+    "required": ["agreements", "unresolved_issues", "required_evidence", "summary",
+                 "headline", "lead", "priority_issue_ids"],
     "additionalProperties": False,
 }
 
