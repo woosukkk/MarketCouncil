@@ -614,10 +614,8 @@ else:
     if not agenda or not rounds:
         st.info("토론 의제 또는 라운드가 없습니다. 최종 정리와 시장 국면을 확인하세요.")
     else:
-        left, center, right = st.columns([1.05, 2.8, 1.3], gap="large")
-        with left:
-            st.subheader("01 · 의제")
-            st.caption("무엇을 두고 의견이 갈리는가")
+        with st.container(key="agenda_section"):
+            st.subheader("토론 의제")
             issue_ids = [str(item.get("issue_id", "")) for item in agenda]
             with st.container(key="agenda_picker"):
                 selected_issue_id = st.radio(
@@ -626,21 +624,23 @@ else:
                         str(item.get("title", value)) for item in agenda
                         if str(item.get("issue_id", "")) == value
                     ),
-                    key=f"issue_{selected_path}", label_visibility="collapsed",
+                    key=f"issue_{selected_path}", label_visibility="collapsed", horizontal=True,
                 )
             selected_issue = next(item for item in agenda if str(item.get("issue_id", "")) == selected_issue_id)
             guide = navigation_issue(debate, selected_issue_id)
             status = issue_status(debate, selected_issue_id)
-            st.badge(STATUS_LABELS.get(status, status), color={
-                "RESOLVED": "green", "CONTESTED": "orange", "OPEN": "blue",
-            }.get(status, "gray"))
-            st.caption("최종 쟁점 상태")
+            with st.container(horizontal=True, vertical_alignment="center"):
+                st.badge(STATUS_LABELS.get(status, status), color={
+                    "RESOLVED": "green", "CONTESTED": "orange", "OPEN": "blue",
+                }.get(status, "gray"))
+                st.caption("최종 쟁점 상태")
             if guide.get("core_disagreement"):
-                st.markdown("**핵심 대립**")
-                st.write(guide["core_disagreement"])
+                with st.expander("핵심 대립 읽기"):
+                    st.write(guide["core_disagreement"])
 
+        center, right = st.columns([2.6, 1], gap="medium")
         with center:
-            st.subheader("02 · 주장과 반론")
+            st.subheader("주장과 반론")
             st.caption(selected_issue.get("title", ""))
             with st.container(border=True):
                 st.markdown("**이번 의제의 검증 질문**")
@@ -700,7 +700,7 @@ else:
                     st.caption(f"이 라운드의 상태: {STATUS_LABELS.get(review['status'], review['status'])}")
 
         with right:
-            st.subheader("03 · 인용 근거")
+            st.subheader("인용 근거")
             st.caption("선택한 의제·라운드에 연결된 원문")
             verification = st.selectbox(
                 "인용 상태", ["전체", "인용 대조 완료", "인용 확인 필요"], key="evidence_filter",
