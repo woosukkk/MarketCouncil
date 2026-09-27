@@ -16,6 +16,7 @@ from app.debate_view_data import (
     round_change,
 )
 from tools.debate_transcript_renderer import DebateTranscriptRenderer
+from app.web_analysis_runner import AnalysisRunner, TICKER_MAP
 
 
 st.set_page_config(
@@ -38,6 +39,50 @@ STATUS_LABELS = {
 def cached_load(path_text: str, modified_at: float) -> dict[str, Any]:
     del modified_at
     return load_debate(Path(path_text))
+
+
+@st.cache_resource
+def analysis_runner() -> AnalysisRunner:
+    return AnalysisRunner()
+
+
+@st.fragment(run_every="2s")
+def show_analysis_launcher() -> None:
+    runner = analysis_runner()
+    company, future = runner.current()
+    running = future is not None and not future.done()
+    with st.container(border=True):
+        with st.container(horizontal=True, vertical_alignment="bottom"):
+            selected_company = st.selectbox(
+                "새로 분석할 기업", list(TICKER_MAP), key="analysis_company", disabled=running,
+            )
+            if st.button(
+                "분석 시작", key="start_analysis", type="primary",
+                icon=":material/play_arrow:", disabled=running,
+            ):
+                try:
+                    runner.start(selected_company)
+                except (RuntimeError, ValueError) as error:
+                    st.error(str(error))
+                else:
+                    st.rerun()
+        st.caption("공시·웹 근거 수집부터 토론까지 실행합니다. OpenAI API 사용 비용이 발생하며 수 분 이상 걸릴 수 있습니다.")
+        if running:
+            st.status(f"{company} 분석 진행 중 · 완료되면 새 결과가 자동으로 열립니다.", state="running")
+            st.caption("기존 토론은 계속 볼 수 있습니다. 분석 중에는 웹 서버를 종료하지 마세요.")
+        elif future is not None:
+            try:
+                result_path = future.result()
+            except Exception as error:
+                st.error(f"{company} 분석 실패")
+                with st.expander("실패 원인", expanded=True):
+                    st.text(str(error))
+            else:
+                st.success(f"{company} 분석 완료 · 결과가 저장되었습니다.")
+                if st.session_state.get("opened_analysis") is not future:
+                    st.session_state.opened_analysis = future
+                    st.session_state.pending_debate_session = result_path
+                    st.rerun()
 
 
 def evidence_ids(turn: dict[str, Any], evidence: dict[str, dict[str, Any]]) -> list[str]:
@@ -446,7 +491,12 @@ def _reason_evidence_ids(reason: dict[str, Any]) -> str:
     return ", ".join(value for value in values if value) or "확인 불가"
 
 
+show_analysis_launcher()
 files = list_debate_files()
+pending_session = st.session_state.pop("pending_debate_session", None)
+if pending_session in files:
+    st.session_state.debate_session = pending_session
+    st.session_state.view_mode = "토론 탐색"
 with st.sidebar:
     st.title("MarketCouncil")
     st.caption("근거를 읽고, 경쟁 가설을 비교하세요.")
@@ -458,12 +508,12 @@ with st.sidebar:
             format_func=lambda path: f"{path.parent.name} · {path.stem.removeprefix('analysis_debate_')}",
             key="debate_session",
         )
-    st.caption("새 분석은 run_marketcouncil.bat에서 실행합니다.")
+    st.caption("페이지 상단의 분석 시작 버튼으로 새 토론을 생성할 수 있습니다.")
 
 st.caption("MARKETCOUNCIL / RESEARCH WORKSPACE")
 if not files:
     st.title("첫 번째 투자 토론을 기다리고 있습니다")
-    st.info("run_marketcouncil.bat로 분석을 완료한 뒤 이 페이지를 새로고침하세요.")
+    st.info("상단에서 기업을 선택하고 분석 시작을 누르세요. 완료되면 결과가 자동으로 표시됩니다.")
     st.stop()
 
 try:
@@ -489,9 +539,10 @@ with st.container(horizontal=True):
     st.metric("인용 대조 완료", f"{sum(bool(item.get('verified')) for item in evidence.values())} / {len(evidence)}", border=True)
     st.metric("미해결 쟁점", f"{len(summary.get('unresolved_issues', []))}개" if "unresolved_issues" in summary else "확인 불가", border=True)
 
+st.session_state.setdefault("view_mode", "토론 탐색")
 view_mode = st.segmented_control(
     "분석 보기", ["토론 탐색", "시장 국면", "최종 정리"],
-    default="토론 탐색", key="view_mode", width="stretch",
+    key="view_mode", width="stretch",
 ) or "토론 탐색"
 
 if view_mode == "시장 국면":

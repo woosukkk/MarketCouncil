@@ -3,7 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from concurrent.futures import Future
 
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 
@@ -11,6 +13,45 @@ APP = Path(__file__).resolve().parents[1] / "streamlit_app.py"
 
 
 class DebateWebTest(unittest.TestCase):
+    def test_launch_pending_completion_and_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result_path = Path(directory) / "analysis_debate_new.json"
+            result_path.write_text(json.dumps({"company_name": "새 분석"}), encoding="utf-8")
+            future: Future[Path] = Future()
+            st.cache_resource.clear()
+            self.addCleanup(st.cache_resource.clear)
+            with patch("app.web_analysis_runner.AnalysisRunner") as runner_class, patch(
+                "app.debate_view_data.list_debate_files", return_value=[]
+            ) as files:
+                runner = runner_class.return_value
+                runner.current.return_value = ("", None)
+
+                def start(company: str) -> None:
+                    runner.current.return_value = (company, future)
+
+                runner.start.side_effect = start
+                app = AppTest.from_file(str(APP), default_timeout=30).run()
+                app.button(key="start_analysis").click().run()
+                runner.start.assert_called_once_with("삼성전자")
+                self.assertTrue(app.button(key="start_analysis").disabled)
+                self.assertFalse(app.exception)
+
+                files.return_value = [result_path]
+                future.set_result(result_path)
+                app.run()
+                self.assertEqual(app.selectbox(key="debate_session").value, result_path)
+                self.assertTrue(any("새 분석" in title.value for title in app.title))
+                self.assertFalse(app.button(key="start_analysis").disabled)
+                self.assertFalse(app.exception)
+
+                failed: Future[Path] = Future()
+                failed.set_exception(RuntimeError("테스트 API 실패"))
+                runner.current.return_value = ("삼성전자", failed)
+                app.run()
+                self.assertTrue(any("분석 실패" in error.value for error in app.error))
+                self.assertFalse(app.button(key="start_analysis").disabled)
+                self.assertFalse(app.exception)
+
     def test_navigation_and_evidence_selection(self) -> None:
         """An evidence click must override filters and follow the current scope."""
         debate = {
