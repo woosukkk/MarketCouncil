@@ -59,6 +59,10 @@ class DebateWebTest(unittest.TestCase):
             "agenda": [{"issue_id": value, "title": value} for value in ("A", "B")],
             "rounds": [],
             "moderator_summary": {"summary": "추가 데이터 필요"},
+            "navigation": {"issues": [{"issue_id": "A", "round_changes": [{
+                "round": 1, "new_evidence_ids": ["A-1-1"],
+                "concessions": ["수요 증가 인정"], "remaining_question": "현금흐름 확인 필요",
+            }]}]},
         }
         for number in (1, 2):
             debate["rounds"].append({
@@ -69,6 +73,8 @@ class DebateWebTest(unittest.TestCase):
                     "evidence": [{
                         "evidence_id": f"{issue}-{number}-{index}",
                         "exact_quote": f"인용 {issue}-{number}-{index}",
+                        "title": "공식 실적 보고서",
+                        "published_at": "2026-08-01",
                         "verified": index == 1,
                     } for index in (1, 2)],
                 } for issue in ("A", "B")]},
@@ -83,6 +89,10 @@ class DebateWebTest(unittest.TestCase):
                 app = AppTest.from_file(str(APP), default_timeout=30).run()
                 self.assertFalse(app.exception)
                 self.assertEqual(app.get("button_group")[0].value, "토론 탐색")
+                self.assertEqual(app.button(key="bull_A_1_0_A-1-1").label, "공식 실적 보고서")
+                self.assertTrue(any("2026-08-01" in item.value for item in app.caption))
+                self.assertTrue(any(item.value == "토론 한눈에 보기" for item in app.subheader))
+                self.assertTrue(any(item.value == "현금흐름 확인 필요" for item in app.markdown))
                 app.selectbox(key="evidence_filter").select("인용 대조 완료").run()
                 self.assertEqual(app.selectbox(key="selected_evidence_id").options, ["A-1-1"])
                 app.button(key="bull_A_1_1_A-1-2").click().run()

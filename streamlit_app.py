@@ -128,13 +128,20 @@ def show_position(
                 item = evidence.get(evidence_id, {})
                 icon = ":material/verified:" if item.get("verified") else ":material/help:"
                 st.button(
-                    evidence_id,
+                    str(item.get("title") or "출처명 확인 불가"),
                     key=f"{key_prefix}_{index}_{evidence_id}",
                     icon=icon,
                     width="stretch",
                     on_click=select_evidence,
                     args=(evidence_id,),
                 )
+                source_type = {
+                    "official_report": "공식 보고서", "official": "공식 자료",
+                    "regulatory_filing": "공시", "news": "뉴스", "report": "리포트",
+                    "financial_data": "금융 데이터", "web": "웹 자료",
+                }.get(str(item.get("source_type", "")), item.get("source_type") or "출처 유형 확인 불가")
+                verification = "인용 대조 완료" if item.get("verified") else "인용 확인 필요"
+                st.caption(f"{source_type} · {item.get('published_at') or '발행일 확인 불가'} · {verification} · {evidence_id}")
 
 
 def select_evidence(evidence_id: str) -> None:
@@ -570,9 +577,24 @@ elif view_mode == "최종 정리":
     st.caption(f"토론 종료 사유: {debate.get('stop_reason') or '확인 불가'}")
     st.caption("가설의 성립 조건·한계는 토론 탐색의 각 입장 카드에서 확인할 수 있습니다.")
 else:
-    with st.expander("핵심 결론 · 분석의 한계", expanded=False):
-        st.write(summary.get("summary") or debate.get("navigation", {}).get("overview") or "추가 데이터 필요")
-        st.caption(f"토론 종료 사유: {debate.get('stop_reason') or '확인 불가'}")
+    st.subheader("토론 한눈에 보기")
+    overview = str(summary.get("summary") or debate.get("navigation", {}).get("overview") or "추가 데이터 필요")
+    st.write(overview[:240] + ("…" if len(overview) > 240 else ""))
+    if len(overview) > 240:
+        with st.expander("핵심 결론 전체 읽기"):
+            st.write(overview)
+    for column, field, label in zip(st.columns(3),
+        ("agreements", "unresolved_issues", "required_evidence"),
+        ("양측 합의점", "미해결 쟁점", "다음 확인 자료"),
+    ):
+        with column.container(border=True):
+            st.markdown(f"**{label}**")
+            items = summary.get(field, [])
+            preview = str(items[0]) if items else "기록된 항목 없음"
+            st.write(preview[:160] + ("…" if len(preview) > 160 else ""))
+            if items:
+                st.caption(f"총 {len(items)}개 · 전체 내용은 최종 정리에서 확인")
+    st.caption(f"토론 종료 사유: {debate.get('stop_reason') or '확인 불가'}")
 
     if not agenda or not rounds:
         st.info("토론 의제 또는 라운드가 없습니다. 최종 정리와 시장 국면을 확인하세요.")
@@ -623,15 +645,26 @@ else:
             bear = find_issue_turn(round_data.get("bear_response", {}), selected_issue_id)
             change = round_change(debate, selected_issue_id, number)
             if change:
-                with st.expander("이 라운드에서 달라진 점", expanded=False):
-                    st.markdown("**Bull 변화**")
-                    st.write(change.get("bull_change") or "확인 불가")
-                    st.markdown("**Bear 변화**")
-                    st.write(change.get("bear_change") or "확인 불가")
-                    st.caption("새 근거: " + (", ".join(change.get("new_evidence_ids", [])) or "기록 없음"))
+                with st.container(border=True):
+                    st.markdown("#### 이 라운드에서 달라진 점")
+                    st.markdown("**새로 추가된 근거**")
+                    new_ids = change.get("new_evidence_ids", [])
+                    for new_id in new_ids:
+                        st.write(f"{evidence.get(new_id, {}).get('title') or '출처명 확인 불가'} · {new_id}")
+                    if not new_ids:
+                        st.caption("기록된 새 근거 없음")
+                    st.markdown("**상대 주장을 인정한 부분**")
                     for concession in change.get("concessions", []):
-                        st.write(f"인정한 부분: {concession}")
-                    st.write(f"남은 질문: {change.get('remaining_question') or '확인 불가'}")
+                        st.write(concession)
+                    if not change.get("concessions"):
+                        st.caption("기록된 인정 사항 없음")
+                    st.markdown("**남아 있는 질문**")
+                    st.write(change.get("remaining_question") or "확인 불가")
+                    with st.expander("양측 입장 변화 상세"):
+                        st.markdown("**Bull 변화**")
+                        st.write(change.get("bull_change") or "확인 불가")
+                        st.markdown("**Bear 변화**")
+                        st.write(change.get("bear_change") or "확인 불가")
             else:
                 st.caption("이 라운드의 변화 요약은 기록되어 있지 않습니다.")
             bull_column, bear_column = st.columns(2, gap="medium")
