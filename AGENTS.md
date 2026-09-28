@@ -62,6 +62,19 @@ hypotheses and report confidence and evidence limitations.
 * Keep prompt definitions in dedicated prompt files.
 * Do not place prompt definitions directly inside agent logic files.
 
+## Development Record Writing
+
+* Fetch the latest Notion page before editing and preserve user-edited titles,
+  date labels, and content organization.
+* Describe the implemented features directly. Do not include editorial history
+  about moving, splitting, copying, or reorganizing content between pages.
+* Omit commit hashes, commit messages, and commit lists from development records
+  unless the user explicitly requests them. This does not change local Git rules.
+* Explain the problem, implementation, resulting behavior, relevant files,
+  validation results, and remaining limitations with concrete detail.
+* Do not invent implementation dates or test results. Separate verified behavior
+  from behavior that still requires a real execution.
+
 ## Coding Rules
 
 * Use Python type hints for new functions.
