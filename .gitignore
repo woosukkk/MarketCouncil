@@ -74,3 +74,4 @@ hf_cache/
 *.onnx
 *.pt
 *.pth
+!.env.production.example

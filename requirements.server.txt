@@ -1,0 +1,13 @@
+openai
+python-dotenv
+yfinance
+pypdf
+sentence-transformers
+chromadb
+langgraph
+requests
+youtube-transcript-api
+crawl4ai
+streamlit==1.59.2
+pandas
+altair

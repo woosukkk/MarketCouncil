@@ -6,6 +6,7 @@ from pathlib import Path
 from threading import Lock
 
 from tools.financial_data import TICKER_MAP
+from app.admin_access import analysis_allowed
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -56,7 +57,9 @@ class AnalysisRunner:
         self._future: Future[Path] | None = None
         self._company = ""
 
-    def start(self, company_name: str) -> None:
+    def start(self, company_name: str, admin_token: str = "") -> None:
+        if not analysis_allowed(admin_token):
+            raise RuntimeError("분석 실행은 관리자만 가능합니다.")
         if company_name not in TICKER_MAP:
             raise ValueError("지원하는 기업을 선택하세요.")
         with self._lock:

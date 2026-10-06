@@ -1,0 +1,16 @@
+.git
+.env
+.env.*
+venv
+.venv
+__pycache__
+**/__pycache__
+.agents
+.codex
+.streamlit/secrets.toml
+results
+documents
+vector_db*
+hf_cache
+.cache
+*.log

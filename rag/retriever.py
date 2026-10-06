@@ -1,4 +1,4 @@
-import chromadb
+from rag.chroma_client import get_chroma_client
 from sentence_transformers import SentenceTransformer
 from datetime import datetime
 
@@ -10,9 +10,7 @@ class ReportRetriever:
     def __init__(self) -> None:
         self.model = SentenceTransformer(MODEL_NAME)
 
-        self.client = chromadb.PersistentClient(
-            path=DB_PATH
-            )
+        self.client = get_chroma_client()
 
         self.collection = self.client.get_collection(
             name=COLLECTION_NAME

@@ -15,12 +15,16 @@ DOCKER_DESKTOP = Path(
         r"C:\Program Files",
     )
 ) / "Docker" / "Docker" / "Docker Desktop.exe"
-SEARXNG_URL = "http://127.0.0.1:8080/"
+SEARXNG_URL = os.getenv("SEARXNG_URL", "http://127.0.0.1:8080/")
 
 
 def ensure_local_services() -> None:
     if _service_ready():
         print("[오픈소스 서비스] SearXNG 준비 완료")
+        return
+
+    if os.getenv("MANAGE_LOCAL_SERVICES", "true").lower() == "false":
+        _wait_until(_service_ready, 60, "SearXNG")
         return
 
     if not COMPOSE_FILE.exists():

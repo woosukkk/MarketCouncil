@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import chromadb
+from rag.chroma_client import get_chroma_client
 from sentence_transformers import SentenceTransformer
 
 from rag.document_loader import (
@@ -74,7 +74,7 @@ def _register_existing_document(
 def build_vector_store() -> None:
     registry = DocumentRegistry()
     model = SentenceTransformer(MODEL_NAME)
-    client = chromadb.PersistentClient(path=DB_PATH)
+    client = get_chroma_client()
     collection = client.get_or_create_collection(name=COLLECTION_NAME)
 
     file_paths = [

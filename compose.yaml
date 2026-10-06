@@ -1,0 +1,42 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    init: true
+    env_file: .env.production
+    environment:
+      MARKETCOUNCIL_MODE: public
+      CHROMA_MODE: cloud
+      SEARXNG_URL: http://searxng:8080
+      MANAGE_LOCAL_SERVICES: "false"
+    volumes:
+      - ./results:/app/results
+      - ./documents:/app/documents
+      - model_cache:/app/hf_cache
+    depends_on:
+      - searxng
+  searxng:
+    image: docker.io/searxng/searxng:latest
+    restart: unless-stopped
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?Set SEARXNG_SECRET}
+    volumes:
+      - ./infra/searxng/settings.yml:/etc/searxng/settings.yml:ro
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+volumes:
+  model_cache:
+  caddy_data:
+  caddy_config:

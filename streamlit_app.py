@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ from app.debate_view_data import (
 )
 from tools.debate_transcript_renderer import DebateTranscriptRenderer
 from app.web_analysis_runner import AnalysisRunner, TICKER_MAP
+from app.admin_access import analysis_allowed
 
 
 st.set_page_config(
@@ -50,6 +52,12 @@ def analysis_runner() -> AnalysisRunner:
 
 @st.fragment(run_every="2s")
 def show_analysis_launcher() -> None:
+    token = ""
+    if os.getenv("MARKETCOUNCIL_MODE", "local") != "local":
+        token = st.text_input("관리자 실행 키", type="password", key="admin_token")
+        if not analysis_allowed(token):
+            st.info("토론 결과는 누구나 볼 수 있습니다. 새 분석은 관리자만 실행할 수 있습니다.")
+            return
     runner = analysis_runner()
     company, future = runner.current()
     running = future is not None and not future.done()
@@ -67,7 +75,7 @@ def show_analysis_launcher() -> None:
                 icon=":material/play_arrow:", disabled=running,
             ):
                 try:
-                    runner.start(selected_company)
+                    runner.start(selected_company, admin_token=token) if token else runner.start(selected_company)
                 except (RuntimeError, ValueError) as error:
                     st.error(str(error))
                 else:
