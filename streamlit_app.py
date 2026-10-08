@@ -52,6 +52,9 @@ def analysis_runner() -> AnalysisRunner:
 
 @st.fragment(run_every="2s")
 def show_analysis_launcher() -> None:
+    if os.getenv("MARKETCOUNCIL_MODE") == "viewer":
+        st.info("저장된 분석 결과를 열람하는 데모입니다. 새 분석 실행은 제공하지 않습니다.")
+        return
     token = ""
     if os.getenv("MARKETCOUNCIL_MODE", "local") != "local":
         token = st.text_input("관리자 실행 키", type="password", key="admin_token")

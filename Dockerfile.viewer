@@ -1,0 +1,8 @@
+FROM python:3.11-slim
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 PYTHONUTF8=1 MARKETCOUNCIL_MODE=viewer
+COPY requirements.viewer.txt .
+RUN pip install --no-cache-dir -r requirements.viewer.txt
+COPY . .
+EXPOSE 8501
+CMD ["sh", "-c", "python -m streamlit run streamlit_app.py --server.address=0.0.0.0 --server.port=${PORT:-8501} --server.headless=true --browser.gatherUsageStats=false"]
