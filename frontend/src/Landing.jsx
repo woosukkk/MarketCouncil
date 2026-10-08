@@ -1,6 +1,9 @@
 import React, {useEffect, useState} from 'react';
 import {dateLabel} from './data.js';
 
+// Remember revealed sections across home/service navigation until page reload.
+const revealedSections = new Set();
+
 export default function Landing({navigate}) {
   const [sample,setSample]=useState(null);
   useEffect(()=>{
@@ -12,8 +15,18 @@ export default function Landing({navigate}) {
   },[]);
   useEffect(()=>{
     if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-    const observer=new IntersectionObserver(entries=>entries.forEach(e=>e.target.classList.toggle('in-view',e.isIntersecting)),{threshold:0.06});
-    document.querySelectorAll('.reveal').forEach(el=>{el.classList.add('observed');observer.observe(el)});
+    const observer=new IntersectionObserver(entries=>entries.forEach(e=>{
+      if(!e.isIntersecting)return;
+      e.target.classList.add('in-view');
+      revealedSections.add(e.target.dataset.revealKey);
+      observer.unobserve(e.target);
+    }),{threshold:0.06});
+    document.querySelectorAll('.reveal').forEach((el,index)=>{
+      el.dataset.revealKey=String(index);
+      if(revealedSections.has(String(index))) { el.classList.add('in-view'); return; }
+      el.classList.add('observed');
+      observer.observe(el);
+    });
     return()=>observer.disconnect();
   },[]);
   const link=e=>{if(e.button===0&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey&&!e.altKey){e.preventDefault();navigate('/app')}};
