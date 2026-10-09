@@ -38,3 +38,5 @@ export function usedSources(data) {
   }
   return [...sources.values()];
 }
+
+export const resultKey = id => id.replace(/-[a-f0-9]{16}$/, '');

@@ -19,3 +19,9 @@ test('sources group repeated citations without merging different documents',()=>
  assert.deepEqual(usedSources({}),[]);
  assert.throws(()=>resultsUrl('../secret')); assert.equal(resultsUrl('index.json'),'/data/index.json');
 });
+
+ test('saved analysis identity survives content version updates', async () => {
+  const {resultKey}=await import('./data.js');
+  assert.equal(resultKey('0123456789abcdef-1111111111111111'),resultKey('0123456789abcdef-2222222222222222'));
+  assert.equal(resultKey('0123456789abcdef'),'0123456789abcdef');
+});
