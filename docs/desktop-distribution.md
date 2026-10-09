@@ -53,3 +53,10 @@ Unrelated existing working-tree changes were preserved.
 - Actual mailbox completion, a fresh paid analysis and execution on a separate clean PC remain unverified.
 
 The unsigned single-file program extracts its bundled runtime at launch, so startup can take some time. Source packaging does not conceal the existing public GitHub repository or provide absolute source-code protection.
+
+## Published preview
+
+Download: https://frontend-six-pi-h5i7tztups.vercel.app/download
+Release: https://github.com/woosukkk/MarketCouncil/releases/tag/desktop-v0.1.0
+
+GitHub's uploaded asset digest matches the local executable SHA-256. Production deployment completed and anonymous HTTP checks passed for /, /app, /download and the public executable download. The production community page completed its public-only lookup; anonymous My Page access shows the login prompt.
