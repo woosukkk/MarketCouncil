@@ -32,3 +32,9 @@ The publisher sends content-versioned result files before overwriting index.json
 The evidence tab groups sources actually cited in saved debate rounds and shows their usage and original quotes. Legacy unstructured results display a notice instead of inventing sources.
 
 Supabase Free includes 1 GB of file storage and low-activity projects may pause. Check availability before a demo.
+
+## Storage boundary
+
+Cloud storage contains analysis JSON and cited excerpts with source title, URL, publication date and page number. Full PDFs, collected article bodies, uncited source catalogs, retrieval context, internal document/chunk/quote IDs, embeddings and Chroma files stay local. The exporter limits evidence fields before publishing without modifying the saved local analysis.
+
+Repeated publishing of unchanged results uses the same content-addressed filenames, so it does not create duplicate objects. Different analyses retain their own quoted evidence for reproducibility. Older changed versions are retained; no automatic deletion is performed.
