@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {dateLabel} from './data.js';
+import {dateLabel, resultsUrl} from './data.js';
 
 // Remember revealed sections across home/service navigation until page reload.
 const revealedSections = new Set();
@@ -8,8 +8,8 @@ export default function Landing({navigate}) {
   const [sample,setSample]=useState(null);
   useEffect(()=>{
     const abort=new AbortController();
-    fetch('/data/index.json',{signal:abort.signal}).then(r=>{if(!r.ok)throw Error();return r.json()})
-      .then(rows=>{if(!rows[0])throw Error();return fetch(`/data/${rows[0].id}.json`,{signal:abort.signal})})
+    fetch(resultsUrl('index.json'),{signal:abort.signal,cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json()})
+      .then(rows=>{if(!rows[0])throw Error();return fetch(resultsUrl(`${rows[0].id}.json`),{signal:abort.signal})})
       .then(r=>{if(!r.ok)throw Error();return r.json()}).then(setSample).catch(()=>{});
     return()=>abort.abort();
   },[]);
