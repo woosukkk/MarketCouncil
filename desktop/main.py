@@ -47,7 +47,10 @@ class Desktop:
         self.search=self.field(analysis_panel,"SearXNG 검색 주소 (Docker Desktop 필요)");self.search.insert(0,"http://127.0.0.1:8080")
         row=ttk.Frame(analysis_panel);row.pack(fill="x",pady=8)
         self.company=self.field(row,"기업명");self.company.insert(0,"삼성전자")
-        self.ticker=self.field(row,"종목코드 — 예: 005930.KS, 000660.KS, AAPL");self.ticker.insert(0,"005930.KS")
+        self.matched_name=None;self.company_candidates=[]
+        ttk.Label(row,text="기업명으로 종목을 찾습니다. 해외 기업은 영문 이름을 입력하세요.").pack(anchor="w")
+        self.company_choice=ttk.Combobox(row,state="readonly");self.company_choice.pack(fill="x",pady=3)
+        ttk.Button(row,text="기업 찾기",command=self.lookup_company).pack(anchor="w")
         buttons=ttk.Frame(analysis_panel);buttons.pack(fill="x",pady=8)
         self.run_button=ttk.Button(buttons,text="내 PC에서 분석 실행",command=self.run);self.run_button.pack(side="left",padx=4)
         self.upload_button=ttk.Button(buttons,text="현재 결과를 내 계정에 업로드 (비공개)",command=self.upload);self.upload_button.pack(side="left",padx=4)
@@ -85,11 +88,28 @@ class Desktop:
             self.session=login_link(link);self.messages.put(("login",self.session["user"]["email"]))
         self.task(work)
 
+    def lookup_company(self) -> None:
+        if self.busy:return
+        name=self.company.get().strip()
+        self.matched_name=None;self.company_candidates=[];self.company_choice.set("")
+        def work() -> None:
+            from tools.company_lookup import find_companies
+            candidates=find_companies(name)
+            if not candidates:raise ValueError("일치하는 상장 기업이 없습니다. 정식 기업명을 확인하세요. 해외 기업은 영문 이름을 입력하세요.")
+            self.messages.put(("companies",(name,candidates)))
+        self.task(work)
+
     def run(self) -> None:
-        company=self.company.get().strip();ticker=self.ticker.get().strip().upper();key=self.key.get().strip();dart=self.dart.get().strip();search=self.search.get().strip()
-        import re
-        if not company or len(company)>120 or not re.fullmatch(r"[A-Z0-9][A-Z0-9.^=-]{0,29}",ticker) or not key:
-            messagebox.showerror("입력 확인","기업명, 올바른 종목코드, 본인 OpenAI 키를 입력하세요.");return
+        company=self.company.get().strip();key=self.key.get().strip();dart=self.dart.get().strip();search=self.search.get().strip()
+        if self.busy:return
+        if not company or len(company)>120 or not key:
+            messagebox.showerror("입력 확인","기업명과 본인 OpenAI 키를 입력하세요.");return
+        if company!=self.matched_name:
+            self.lookup_company();return
+        selected=self.company_choice.current()
+        if selected<0:
+            messagebox.showinfo("기업 선택","검색된 후보에서 분석할 기업을 선택하세요.");return
+        candidate=self.company_candidates[selected];company=candidate["name"];ticker=candidate["ticker"]
         if self.loaded_settings and self.loaded_settings!=(key,dart,search):messagebox.showinfo("설정 변경","API 키나 검색 주소를 바꾸려면 프로그램을 다시 실행하세요.");return
         if not messagebox.askyesno("분석 실행","본인 PC에서 분석을 실행합니다. OpenAI 사용료가 발생하며 수 분 이상 걸릴 수 있습니다. 실행할까요?"):return
         def work() -> None:
@@ -152,6 +172,13 @@ class Desktop:
             event=self.messages.get()
             if isinstance(event,tuple):
                 if event[0]=="done":self.busy=False;self.run_button.config(state="normal");self.upload_button.config(state="normal")
+                elif event[0]=="companies":
+                    name,candidates=event[1]
+                    if self.company.get().strip()==name:
+                        self.matched_name=name;self.company_candidates=candidates
+                        self.company_choice.config(values=[f'{item["name"]} · {item["exchange"]} · {item["ticker"]}' for item in candidates])
+                        if len(candidates)==1:self.company_choice.current(0)
+                        self.messages.put("기업 검색 완료 · 후보를 확인하고 분석 실행을 눌러주세요.\n")
                 elif event[0]=="login":self.account.config(text="연결된 계정: "+event[1]);self.link.delete(0,"end")
             else:self.log.config(state="normal");self.log.insert("end",event);self.log.see("end");self.log.config(state="disabled")
         self.root.after(150,self.poll)

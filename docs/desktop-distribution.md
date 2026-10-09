@@ -60,3 +60,14 @@ Download: https://frontend-six-pi-h5i7tztups.vercel.app/download
 Release: https://github.com/woosukkk/MarketCouncil/releases/tag/desktop-v0.1.0
 
 GitHub's uploaded asset digest matches the local executable SHA-256. Production deployment completed and anonymous HTTP checks passed for /, /app, /download and the public executable download. The production community page completed its public-only lookup; anonymous My Page access shows the login prompt.
+
+## 기업명 자동 종목 조회
+
+기업명 입력 후 기업 찾기 또는 분석 실행을 누르면 종목을 조회합니다.
+국내 한글 이름은 한국거래소 KIND의 KOSPI/KOSDAQ 상장 목록에서 조회하며,
+해외 기업은 영문 이름으로 Yahoo Finance의 주식 검색을 사용합니다.
+후보가 하나면 자동 선택하고, 여러 개면 기업명·거래소·종목코드를 보고 선택합니다.
+조회 후 분석 실행을 눌러 실제 분석을 시작합니다. 이름을 변경하면 다시 조회합니다.
+조회 실패나 후보 미선택 상태에서는 유료 분석을 시작하지 않습니다.
+국내 상장 목록은 실행 중에만 캐시합니다. 비상장 기업과 KONEX는 지원하지 않습니다.
+한글 해외 기업명 번역이나 검색 결과의 확정적인 동일 기업 판별은 제공하지 않습니다.
