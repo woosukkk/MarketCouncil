@@ -26,3 +26,5 @@
 
 .official-badge{display:block;color:var(--accent,#4d65a1);font-size:12px;margin:6px 0}
 @media(max-width:720px){.topbar{flex-wrap:wrap;gap:12px}.account-nav{flex-wrap:wrap}.personal-list article{flex-wrap:wrap}}
+
+.download-page{padding-inline:24px;box-sizing:border-box}.download-page p{word-break:keep-all;line-height:1.8}
