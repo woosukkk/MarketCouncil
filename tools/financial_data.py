@@ -1,5 +1,7 @@
 import yfinance as yf
 import math
+import os
+import re
 from datetime import datetime
 
 import pandas as pd
@@ -196,7 +198,9 @@ def get_latest_price(
     return None, None
 
 def get_financial_data(company_name: str) -> dict:
-    ticker_symbol = TICKER_MAP.get(company_name)
+    ticker_symbol = os.getenv("MARKETCOUNCIL_TICKER") or TICKER_MAP.get(company_name)
+    if ticker_symbol and not re.fullmatch(r"[A-Z0-9][A-Z0-9.^=-]{0,29}", ticker_symbol):
+        raise ValueError("올바른 종목코드를 입력하세요.")
 
     if not ticker_symbol:
         raise ValueError("등록되지 않은 기업입니다.")

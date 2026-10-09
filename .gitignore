@@ -75,3 +75,8 @@ hf_cache/
 *.pt
 *.pth
 !.env.production.example
+
+# Desktop packaging outputs
+build/
+dist/
+*.spec

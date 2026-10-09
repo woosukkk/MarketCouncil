@@ -27,6 +27,10 @@
     {
       "source": "/app/",
       "destination": "/index.html"
+    },
+    {
+      "source": "/download",
+      "destination": "/index.html"
     }
   ]
 }

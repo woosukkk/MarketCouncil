@@ -28,6 +28,7 @@ class BullTools:
 
         return self.retriever.search(
             query=query,
+            company_name=company_name,
             top_k=top_k,
             as_of_date=date.today().isoformat(),
         )
@@ -43,6 +44,7 @@ class BullTools:
         )
         return self.retriever.search(
             query=query,
+            company_name=company_name,
             top_k=top_k,
             as_of_date=date.today().isoformat(),
             source_types={"regulatory_filing"},

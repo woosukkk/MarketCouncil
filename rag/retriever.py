@@ -1,5 +1,5 @@
 from rag.chroma_client import get_chroma_client
-from sentence_transformers import SentenceTransformer
+
 from datetime import datetime
 
 MODEL_NAME = "BAAI/bge-m3"
@@ -8,11 +8,11 @@ COLLECTION_NAME = "investment_reports_bge_m3"
 
 class ReportRetriever:
     def __init__(self) -> None:
-        self.model = SentenceTransformer(MODEL_NAME)
+        self.model = None
 
         self.client = get_chroma_client()
 
-        self.collection = self.client.get_collection(
+        self.collection = self.client.get_or_create_collection(
             name=COLLECTION_NAME
             )
 
@@ -22,7 +22,13 @@ class ReportRetriever:
         top_k: int = 3,
         as_of_date: str | None = None,
         source_types: set[str] | None = None,
+        company_name: str | None = None,
     ) -> list[dict]:
+        if not self.collection.count():
+            return []
+        if self.model is None:
+            from sentence_transformers import SentenceTransformer
+            self.model = SentenceTransformer(MODEL_NAME)
         query_embedding = self.model.encode(
             [query]
         ).tolist()
@@ -50,6 +56,10 @@ class ReportRetriever:
                 if len(sorted_types) == 1
                 else {"source_type": {"$in": sorted_types}}
             )
+
+        if company_name:
+            company_filter = {"company": company_name}
+            query_options["where"] = {"$and": [query_options["where"], company_filter]} if "where" in query_options else company_filter
 
         results = self.collection.query(
             **query_options,

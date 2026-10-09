@@ -10,12 +10,14 @@ Save these variables in the ignored root `.env.result-upload` file:
 RESULTS_SUPABASE_URL=https://snembdnkylggbxtxfqyz.supabase.co
 RESULTS_STORAGE_BUCKET=analysis-results
 RESULTS_SUPABASE_SECRET_KEY=<server-side secret key>
-RESULTS_AUTO_UPLOAD=true
+RESULTS_AUTO_UPLOAD=false
 ```
 
 Never place the secret in a VITE variable or commit it. The project secret has broad privileges: keep this project dedicated to result publishing.
 
 `python -m app.debate_main` publishes the local archive after successful analysis when auto-upload is enabled. Upload errors do not discard local analysis results. Retry with `python publish_results.py`. Other entry points do not automatically publish.
+
+Automatic public publishing is disabled in the current local setup. Use the desktop account upload for new private discussions and explicitly select share/community/official publication. The legacy public-archive publisher remains available only for intentionally public example results.
 
 ## Frontend
 
