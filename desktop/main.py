@@ -62,6 +62,14 @@ class Desktop:
         self.search=self.field(analysis_panel,"SearXNG 검색 주소 (Docker Desktop 필요)");self.search.insert(0,"http://127.0.0.1:8080")
         row=ttk.Frame(analysis_panel);row.pack(fill="x",pady=8)
         self.company=self.field(row,"기업명");self.company.insert(0,"삼성전자")
+        from desktop.preferences import load_preferences
+        preferences=load_preferences(DATA/"preferences.json")
+        for entry,value in [(self.company,preferences.get("company")),(self.search,preferences.get("search"))]:
+            if value:entry.delete(0,"end");entry.insert(0,value)
+        ttk.Button(analysis_panel,text="기업명·검색 주소 기억하기",command=self.remember).pack(anchor="w")
+        ttk.Button(setup_panel,text="새 버전 확인",command=self.check_version).pack(anchor="w",pady=8)
+        self.version_status=ttk.Label(setup_panel,text="버전 0.4.0 · API 키와 로그인 정보는 저장하지 않습니다.")
+        self.version_status.pack(anchor="w")
         self.matched_name=None;self.company_candidates=[]
         ttk.Label(row,text="기업명으로 종목을 찾습니다. 해외 기업은 영문 이름을 입력하세요.").pack(anchor="w")
         self.company_choice=ttk.Combobox(row,state="readonly");self.company_choice.pack(fill="x",pady=3)
@@ -81,6 +89,22 @@ class Desktop:
         self.open_result_button.pack(anchor="w")
         self.log=tk.Text(panel,height=9,wrap="word",state="disabled");self.log.pack(fill="both",expand=True,pady=10)
         root.after(150,self.poll);root.protocol("WM_DELETE_WINDOW",self.close)
+
+    def remember(self) -> None:
+        from desktop.preferences import save_preferences
+        try:
+            save_preferences(DATA/"preferences.json",self.company.get().strip(),self.search.get().strip())
+            messagebox.showinfo("입력 설정 저장","기업명과 검색 주소를 기억합니다. API 키와 로그인 정보는 저장하지 않습니다.")
+        except OSError:messagebox.showerror("저장 실패","입력 설정을 저장하지 못했습니다.")
+
+    def check_version(self) -> None:
+        def work() -> None:
+            from desktop.preferences import check_update
+            try:
+                release=check_update()
+                self.messages.put(("version",release["tag_name"]+" 사용 가능 · 다운로드 페이지를 확인하세요." if release else "현재 최신 버전입니다."))
+            except Exception:self.messages.put(("version","버전을 확인하지 못했습니다. 네트워크 연결을 확인하세요."))
+        self.task(work)
 
     def field(self,parent: ttk.Frame,label: str,secret: bool=False) -> ttk.Entry:
         ttk.Label(parent,text=label).pack(anchor="w",pady=(5,0))
@@ -131,6 +155,14 @@ class Desktop:
     def lookup_company(self) -> None:
         if self.busy:return
         name=self.company.get().strip()
+        from desktop.preferences import load_preferences
+        preferences=load_preferences(DATA/"preferences.json")
+        for entry,value in [(self.company,preferences.get("company")),(self.search,preferences.get("search"))]:
+            if value:entry.delete(0,"end");entry.insert(0,value)
+        ttk.Button(analysis_panel,text="기업명·검색 주소 기억하기",command=self.remember).pack(anchor="w")
+        ttk.Button(setup_panel,text="새 버전 확인",command=self.check_version).pack(anchor="w",pady=8)
+        self.version_status=ttk.Label(setup_panel,text="버전 0.4.0 · API 키와 로그인 정보는 저장하지 않습니다.")
+        self.version_status.pack(anchor="w")
         self.matched_name=None;self.company_candidates=[];self.company_choice.set("")
         def work() -> None:
             from tools.company_lookup import find_companies
@@ -245,6 +277,7 @@ class Desktop:
                         self.company_choice.config(values=[f'{item["name"]} · {item["exchange"]} · {item["ticker"]}' for item in candidates])
                         if len(candidates)==1:self.company_choice.current(0)
                         self.messages.put("기업 검색 완료 · 후보를 확인하고 분석 실행을 눌러주세요.\n")
+                elif event[0]=="version":self.version_status.config(text=event[1])
                 elif event[0]=="login":self.account.config(text="연결된 계정: "+event[1]);self.link.delete(0,"end")
             else:self.log.config(state="normal");self.log.insert("end",event);self.log.see("end");self.log.config(state="disabled")
         self.root.after(150,self.poll)
