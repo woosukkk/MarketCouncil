@@ -61,7 +61,7 @@ export function SaveActions({session,record,onLogin}) {
     const table=kind==='company'?'watchlist':'saved_analyses';
     const item=kind==='company'?{company_key:record.ticker||record.company_name,company_name:record.company_name,ticker:record.ticker||''}:{result_key:resultKey(record.id),company_name:record.company_name,analysis_date:record.created_at||''};
     try {
-      const {error}=await supabase.from(table).upsert({user_id:session.user.id,...item},{onConflict:kind==='company'?'user_id,company_key':'user_id,result_key',ignoreDuplicates:true});
+      const {error}=await supabase.from(table).upsert({user_id:session.user.id,...item},{onConflict:kind==='company'?'user_id,company_key':'user_id,result_key',ignoreDuplicates:true,defaultToNull:false});
       if(error)throw error;
       setMessage(kind==='company'?'관심기업에 추가했습니다.':'마이페이지에 분석을 저장했습니다.');
     }catch{setMessage('저장하지 못했습니다. 잠시 후 다시 시도해 주세요.');}
@@ -89,10 +89,10 @@ export function MyPage({session,sessions,onOpen,onLogin}) {
     try{
       const company_name=name.trim(),code=ticker.trim().toUpperCase();
       if(!company_name)throw Error();
-      const {data,error}=await supabase.from('watchlist').upsert({user_id:session.user.id,company_key:code||company_name,company_name,ticker:code},{onConflict:'user_id,company_key'}).select().single();
+      const {data,error}=await supabase.from('watchlist').upsert({user_id:session.user.id,company_key:code||company_name,company_name,ticker:code},{onConflict:'user_id,company_key',defaultToNull:false}).select().single();
       if(error)throw error;
       setCompanies(prev=>[data,...prev.filter(x=>x.company_key!==data.company_key)]);setName('');setTicker('');
-    }catch{setError('관심기업을 추가하지 못했습니다. 입력을 확인하고 다시 시도해 주세요.');}finally{setBusy(false)}
+    }catch(error){console.error('Watchlist save failed',error.code||'unknown');setError('관심기업을 추가하지 못했습니다. 입력을 확인하고 다시 시도해 주세요.');}finally{setBusy(false)}
   }
   async function remove(table,key,value){
     setBusy(true);setError('');
