@@ -11,3 +11,5 @@
 .start-steps p,.result-import p{line-height:1.7;color:#626875}
 .result-import{margin:32px 0;padding:24px 0}.result-import input{display:block;margin:14px 0;max-width:100%}
 @media(max-width:760px){.start-steps{grid-template-columns:1fr}.getting-started{padding:20px}}
+
+.login-divider{max-width:440px;text-align:center;margin:24px 0;color:#838895}.github-login{background:#202329;color:white;padding:14px 24px;border:0;border-radius:10px;font:inherit;font-weight:600;cursor:pointer}.github-login:disabled{opacity:.5;cursor:default}

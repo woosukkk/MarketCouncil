@@ -27,13 +27,29 @@ export function Login({onBack}) {
   async function submit(event){
     event.preventDefault();setBusy(true);setError('');setMessage('');
     try {
-      const {error}=await supabase.auth.signInWithOtp({email:email.trim(),options:{emailRedirectTo:location.origin+'/app'}});
+      const {error}=await supabase.auth.signInWithOtp({email:email.trim(),options:{emailRedirectTo:location.origin+'/app?view=my'}});
       if(error)throw error;
       setMessage('로그인 링크를 이메일로 보냈습니다. 메일의 링크를 누르면 로그인됩니다. 처음 이용하면 계정이 함께 만들어집니다.');
     } catch {setError('이메일을 보내지 못했습니다. 주소를 확인하고 잠시 후 다시 시도해 주세요.');}
     finally {setBusy(false);}
   }
-  return <section className="account-page"><button className="back" onClick={onBack}>← 리서치로 돌아가기</button><span className="eyebrow">YOUR RESEARCH SPACE</span><h1>내 관심을, 내 공간에.</h1><p>이메일로 로그인하고 관심기업과 분석을 저장하세요.</p><button className="primary" disabled={busy||!githubReady} onClick={github}>{busy?'연결 중…':githubReady?'GitHub로 시작하기':'GitHub 로그인 연결 준비 중'}</button><p>처음 로그인하면 계정이 만들어집니다. 분석 결과는 직접 공개하기 전까지 본인만 볼 수 있습니다.</p><details><summary>기존 이메일 로그인 (운영자용)</summary><form className="account-form" onSubmit={submit}><label>이메일<input type="email" autoComplete="email" required maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"/></label><button className="primary" disabled={busy||!supabase}>{busy?'보내는 중…':'이메일로 로그인 링크 받기'}</button></form><p className="muted">일반 사용자 이메일 발송은 아직 연결되지 않았습니다.</p></details>{message&&<p role="status" className="account-notice">{message}</p>}{error&&<p role="alert">{error}</p>}{!supabase&&<p role="alert">로그인 연결을 준비하고 있습니다.</p>}</section>;
+  return <section className="account-page">
+    <button className="back" onClick={onBack}>← 리서치로 돌아가기</button>
+    <span className="eyebrow">YOUR RESEARCH SPACE</span>
+    <h1>내 관심을, 내 공간에.</h1>
+    <p>이메일 또는 GitHub로 로그인하고 관심기업과 분석을 보관하세요.</p>
+    <form className="account-form" onSubmit={submit}>
+      <label>이메일<input type="email" autoComplete="email" required maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"/></label>
+      <button className="primary" disabled={busy||!supabase}>{busy?'처리 중…':'이메일로 시작하기'}</button>
+    </form>
+    <p className="muted">비밀번호 없이 메일의 링크로 로그인합니다. 현재 이메일 발송은 운영자 계정만 지원하며, 일반 사용자는 GitHub 로그인을 이용해 주세요.</p>
+    <div className="login-divider"><span>또는</span></div>
+    <button className="github-login" disabled={busy||!githubReady} onClick={github}>{busy?'처리 중…':githubReady?'GitHub로 계속하기':'GitHub 로그인 연결 준비 중'}</button>
+    <p className="muted">처음 로그인하면 계정이 만들어집니다. 분석 결과는 직접 공개하기 전까지 본인만 볼 수 있습니다.</p>
+    {message&&<p role="status" className="account-notice">{message}</p>}
+    {error&&<p role="alert">{error}</p>}
+    {!supabase&&<p role="alert">로그인 연결을 준비하고 있습니다.</p>}
+  </section>;
 }
 
 export function SaveActions({session,record,onLogin}) {
