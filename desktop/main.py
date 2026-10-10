@@ -223,7 +223,8 @@ class Desktop:
                 from app.debate_workflow import DebateWorkflow
                 from tools.analysis_debate_store import AnalysisDebateStore
                 from tools.debate_transcript_renderer import DebateTranscriptRenderer
-                result=DebateWorkflow().run(company)
+                from tools.run_metrics import measure_analysis
+                result=measure_analysis(company,lambda:DebateWorkflow().run(company),DATA/"metrics")
                 self.messages.put(("stage","로컬 저장 · 분석 결과와 토론 기록을 저장합니다."))
                 self.result_path=Path(AnalysisDebateStore().save(company,result)).resolve()
                 DebateTranscriptRenderer().save(result)
