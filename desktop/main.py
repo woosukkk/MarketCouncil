@@ -18,8 +18,16 @@ DATA = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "MarketCouncil"
 class Output:
     def __init__(self, messages: queue.Queue) -> None:
         self.messages = messages
+        self.pending = ""
     def write(self, text: str) -> int:
-        if text: self.messages.put(text)
+        if text:
+            self.messages.put(text)
+            self.pending=(self.pending+text)[-4000:]
+            from desktop.readiness import stage_for_line
+            while "\n" in self.pending:
+                line,self.pending=self.pending.split("\n",1)
+                stage=stage_for_line(line)
+                if stage:self.messages.put(("stage",stage))
         return len(text)
     def flush(self) -> None:
         pass
@@ -27,7 +35,7 @@ class Output:
 
 class Desktop:
     def __init__(self, root: tk.Tk) -> None:
-        self.root=root;root.title("MarketCouncil · 개인 분석");root.geometry("900x740");root.minsize(760,650)
+        self.root=root;root.title("MarketCouncil · 개인 분석");root.geometry("900x850");root.minsize(760,800)
         self.messages=queue.Queue();self.session=None;self.busy=False;self.loaded_settings=None
         self.result_path=None;self.result_id=None
         panel=ttk.Frame(root,padding=24);panel.pack(fill="both",expand=True)
@@ -35,7 +43,14 @@ class Desktop:
         ttk.Label(panel,text="내 PC에서 분석하고, 원하는 결과만 내 계정에 보관합니다.").pack(anchor="w",pady=(0,16))
         tabs=ttk.Notebook(panel);tabs.pack(fill="x",pady=8)
         account_panel=ttk.Frame(tabs,padding=12);analysis_panel=ttk.Frame(tabs,padding=12)
-        tabs.add(account_panel,text="계정 연결");tabs.add(analysis_panel,text="기업 분석")
+        tabs.add(analysis_panel,text="기업 분석");tabs.add(account_panel,text="이메일 계정 연결")
+        setup_panel=ttk.Frame(tabs,padding=12);tabs.add(setup_panel,text="준비 상태")
+        ttk.Label(setup_panel,text="분석을 시작하기 전에 연결 상태를 확인하세요. API 사용료는 발생하지 않습니다.").pack(anchor="w")
+        ttk.Button(setup_panel,text="준비 상태 확인",command=self.check_setup).pack(anchor="w",pady=12)
+        self.setup_status=ttk.Label(setup_panel,text="기업 분석 탭에 API 키와 검색 주소를 입력한 뒤 확인하세요.",wraplength=780,justify="left")
+        self.setup_status.pack(anchor="w",pady=8)
+        ttk.Button(setup_panel,text="Docker 설치 안내",command=lambda:webbrowser.open("https://docs.docker.com/desktop/setup/install/windows-install/")).pack(anchor="w")
+        ttk.Label(account_panel,text="GitHub 사용자는 로그인 없이 분석한 뒤 웹 마이페이지에서 결과 JSON을 가져오세요.",wraplength=780).pack(anchor="w")
         self.email=self.field(account_panel,"계정 이메일")
         ttk.Button(account_panel,text="로그인 메일 받기",command=self.send_login).pack(anchor="w")
         self.link=self.field(account_panel,"메일의 로그인 버튼을 우클릭 → 링크 주소 복사 → 아래 붙여넣기",secret=True)
@@ -57,6 +72,11 @@ class Desktop:
         ttk.Button(buttons,text="저장한 결과 선택",command=self.choose).pack(side="left",padx=4)
         ttk.Button(buttons,text="웹 마이페이지",command=lambda:webbrowser.open("https://frontend-six-pi-h5i7tztups.vercel.app/app?view=my")).pack(side="left",padx=4)
         ttk.Label(panel,text="분석에는 본인 OpenAI 사용료가 발생합니다. PDF·검색 데이터는 PC에 남습니다.").pack(anchor="w")
+        self.status=ttk.Label(panel,text="대기 중 · 기업을 선택하고 분석을 시작하세요.",wraplength=780)
+        self.status.pack(anchor="w",pady=(8,0))
+        self.progress=ttk.Progressbar(panel,mode="indeterminate");self.progress.pack(fill="x",pady=4)
+        self.open_result_button=ttk.Button(panel,text="결과 폴더 열기",command=self.open_results)
+        self.open_result_button.pack(anchor="w")
         self.log=tk.Text(panel,height=9,wrap="word",state="disabled");self.log.pack(fill="both",expand=True,pady=10)
         root.after(150,self.poll);root.protocol("WM_DELETE_WINDOW",self.close)
 
@@ -64,12 +84,30 @@ class Desktop:
         ttk.Label(parent,text=label).pack(anchor="w",pady=(5,0))
         entry=ttk.Entry(parent,show="•" if secret else "");entry.pack(fill="x",pady=3);return entry
 
-    def task(self, work: Callable[[], None]) -> None:
+    def open_results(self) -> None:
+        folder=DATA/"results";folder.mkdir(parents=True,exist_ok=True)
+        if os.name=="nt":os.startfile(folder)
+        else:webbrowser.open(folder.as_uri())
+
+    def check_setup(self) -> None:
+        key=self.key.get();search=self.search.get().strip()
+        def work() -> None:
+            from desktop.readiness import check_readiness
+            results=check_readiness(key,search,DATA)
+            self.messages.put(("readiness","\n\n".join(label+" · "+value for label,value in results)))
+        self.task(work,"준비 상태 확인 중 · API 키는 전송하지 않습니다.")
+
+    def task(self, work: Callable[[], None], stage: str="요청 처리 중…") -> None:
         if self.busy:return
+        self.status.config(text=stage);self.progress.start(12)
         self.busy=True;self.run_button.config(state="disabled");self.upload_button.config(state="disabled")
         def wrapper() -> None:
             try: work()
-            except Exception as error:self.messages.put("실행 실패: "+(str(error) if isinstance(error,(ValueError,RuntimeError)) else type(error).__name__)+"\n")
+            except Exception as error:
+                detail=str(error) if isinstance(error,(ValueError,RuntimeError)) else type(error).__name__
+                self.messages.put(("stage","실패 · 준비 상태 탭과 아래 기록을 확인하세요. 키·권한 문제는 계정 설정을, 검색 문제는 Docker와 인터넷 연결을 확인하세요."))
+                self.messages.put("실행 실패: "+detail+"\n")
+                self.messages.put(("failed",None))
             finally:self.messages.put(("done",None))
         threading.Thread(target=wrapper,daemon=True).start()
 
@@ -114,6 +152,7 @@ class Desktop:
         if not messagebox.askyesno("분석 실행","본인 PC에서 분석을 실행합니다. OpenAI 사용료가 발생하며 수 분 이상 걸릴 수 있습니다. 실행할까요?"):return
         def work() -> None:
             os.environ.update(OPENAI_API_KEY=key,DART_API_KEY=dart,SEARXNG_URL=search,MARKETCOUNCIL_TICKER=ticker,CHROMA_MODE="local",RESULTS_AUTO_UPLOAD="false")
+            self.messages.put(("stage","분석 준비 · 로컬 저장 공간과 검색 서비스를 준비합니다."))
             DATA.mkdir(parents=True,exist_ok=True);os.chdir(DATA)
             os.environ["HF_HOME"]=str(DATA/"models")
             from app import local_services
@@ -129,6 +168,7 @@ class Desktop:
                 local_services.ensure_local_services()
                 os.environ["PLAYWRIGHT_BROWSERS_PATH"]=str(DATA/"browser")
                 if not (DATA/"browser-ready").exists():
+                    self.messages.put(("stage","첫 실행 준비 · 자료 수집 브라우저 다운로드 중입니다."))
                     self.messages.put("첫 실행 웹 자료 수집용 브라우저를 다운로드합니다.\n")
                     command=[sys.executable,"--install-browser"] if getattr(sys,"frozen",False) else [sys.executable,"-m","playwright","install","chromium"]
                     with (DATA/"browser-install.log").open("w",encoding="utf-8") as output:
@@ -140,8 +180,10 @@ class Desktop:
                 from tools.analysis_debate_store import AnalysisDebateStore
                 from tools.debate_transcript_renderer import DebateTranscriptRenderer
                 result=DebateWorkflow().run(company)
+                self.messages.put(("stage","로컬 저장 · 분석 결과와 토론 기록을 저장합니다."))
                 self.result_path=Path(AnalysisDebateStore().save(company,result)).resolve()
                 DebateTranscriptRenderer().save(result)
+            self.messages.put(("stage","분석 완료 · 결과 폴더에서 JSON을 확인하고 웹 마이페이지로 가져오세요."))
             self.result_id=str(uuid.uuid4());self.messages.put("분석 완료 · 로컬 저장: "+str(self.result_path)+"\n계정 업로드 버튼을 누르기 전에는 결과가 PC에만 저장됩니다.\n")
         self.task(work)
 
@@ -171,7 +213,10 @@ class Desktop:
         while not self.messages.empty():
             event=self.messages.get()
             if isinstance(event,tuple):
-                if event[0]=="done":self.busy=False;self.run_button.config(state="normal");self.upload_button.config(state="normal")
+                if event[0]=="done":self.progress.stop();self.busy=False;self.run_button.config(state="normal");self.upload_button.config(state="normal");self.status.config(text="요청 완료 · 아래 기록을 확인하세요." if self.status.cget("text")=="요청 처리 중…" else self.status.cget("text"))
+                elif event[0]=="stage":self.status.config(text=event[1])
+                elif event[0]=="readiness":self.setup_status.config(text=event[1]);self.status.config(text="준비 상태 확인 완료 · 준비 상태 탭의 안내를 확인하세요.")
+                elif event[0]=="failed":pass
                 elif event[0]=="companies":
                     name,candidates=event[1]
                     if self.company.get().strip()==name:
