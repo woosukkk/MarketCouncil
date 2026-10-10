@@ -54,3 +54,29 @@ def upload_result(data: dict, session: dict, identifier: str) -> dict:
         return existing[0]
     result = request("/rest/v1/discussions", row, session["access_token"])
     return result[0]
+
+
+def prepare_official(session: dict) -> dict:
+    """Check operator access and today's selection before any paid analysis."""
+    from datetime import datetime, timezone, timedelta
+    if session.get("refresh_token"):
+        session = request("/auth/v1/token?grant_type=refresh_token", {"refresh_token": session["refresh_token"]})
+    if request("/rest/v1/rpc/is_official_editor", {}, session["access_token"]) is not True:
+        raise ValueError("공식 운영자 계정으로 이메일 계정 연결을 먼저 진행하세요.")
+    day = datetime.now(timezone(timedelta(hours=9))).date().isoformat()
+    rows = request("/rest/v1/daily_official_discussions?publication_date=eq." + day + "&select=discussion_id", token=session["access_token"], method="GET")
+    if rows:
+        raise ValueError("오늘 공식 토론이 이미 게시되어 있습니다. 새 분석을 시작하지 않습니다.")
+    return session
+
+
+def publish_official(data: dict, session: dict) -> str:
+    import hashlib
+    import uuid
+    if data.get("company_name") != "삼성전자" or data.get("financial_data", {}).get("ticker") != "005930.KS":
+        raise ValueError("삼성전자(005930.KS) 분석 결과만 공식 게시할 수 있습니다.")
+    session = prepare_official(session)
+    identifier = str(uuid.uuid5(uuid.NAMESPACE_URL, session["user"]["id"] + hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()))
+    upload_result(data, session, identifier)
+    # shortcut: concurrent operators can replace a daily selection; add an insert-only RPC if multiple operators run this flow.
+    return request("/rest/v1/rpc/select_daily_official", {"discussion": identifier}, session["access_token"])

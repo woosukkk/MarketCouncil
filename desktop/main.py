@@ -35,7 +35,7 @@ class Output:
 
 class Desktop:
     def __init__(self, root: tk.Tk) -> None:
-        self.root=root;root.title("MarketCouncil · 개인 분석");root.geometry("900x850");root.minsize(760,800)
+        self.root=root;root.title("MarketCouncil · 개인 분석");root.geometry("900x900");root.minsize(760,850)
         self.messages=queue.Queue();self.session=None;self.busy=False;self.loaded_settings=None
         self.result_path=None;self.result_id=None
         panel=ttk.Frame(root,padding=24);panel.pack(fill="both",expand=True)
@@ -71,6 +71,8 @@ class Desktop:
         self.upload_button=ttk.Button(buttons,text="현재 결과를 내 계정에 업로드 (비공개)",command=self.upload);self.upload_button.pack(side="left",padx=4)
         ttk.Button(buttons,text="저장한 결과 선택",command=self.choose).pack(side="left",padx=4)
         ttk.Button(buttons,text="웹 마이페이지",command=lambda:webbrowser.open("https://frontend-six-pi-h5i7tztups.vercel.app/app?view=my")).pack(side="left",padx=4)
+        self.official_button=ttk.Button(panel,text="삼성전자 분석 후 오늘 공식 게시",command=lambda:self.run(official=True))
+        self.official_button.pack(anchor="w",pady=4)
         ttk.Label(panel,text="분석에는 본인 OpenAI 사용료가 발생합니다. PDF·검색 데이터는 PC에 남습니다.").pack(anchor="w")
         self.status=ttk.Label(panel,text="대기 중 · 기업을 선택하고 분석을 시작하세요.",wraplength=780)
         self.status.pack(anchor="w",pady=(8,0))
@@ -100,7 +102,7 @@ class Desktop:
     def task(self, work: Callable[[], None], stage: str="요청 처리 중…") -> None:
         if self.busy:return
         self.status.config(text=stage);self.progress.start(12)
-        self.busy=True;self.run_button.config(state="disabled");self.upload_button.config(state="disabled")
+        self.busy=True;self.run_button.config(state="disabled");self.upload_button.config(state="disabled");self.official_button.config(state="disabled")
         def wrapper() -> None:
             try: work()
             except Exception as error:
@@ -137,20 +139,30 @@ class Desktop:
             self.messages.put(("companies",(name,candidates)))
         self.task(work)
 
-    def run(self) -> None:
+    def run(self, official: bool=False) -> None:
         company=self.company.get().strip();key=self.key.get().strip();dart=self.dart.get().strip();search=self.search.get().strip()
         if self.busy:return
+        if official:company="삼성전자"
         if not company or len(company)>120 or not key:
             messagebox.showerror("입력 확인","기업명과 본인 OpenAI 키를 입력하세요.");return
-        if company!=self.matched_name:
+        if official and not self.session:
+            messagebox.showinfo("공식 운영자 연결","이메일 계정 연결 탭에서 공식 운영자 계정을 연결하세요.");return
+        if not official and company!=self.matched_name:
             self.lookup_company();return
         selected=self.company_choice.current()
-        if selected<0:
+        if not official and selected<0:
             messagebox.showinfo("기업 선택","검색된 후보에서 분석할 기업을 선택하세요.");return
-        candidate=self.company_candidates[selected];company=candidate["name"];ticker=candidate["ticker"]
+        if official:company="삼성전자";ticker="005930.KS"
+        else:
+            candidate=self.company_candidates[selected];company=candidate["name"];ticker=candidate["ticker"]
         if self.loaded_settings and self.loaded_settings!=(key,dart,search):messagebox.showinfo("설정 변경","API 키나 검색 주소를 바꾸려면 프로그램을 다시 실행하세요.");return
-        if not messagebox.askyesno("분석 실행","본인 PC에서 분석을 실행합니다. OpenAI 사용료가 발생하며 수 분 이상 걸릴 수 있습니다. 실행할까요?"):return
+        prompt="삼성전자를 분석한 뒤 결과와 인용 근거를 오늘 공식 토론으로 공개합니다. OpenAI 사용료가 발생합니다. 진행할까요?" if official else "본인 PC에서 분석을 실행합니다. OpenAI 사용료가 발생하며 수 분 이상 걸릴 수 있습니다. 실행할까요?"
+        if not messagebox.askyesno("분석 실행",prompt):return
         def work() -> None:
+            if official:
+                from desktop.cloud import prepare_official
+                self.messages.put(("stage","공식 게시 준비 · 운영자 권한과 오늘 게시 여부를 확인합니다."))
+                self.session=prepare_official(self.session)
             os.environ.update(OPENAI_API_KEY=key,DART_API_KEY=dart,SEARXNG_URL=search,MARKETCOUNCIL_TICKER=ticker,CHROMA_MODE="local",RESULTS_AUTO_UPLOAD="false")
             self.messages.put(("stage","분석 준비 · 로컬 저장 공간과 검색 서비스를 준비합니다."))
             DATA.mkdir(parents=True,exist_ok=True);os.chdir(DATA)
@@ -184,7 +196,16 @@ class Desktop:
                 self.result_path=Path(AnalysisDebateStore().save(company,result)).resolve()
                 DebateTranscriptRenderer().save(result)
             self.messages.put(("stage","분석 완료 · 결과 폴더에서 JSON을 확인하고 웹 마이페이지로 가져오세요."))
-            self.result_id=str(uuid.uuid4());self.messages.put("분석 완료 · 로컬 저장: "+str(self.result_path)+"\n계정 업로드 버튼을 누르기 전에는 결과가 PC에만 저장됩니다.\n")
+            self.result_id=str(uuid.uuid4());self.messages.put("분석 완료 · 로컬 저장: "+str(self.result_path)+"\n")
+            if official:
+                from desktop.cloud import publish_official
+                self.messages.put(("stage","공식 게시 · 저장한 삼성전자 결과를 업로드합니다."))
+                try:day=publish_official(json.loads(self.result_path.read_text(encoding="utf-8")),self.session)
+                except Exception:
+                    self.messages.put("공식 게시 실패 · 분석 JSON은 PC에 남아 있습니다. 다시 분석하지 말고 웹 마이페이지에서 가져와 공식 지정하세요.\n")
+                    raise
+                self.messages.put(("stage",str(day)+" 삼성전자 공식 토론 게시 완료 · 웹 커뮤니티에서 확인하세요."))
+            else:self.messages.put("계정 업로드 버튼을 누르기 전에는 결과가 PC에만 저장됩니다.\n")
         self.task(work)
 
     def disconnect(self) -> None:
@@ -213,7 +234,7 @@ class Desktop:
         while not self.messages.empty():
             event=self.messages.get()
             if isinstance(event,tuple):
-                if event[0]=="done":self.progress.stop();self.busy=False;self.run_button.config(state="normal");self.upload_button.config(state="normal");self.status.config(text="요청 완료 · 아래 기록을 확인하세요." if self.status.cget("text")=="요청 처리 중…" else self.status.cget("text"))
+                if event[0]=="done":self.progress.stop();self.busy=False;self.run_button.config(state="normal");self.upload_button.config(state="normal");self.official_button.config(state="normal");self.status.config(text="요청 완료 · 아래 기록을 확인하세요." if self.status.cget("text")=="요청 처리 중…" else self.status.cget("text"))
                 elif event[0]=="stage":self.status.config(text=event[1])
                 elif event[0]=="readiness":self.setup_status.config(text=event[1]);self.status.config(text="준비 상태 확인 완료 · 준비 상태 탭의 안내를 확인하세요.")
                 elif event[0]=="failed":pass
