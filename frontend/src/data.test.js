@@ -25,3 +25,11 @@ test('sources group repeated citations without merging different documents',()=>
   assert.equal(resultKey('0123456789abcdef-1111111111111111'),resultKey('0123456789abcdef-2222222222222222'));
   assert.equal(resultKey('0123456789abcdef'),'0123456789abcdef');
 });
+
+test('research filters search summaries and sort without changing source rows',async()=>{
+ const {researchRows}=await import('./data.js');
+ const rows=[{company_name:'삼성전자',analysis_date:'2026-01-01',summary:'반도체 수요'},{company_name:'삼성전자',analysis_date:'2026-02-01'},{company_name:'다른기업',analysis_date:'invalid'}];
+ assert.equal(researchRows(rows,' 반도체 ')[0],rows[0]);
+ assert.deepEqual(researchRows(rows,'','삼성전자').map(x=>x.analysis_date),['2026-02-01','2026-01-01']);
+ assert.equal(researchRows(rows)[2],rows[2]);assert.equal(rows[0].analysis_date,'2026-01-01');
+});

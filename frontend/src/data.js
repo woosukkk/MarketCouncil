@@ -40,3 +40,10 @@ export function usedSources(data) {
 }
 
 export const resultKey = id => id.replace(/-[a-f0-9]{16}$/, '');
+
+export function researchRows(rows,query='',company='',order='newest') {
+ const q=query.trim().toLocaleLowerCase();
+ const time=row=>{const n=Date.parse(row.analysis_date||row.created_at||'');return Number.isFinite(n)?n:0};
+ return rows.filter(row=>(!company||row.company_name===company)&&`${row.company_name||''} ${row.ticker||''} ${row.analysis_date||''} ${row.summary||''}`.toLocaleLowerCase().includes(q)).sort((a,b)=>order==='company'?String(a.company_name).localeCompare(String(b.company_name),'ko'):order==='oldest'?time(a)-time(b):time(b)-time(a));
+}
+export const koreaToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
