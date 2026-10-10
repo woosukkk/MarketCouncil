@@ -48,7 +48,7 @@ function Detail({data,onBack}) {
 }
 function App({navigate}) {
   const {session,ready}=useAccount();
-  const [view,setView]=useState(new URLSearchParams(location.search).get('view')==='my'?'my':'library'),[authError,setAuthError]=useState('');
+  const [view,setView]=useState(new URLSearchParams(location.search).get('view')==='my'?'my':'library'),[authError,setAuthError]=useState(()=>new URLSearchParams(location.search).has('error')?'로그인을 완료하지 못했습니다. 다시 시도해 주세요. 문제가 계속되면 운영자에게 알려주세요.':'');
   useEffect(()=>{if(session)setView(current=>current==='login'?'my':current)},[session]);
   const login=()=>{setSelected(null);setView('login')};
   async function logout(){const {error}=await supabase.auth.signOut();if(error)setAuthError('로그아웃하지 못했습니다. 다시 시도해 주세요.');else {setAuthError('');setView('library');setSelected(null)}}
