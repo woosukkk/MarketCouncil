@@ -30,3 +30,5 @@
 .download-page{padding-inline:24px;box-sizing:border-box}.download-page p{word-break:keep-all;line-height:1.8}
 
 .research-filters{display:flex;flex-wrap:wrap;gap:16px;margin:24px 0}.research-filters label{display:grid;gap:8px;flex:1;min-width:160px}.research-filters input,.research-filters select{font:inherit;padding:12px;border:1px solid var(--line,#ddd);border-radius:8px;background:transparent;color:inherit}.personal-list article p{max-width:65ch;line-height:1.65}
+
+.admin-table{overflow:auto;margin:24px 0}.admin-table table{width:100%;border-collapse:collapse;text-align:left}.admin-table th,.admin-table td{padding:16px 12px;border-bottom:1px solid #ddd;vertical-align:top}.admin-table small{color:#777}.admin-bars>div{display:grid;grid-template-columns:110px 1fr 110px;gap:12px;align-items:center;margin:12px 0}.admin-bars i{display:block;min-height:12px;background:#7c89a0;border-radius:6px}.admin-page .detail-metrics strong{font-size:26px}.admin-page .result-import{display:grid;gap:12px;margin:24px 0}

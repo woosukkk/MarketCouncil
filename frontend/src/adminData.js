@@ -1,0 +1,15 @@
+const numericKeys=['performance_score','fcp_ms','lcp_ms','tbt_ms','cls','speed_index_ms','duration_ms','cpu_ms','recall','precision','mrr','hit','median_ms','p95_ms','mixed_company','unknown_company','future_sources','request_count','error_count'];
+const text=(value,limit=120)=>typeof value==='string'?value.slice(0,limit):'';
+export function measurementReport(raw){
+ if(!raw||raw.schema_version!==1||!['monitoring','rag'].includes(raw.kind)||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(raw.id||'')||!Number.isFinite(Date.parse(raw.recorded_at))||!text(raw.label)||!['success','failed'].includes(raw.status))throw Error('지원하는 성능 기록 JSON을 선택하세요.');
+ const metrics={};
+ for(const key of numericKeys){const value=raw.metrics?.[key];if(value===undefined||value===null)continue;if(typeof value!=='number'||!Number.isFinite(value)||value<0||(['performance_score','recall','precision','mrr','hit'].includes(key)&&value>1))throw Error('성능 수치가 올바르지 않습니다.');metrics[key]=value;}
+ if(raw.kind==='monitoring'&&metrics.duration_ms===undefined)throw Error('측정 시간이 없는 기록입니다.');
+ const settings={};for(const key of ['top_k','repeats','case_count','corpus_count']){const n=raw.settings?.[key];if(n!==undefined){if(!Number.isInteger(n)||n<1)throw Error('평가 설정을 확인하세요.');settings[key]=n;}}
+ if(raw.kind==='rag'&&(!['recall','precision','mrr','median_ms','p95_ms'].every(k=>metrics[k]!==undefined)||!settings.case_count||!settings.top_k||!settings.repeats||!/^[a-f0-9]{64}$/.test(raw.dataset_hash||'')))throw Error('정답 기반 평가 수치와 데이터셋 정보가 필요합니다.');
+ for(const key of ['model','timing','corpus_hash','form_factor','lighthouse_version'])if(raw.settings?.[key])settings[key]=text(raw.settings[key]);
+ const environment={};for(const key of ['os','python'])if(raw.environment?.[key])environment[key]=text(raw.environment[key]);if(Number.isInteger(raw.environment?.cpu_count)&&raw.environment.cpu_count>0)environment.cpu_count=raw.environment.cpu_count;
+ return {schema_version:1,kind:raw.kind,id:raw.id,recorded_at:new Date(raw.recorded_at).toISOString(),label:text(raw.label),version:text(raw.version)||'미지정',scope:text(raw.scope)||'미지정',status:raw.status,metrics,settings,environment,...(raw.kind==='rag'?{dataset_hash:raw.dataset_hash}:{}),cases:(Array.isArray(raw.cases)?raw.cases:[]).slice(0,1000).map(row=>({case_id:text(row.case_id),...Object.fromEntries(['repeat','duration_ms','recall','precision','mrr','hit','mixed_company','unknown_company','future_sources','retrieved_count'].filter(k=>typeof row[k]==='number'&&Number.isFinite(row[k])&&row[k]>=0).map(k=>[k,row[k]]))}))};
+}
+export const metricText=(n,percent=false)=>typeof n==='number'?percent?(n*100).toFixed(1)+'%':n.toLocaleString('ko-KR',{maximumFractionDigits:1}):'미측정';
+export function monitoringSummary(rows){const runs=rows.filter(x=>x.scope==='analysis');return {count:runs.length,successRate:runs.length?runs.filter(x=>x.status==='success').length/runs.length:null,averageMs:runs.length?runs.reduce((s,x)=>s+x.metrics.duration_ms,0)/runs.length:null};}
