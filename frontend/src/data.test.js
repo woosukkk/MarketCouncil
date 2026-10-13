@@ -33,3 +33,14 @@ test('research filters search summaries and sort without changing source rows',a
  assert.deepEqual(researchRows(rows,'','삼성전자').map(x=>x.analysis_date),['2026-02-01','2026-01-01']);
  assert.equal(researchRows(rows)[2],rows[2]);assert.equal(rows[0].analysis_date,'2026-01-01');
 });
+
+test('library includes only public official discussions and sorts with archive',async()=>{
+ const {mergeLibrary}=await import('./data.js');
+ const archive=[{id:'old',company_name:'삼성전자',created_at:'2026-10-08'}];
+ const dates=[{discussion_id:'official',publication_date:'2026-10-13'},{discussion_id:'private',publication_date:'2026-10-12'}];
+ const rows=[{id:'official',company_name:'삼성전자',analysis_date:'2026-10-13',visibility:'public',issues:[{title:'a'}]},{id:'private',visibility:'private'},{id:'community',visibility:'public'}];
+ const result=mergeLibrary(archive,dates,rows);
+ assert.deepEqual(result.map(x=>x.id),['official','old']);assert.equal(result[0].discussion,true);assert.equal(result[0].issue_count,1);
+ assert.equal(mergeLibrary([{...archive[0],created_at:'2026-10-13'}],dates,rows).length,1);
+ assert.equal(archive.length,1);assert.equal(mergeLibrary(archive,[],[])[0],archive[0]);
+});

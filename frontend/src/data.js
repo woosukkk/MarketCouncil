@@ -47,3 +47,10 @@ export function researchRows(rows,query='',company='',order='newest') {
  return rows.filter(row=>(!company||row.company_name===company)&&`${row.company_name||''} ${row.ticker||''} ${row.analysis_date||''} ${row.summary||''}`.toLocaleLowerCase().includes(q)).sort((a,b)=>order==='company'?String(a.company_name).localeCompare(String(b.company_name),'ko'):order==='oldest'?time(a)-time(b):time(b)-time(a));
 }
 export const koreaToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+
+export function mergeLibrary(archive, selections, rows) {
+ const dates=new Map(selections.map(x=>[x.discussion_id,x.publication_date]));
+ const official=rows.filter(x=>x.visibility==='public'&&dates.has(x.id)).map(x=>({id:x.id,company_name:x.company_name,ticker:x.ticker,created_at:x.analysis_date,summary:x.summary||'',issue_count:Array.isArray(x.issues)?x.issues.length:0,round_count:null,official_date:dates.get(x.id),discussion:true,personal:true}));
+ const seen=new Set();
+ return [...official,...archive].filter(x=>{const key=x.company_name+'|'+x.created_at;if(seen.has(key))return false;seen.add(key);return true}).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+}
