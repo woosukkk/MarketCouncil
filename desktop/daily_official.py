@@ -65,6 +65,12 @@ def notify(message: str) -> None:
     # Native dialog is intentional: the user requested a startup/completion alarm.
     ctypes.windll.user32.MessageBoxW(None, message, "MarketCouncil 자동 공식 토론", 0x40 | 0x10000)
 
+def failure_record(stage: str, error: Exception) -> dict:
+    record = {"day": today(), "stage": stage, "error_type": type(error).__name__, "credentials_present": (DATA / "credentials.dpapi").exists()}
+    if isinstance(error, OSError): record["winerror"] = error.winerror if hasattr(error, "winerror") else None
+    if isinstance(error, ModuleNotFoundError): record["module"] = error.name
+    return record
+
 def run() -> int:
     DATA.mkdir(parents=True, exist_ok=True)
     import msvcrt
@@ -72,6 +78,7 @@ def run() -> int:
         lock.seek(0); lock.write(b"0"); lock.flush(); lock.seek(0)
         try: msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
         except OSError: return 0
+        stage = "credentials"
         try:
             config = credentials()
             state_path = DATA / "state.json"
@@ -79,6 +86,8 @@ def run() -> int:
             from desktop.cloud import request, upload_result
             session = {}
             def prepare() -> None:
+                nonlocal stage
+                stage = "account"
                 session.update(request("/auth/v1/token?grant_type=refresh_token", {"refresh_token": config["refresh_token"]}))
                 config["refresh_token"] = session["refresh_token"]; save_credentials(config)
                 if request("/rest/v1/rpc/is_official_editor", {}, session["access_token"]) is not True:
@@ -88,10 +97,13 @@ def run() -> int:
                     save_state({"day": today(), "status": "completed"})
                     raise AlreadyPublished()
             def analyze() -> str:
+                nonlocal stage
+                stage = "services"
                 os.chdir(ROOT)
                 os.environ.update(OPENAI_API_KEY=config["openai_key"], DART_API_KEY=config.get("dart_key", ""), SEARXNG_URL=config["search"], MARKETCOUNCIL_TICKER="005930.KS", CHROMA_MODE="local", RESULTS_AUTO_UPLOAD="false")
                 from app.local_services import ensure_local_services
                 ensure_local_services()
+                stage = "analysis"
                 from app.debate_workflow import DebateWorkflow
                 from tools.analysis_debate_store import AnalysisDebateStore
                 from tools.debate_transcript_renderer import DebateTranscriptRenderer
@@ -101,6 +113,8 @@ def run() -> int:
                 DebateTranscriptRenderer().save(result)
                 return str(path)
             def publish(path: str) -> None:
+                nonlocal stage
+                stage = "result"
                 import hashlib, uuid
                 result = json.loads(Path(path).read_text(encoding="utf-8"))
                 if result.get("company_name") != "삼성전자" or result.get("financial_data", {}).get("ticker") != "005930.KS":
@@ -109,6 +123,7 @@ def run() -> int:
                 prepare()
                 if state["day"] != today(): raise RuntimeError("date changed")
                 identifier = str(uuid.uuid5(uuid.NAMESPACE_URL, session["user"]["id"] + hashlib.sha256(json.dumps(result, sort_keys=True, ensure_ascii=False).encode()).hexdigest()))
+                stage = "publish"
                 upload_result(result, session, identifier)
                 request("/rest/v1/rpc/select_daily_official", {"discussion": identifier}, session["access_token"])
             outcome = run_once(state, today(), prepare, analyze, publish, save_state)
@@ -117,8 +132,9 @@ def run() -> int:
                 notify("오늘 분석이 중단되거나 실패했습니다. 중복 과금을 피하려고 자동 재분석하지 않습니다. 로컬 결과와 실행 환경을 확인하세요.")
             return 0
         except AlreadyPublished: return 0
-        except Exception:
-            notify("자동 분석 또는 게시에 실패했습니다. 계정 연결·인터넷·Docker를 확인하세요. 저장된 결과는 유지되며 게시만 실패한 경우 다음 실행에서 재게시합니다.")
+        except Exception as error:
+            (DATA / "last-error.json").write_text(json.dumps(failure_record(stage, error), ensure_ascii=False), encoding="utf-8")
+            notify("실패 단계: " + stage + " · " + type(error).__name__ + "\n자동 분석 또는 게시에 실패했습니다. 계정 연결·인터넷·Docker를 확인하세요. 저장된 결과는 유지되며 게시만 실패한 경우 다음 실행에서 재게시합니다.")
             return 1
         finally:
             lock.seek(0); msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)

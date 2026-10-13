@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import Mock
-from desktop.daily_official import run_once, crypt
+from desktop.daily_official import run_once, crypt, failure_record
 
 class DailyTests(unittest.TestCase):
     def test_completed_never_prepares_or_spends(self):
@@ -23,6 +23,11 @@ class DailyTests(unittest.TestCase):
         analyze=Mock()
         with self.assertRaises(RuntimeError):run_once({},"2026-10-12",Mock(side_effect=RuntimeError()),analyze,Mock(),Mock())
         analyze.assert_not_called()
+    def test_failure_record_excludes_exception_content(self):
+        import json
+        report = failure_record("account", RuntimeError("private-token-and-key"))
+        self.assertEqual(report["stage"], "account")
+        self.assertNotIn("private", json.dumps(report))
     def test_windows_encryption_roundtrip(self):
         encrypted=crypt(b"test-credential")
         self.assertNotIn(b"test-credential",encrypted)

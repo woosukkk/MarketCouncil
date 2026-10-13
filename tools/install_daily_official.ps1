@@ -3,7 +3,8 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $taskUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 $runner = Join-Path $repoRoot 'venv\Scripts\pythonw.exe'
 if (!(Test-Path -LiteralPath $runner)) { throw 'Project Python runtime is missing' }
-$action = New-ScheduledTaskAction -Execute $runner -Argument '-m desktop.daily_official' -WorkingDirectory $repoRoot
+$launcher = Join-Path $repoRoot 'tools\run_daily_official.ps1'
+$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -WindowStyle Hidden -File "' + $launcher + '"') -WorkingDirectory $repoRoot
 $login = New-ScheduledTaskTrigger -AtLogOn -User $taskUser
 $login.Delay = 'PT2M'
 $daily = New-ScheduledTaskTrigger -Daily -At '09:00'
