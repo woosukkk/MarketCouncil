@@ -28,6 +28,15 @@ class DailyTests(unittest.TestCase):
         report = failure_record("account", RuntimeError("private-token-and-key"))
         self.assertEqual(report["stage"], "account")
         self.assertNotIn("private", json.dumps(report))
+    def test_wrapped_error_metadata_only(self):
+        import json
+        try:
+            try: raise ValueError("private prompt")
+            except ValueError as inner: raise RuntimeError("private token") from inner
+        except RuntimeError as outer: report=failure_record("analysis",outer)
+        self.assertEqual([x["type"] for x in report["causes"]],["RuntimeError","ValueError"])
+        self.assertTrue(report["causes"][1]["locations"])
+        self.assertNotIn("private",json.dumps(report))
     def test_windows_encryption_roundtrip(self):
         encrypted=crypt(b"test-credential")
         self.assertNotIn(b"test-credential",encrypted)

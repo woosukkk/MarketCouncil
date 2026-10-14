@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import traceback
 from ctypes import wintypes
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -69,6 +70,16 @@ def failure_record(stage: str, error: Exception) -> dict:
     record = {"day": today(), "stage": stage, "error_type": type(error).__name__, "credentials_present": (DATA / "credentials.dpapi").exists()}
     if isinstance(error, OSError): record["winerror"] = error.winerror if hasattr(error, "winerror") else None
     if isinstance(error, ModuleNotFoundError): record["module"] = error.name
+    chain=[]; seen=set(); current=error
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        entry={"type":type(current).__name__, "locations":[{"file":Path(frame.filename).name,"function":frame.name,"line":frame.lineno} for frame in traceback.extract_tb(current.__traceback__)[-4:]]}
+        status=getattr(current,"status_code",None)
+        if isinstance(status,int):entry["http_status"]=status
+        code=getattr(current,"code",None)
+        if code in {"insufficient_quota","rate_limit_exceeded","invalid_api_key","context_length_exceeded"}:entry["api_code"]=code
+        chain.append(entry);current=current.__cause__
+    record["causes"]=chain
     return record
 
 def run() -> int:
