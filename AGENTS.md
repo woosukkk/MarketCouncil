@@ -89,7 +89,19 @@ hypotheses and report confidence and evidence limitations.
 * After completing and verifying a meaningful unit of work, create a local commit automatically.
 * Do not ask for separate user approval before creating that local commit.
 * Commit only changes made for the current approved task and leave unrelated user changes untouched.
-* Do not push, create branches, or open pull requests unless explicitly requested.
+* The user has given standing authorization to create/update GitHub issues and push scoped commits for errors, bug fixes, deployments, and redeployments in this project, as described below.
+* Create branches or open pull requests only when explicitly requested.
+
+### Required Error and Deployment Records
+
+* For every error investigation, bug fix, deployment, or redeployment performed for the user, create a GitHub issue or update the existing issue for the same problem before closing out the task. Reuse the related issue rather than opening duplicates for retries of the same incident.
+* Use `[버그]` for errors and `[배포]` for deployment/redeployment records. Describe the symptom or purpose, affected files, confirmed cause, fix, validation, and remaining limitations. Clearly label hypotheses and unknown causes; never present them as confirmed findings.
+* Fix bugs within the current authorized task and commit each verified unit separately with an English `fix:` message. Use `feat:`, `docs:`, or `chore:` for changes that are not bug fixes. Do not create empty commits merely to label a deployment.
+* Reference the related issue in commit messages when available. Commit only the current task's changes, preserve unrelated working-tree changes, and push verified commits to the current authorized branch without asking again for GitHub issue/commit/push approval.
+* After every deployment attempt, record success or failure, environment, actual deployed commit, URL, validation, and remaining limitations in the issue. Failed deployments remain unresolved; do not claim code is live merely because it was pushed.
+* After a successful deployment, follow the existing web/desktop version conventions and tag the actual deployed commit. Do not tag source-only changes as deployed releases or overwrite existing release tags/assets.
+* Close an issue only when its stated acceptance criteria are met; keep missing production verification or unresolved causes explicit. Link the issue in the final task summary.
+* Keep credentials, login links, private documents, raw prompts, and confidential logs out of issues, commits, and deployment records. This GitHub workflow authorization does not authorize new paid runs, destructive actions, access changes, or unrelated work.
 
 ### PR Convention
 
