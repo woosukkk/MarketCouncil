@@ -18,6 +18,12 @@ class DailyTests(unittest.TestCase):
         analyze=Mock(); prepare=Mock(side_effect=AlreadyPublished())
         with self.assertRaises(AlreadyPublished):run_once({"day":"2026-10-14","status":"analysis_failed"},"2026-10-14",prepare,analyze,Mock(),Mock())
         prepare.assert_called_once();analyze.assert_not_called()
+    def test_resumed_analysis_has_two_attempt_daily_cap(self):
+        state={"day":"2026-10-14","status":"analysis_failed","analysis_attempts":1};analyze=Mock(side_effect=RuntimeError())
+        with self.assertRaises(RuntimeError):run_once(state,"2026-10-14",Mock(),analyze,Mock(),Mock(),resume=True)
+        self.assertEqual(state["analysis_attempts"],2)
+        self.assertEqual(run_once(state,"2026-10-14",Mock(),analyze,Mock(),Mock(),resume=True),"skipped")
+        self.assertEqual(analyze.call_count,1)
     def test_upload_failure_reuses_saved_analysis(self):
         state={}; analyze=Mock(return_value="saved.json"); publish=Mock(side_effect=[RuntimeError("network"),None])
         with self.assertRaises(RuntimeError):run_once(state,"2026-10-12",Mock(),analyze,publish,Mock())

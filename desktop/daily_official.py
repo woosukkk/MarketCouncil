@@ -45,16 +45,17 @@ def save_state(state: dict) -> None:
     temporary.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
     temporary.replace(DATA / "state.json")
 
-def run_once(state: dict, day: str, prepare, analyze, publish, persist) -> str:
+def run_once(state: dict, day: str, prepare, analyze, publish, persist, resume: bool = False) -> str:
     if state.get("day") == day and state.get("status") == "completed":
         return "skipped"
     prepare()
-    if state.get("day") == day and state.get("status") in ("attempting", "analysis_failed"):
+    if state.get("day") == day and state.get("status") in ("attempting", "analysis_failed") and (not resume or state.get("analysis_attempts",1)>=2):
         return "skipped"
     if state.get("day") == day and state.get("result_path"):
         path = state["result_path"]
     else:
-        state.clear(); state.update(day=day, status="attempting")
+        attempts=state.get("analysis_attempts",1)+1 if state.get("day")==day else 1
+        state.clear(); state.update(day=day, status="attempting", analysis_attempts=attempts)
         persist(state)
         try: path = analyze()
         except Exception:
@@ -76,6 +77,9 @@ def failure_record(stage: str, error: Exception) -> dict:
     while current is not None and id(current) not in seen:
         seen.add(id(current))
         entry={"type":type(current).__name__, "locations":[{"file":Path(frame.filename).name,"function":frame.name,"line":frame.lineno} for frame in traceback.extract_tb(current.__traceback__)[-4:]]}
+        for key in ("response_status","incomplete_reason"):
+            value=getattr(current,key,None)
+            if value in {"completed","incomplete","failed","max_output_tokens","content_filter"}:entry[key]=value
         status=getattr(current,"status_code",None)
         if isinstance(status,int):entry["http_status"]=status
         code=getattr(current,"code",None)
@@ -117,11 +121,13 @@ def run() -> int:
                 from app.local_services import ensure_local_services
                 ensure_local_services()
                 stage = "analysis"
-                from app.debate_workflow import DebateWorkflow
+                from app.recoverable_debate_workflow import RecoverableDebateWorkflow
                 from tools.analysis_debate_store import AnalysisDebateStore
                 from tools.debate_transcript_renderer import DebateTranscriptRenderer
                 from tools.run_metrics import measure_analysis
-                result = measure_analysis("삼성전자", lambda: DebateWorkflow().run("삼성전자"), DATA.parent / "metrics")
+                os.environ["RESULTS_RESPONSE_METRICS_DIR"]=str(DATA / "response-metrics")
+                workflow=RecoverableDebateWorkflow(DATA / ("analysis-"+today()+".json"),"삼성전자",today())
+                result = measure_analysis("삼성전자", lambda: workflow.run("삼성전자"), DATA.parent / "metrics")
                 path = Path(AnalysisDebateStore().save("삼성전자", result)).resolve()
                 DebateTranscriptRenderer().save(result)
                 return str(path)
@@ -139,10 +145,10 @@ def run() -> int:
                 stage = "publish"
                 upload_result(result, session, identifier)
                 request("/rest/v1/rpc/select_daily_official", {"discussion": identifier}, session["access_token"])
-            outcome = run_once(state, today(), prepare, analyze, publish, save_state)
+            outcome = run_once(state, today(), prepare, analyze, publish, save_state, resume=True)
             if outcome == "completed": notify("오늘 삼성전자 공식 토론 게시가 완료됐습니다. 웹 커뮤니티에서 확인하세요.")
             elif state.get("status") in ("attempting", "analysis_failed"):
-                notify("오늘 분석이 중단되거나 실패했습니다. 중복 과금을 피하려고 자동 재분석하지 않습니다. 로컬 결과와 실행 환경을 확인하세요.")
+                notify("오늘 분석이 중단되거나 실패했습니다. 오늘 복구 시도 한도에 도달해 더 실행하지 않습니다. 로컬 결과와 실행 환경을 확인하세요.")
             return 0
         except AlreadyPublished: return 0
         except Exception as error:
