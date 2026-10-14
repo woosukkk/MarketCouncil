@@ -13,6 +13,11 @@ class DailyTests(unittest.TestCase):
         self.assertEqual(state["status"],"analysis_failed")
         run_once(state,"2026-10-12",Mock(),analyze,Mock(),Mock())
         self.assertEqual(analyze.call_count,1)
+    def test_failed_run_checks_existing_publication_without_spending(self):
+        from desktop.daily_official import AlreadyPublished
+        analyze=Mock(); prepare=Mock(side_effect=AlreadyPublished())
+        with self.assertRaises(AlreadyPublished):run_once({"day":"2026-10-14","status":"analysis_failed"},"2026-10-14",prepare,analyze,Mock(),Mock())
+        prepare.assert_called_once();analyze.assert_not_called()
     def test_upload_failure_reuses_saved_analysis(self):
         state={}; analyze=Mock(return_value="saved.json"); publish=Mock(side_effect=[RuntimeError("network"),None])
         with self.assertRaises(RuntimeError):run_once(state,"2026-10-12",Mock(),analyze,publish,Mock())

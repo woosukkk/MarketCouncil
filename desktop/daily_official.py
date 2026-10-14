@@ -46,9 +46,11 @@ def save_state(state: dict) -> None:
     temporary.replace(DATA / "state.json")
 
 def run_once(state: dict, day: str, prepare, analyze, publish, persist) -> str:
-    if state.get("day") == day and state.get("status") in ("completed", "attempting", "analysis_failed"):
+    if state.get("day") == day and state.get("status") == "completed":
         return "skipped"
     prepare()
+    if state.get("day") == day and state.get("status") in ("attempting", "analysis_failed"):
+        return "skipped"
     if state.get("day") == day and state.get("result_path"):
         path = state["result_path"]
     else:
