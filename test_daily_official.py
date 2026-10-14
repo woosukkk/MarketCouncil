@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from desktop.daily_official import run_once, crypt, failure_record
 
 class DailyTests(unittest.TestCase):
@@ -48,6 +48,21 @@ class DailyTests(unittest.TestCase):
         self.assertEqual([x["type"] for x in report["causes"]],["RuntimeError","ValueError"])
         self.assertTrue(report["causes"][1]["locations"])
         self.assertNotIn("private",json.dumps(report))
+    def test_failure_history_preserves_legacy_and_separates_runs(self):
+        import json,tempfile
+        from pathlib import Path
+        from desktop.daily_official import save_failure
+        with tempfile.TemporaryDirectory() as folder,patch('desktop.daily_official.DATA',Path(folder)),patch('desktop.daily_official.source_version',return_value='abc123'):
+            (Path(folder)/'last-error.json').write_text('{"stage":"original"}',encoding='utf-8')
+            save_failure('analysis',RuntimeError('private token'),'run1')
+            save_failure('publish',RuntimeError('private prompt'),'run2')
+            files=list((Path(folder)/'errors').glob('*.json'))
+            self.assertEqual(len(files),3)
+            self.assertEqual(json.loads((Path(folder)/'errors/legacy-first-error.json').read_text())['stage'],'original')
+            latest=json.loads((Path(folder)/'last-error.json').read_text())
+            self.assertEqual(latest['run_id'],'run2');self.assertEqual(latest['source_version'],'abc123')
+            self.assertNotIn('private token',''.join(p.read_text() for p in files))
+            self.assertTrue(latest['recorded_at'])
     def test_windows_encryption_roundtrip(self):
         encrypted=crypt(b"test-credential")
         self.assertNotIn(b"test-credential",encrypted)

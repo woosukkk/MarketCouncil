@@ -3,6 +3,7 @@ import json
 import os
 import time
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,7 @@ def record_response(name: str, limit: int, response: Any = None, error: Exceptio
     folder = os.getenv("RESULTS_RESPONSE_METRICS_DIR")
     if not folder: return
     usage = getattr(response, "usage", None)
-    record = {"phase": name, "limit": limit, "status": getattr(response, "status", "error"), "reason": getattr(getattr(response, "incomplete_details", None), "reason", None), "input_tokens": getattr(usage, "input_tokens", None), "output_tokens": getattr(usage, "output_tokens", None), "reasoning_tokens": getattr(getattr(usage, "output_tokens_details", None), "reasoning_tokens", None)}
+    record = {"recorded_at":datetime.now(timezone.utc).isoformat(),"run_id":os.getenv("RESULTS_RUN_ID"),"source_version":os.getenv("RESULTS_SOURCE_VERSION"),"phase": name, "limit": limit, "status": getattr(response, "status", "error"), "reason": getattr(getattr(response, "incomplete_details", None), "reason", None), "input_tokens": getattr(usage, "input_tokens", None), "output_tokens": getattr(usage, "output_tokens", None), "reasoning_tokens": getattr(getattr(usage, "output_tokens_details", None), "reasoning_tokens", None)}
     if error is not None:
         record.update(error_type=type(error).__name__, http_status=getattr(error, "status_code", None))
         if getattr(error,"code",None) in {"insufficient_quota","rate_limit_exceeded","invalid_api_key","context_length_exceeded"}:record["api_code"]=error.code

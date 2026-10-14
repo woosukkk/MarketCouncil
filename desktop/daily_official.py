@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import traceback
+import uuid
 from ctypes import wintypes
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -88,6 +89,24 @@ def failure_record(stage: str, error: Exception) -> dict:
     record["causes"]=chain
     return record
 
+def source_version() -> str:
+    try:
+        result=subprocess.run(["git","rev-parse","--short","HEAD"],cwd=ROOT,capture_output=True,text=True,timeout=2,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
+        value=result.stdout.strip()
+        return value if result.returncode==0 and value and all(c in "0123456789abcdef" for c in value) else "unknown"
+    except (OSError,subprocess.TimeoutExpired):return "unknown"
+
+def save_failure(stage: str, error: Exception, run_id: str) -> None:
+    folder=DATA/"errors";folder.mkdir(parents=True,exist_ok=True)
+    latest=DATA/"last-error.json";legacy=folder/"legacy-first-error.json"
+    if latest.exists() and not legacy.exists():
+        # Existing generated metadata is preserved before replacing the latest pointer.
+        legacy.write_bytes(latest.read_bytes())
+    record={**failure_record(stage,error),"run_id":run_id,"recorded_at":datetime.now(timezone.utc).isoformat(),"source_version":source_version()}
+    filename=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")+"-"+run_id+".json"
+    (folder/filename).write_text(json.dumps(record,ensure_ascii=False),encoding="utf-8")
+    temporary=latest.with_suffix(".tmp");temporary.write_text(json.dumps(record,ensure_ascii=False),encoding="utf-8");temporary.replace(latest)
+
 def run() -> int:
     DATA.mkdir(parents=True, exist_ok=True)
     import msvcrt
@@ -95,6 +114,9 @@ def run() -> int:
         lock.seek(0); lock.write(b"0"); lock.flush(); lock.seek(0)
         try: msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
         except OSError: return 0
+        run_id=uuid.uuid4().hex
+        os.environ["RESULTS_RUN_ID"]=run_id
+        os.environ["RESULTS_SOURCE_VERSION"]=source_version()
         stage = "credentials"
         try:
             config = credentials()
@@ -152,8 +174,11 @@ def run() -> int:
             return 0
         except AlreadyPublished: return 0
         except Exception as error:
-            (DATA / "last-error.json").write_text(json.dumps(failure_record(stage, error), ensure_ascii=False), encoding="utf-8")
-            notify("실패 단계: " + stage + " · " + type(error).__name__ + "\n자동 분석 또는 게시에 실패했습니다. 계정 연결·인터넷·Docker를 확인하세요. 저장된 결과는 유지되며 게시만 실패한 경우 다음 실행에서 재게시합니다.")
+            try:
+                save_failure(stage,error,run_id)
+                note="상세 원인은 운영자용 로컬 기록에 저장했습니다."
+            except OSError:note="로컬 진단 기록 저장도 실패했습니다. 저장 공간과 권한을 확인하세요."
+            notify("자동 분석 또는 게시에 실패했습니다. 기존 결과는 유지됩니다. "+note)
             return 1
         finally:
             lock.seek(0); msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
