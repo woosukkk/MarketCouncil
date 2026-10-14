@@ -10,6 +10,8 @@ from agents.analysis_debate_prompt import (
 )
 from agents.moderator_agent import ModeratorAgent
 from config import MODEL_NAME, OPENAI_API_KEY
+from tools.regime_context import build_regime_context
+from tools.structured_response import structured_response, ensure_complete
 
 
 PARTICIPANT_SCHEMA = {
@@ -287,46 +289,11 @@ class AnalysisDebateAgent:
             if role == "bull"
             else BEAR_ANALYSIS_DEBATE_PROMPT
         )
-        last_error: Exception | None = None
-        for attempt in range(2):
-            token_limit = 2000 * (attempt + 1)
-            try:
-                response = self.client.responses.create(
-                    model=MODEL_NAME,
-                    instructions=instructions,
-                    text={
-                        "format": {
-                            "type": "json_schema",
-                            "name": f"{role}_debate_turn",
-                            "strict": True,
-                            "schema": PARTICIPANT_SCHEMA,
-                        }
-                    },
-                    input=json.dumps(payload, ensure_ascii=False, default=str),
-                    reasoning={"effort": "minimal"},
-                    max_output_tokens=token_limit,
-                )
-                self._ensure_complete(response)
-                result = json.loads(response.output_text)
-                if not isinstance(result, dict):
-                    raise ValueError("응답이 JSON 객체가 아닙니다.")
-                return self._validate_citations(result, state.get("evidence_catalog", []))
-            except (json.JSONDecodeError, ValueError) as error:
-                last_error = error
-                if attempt == 0:
-                    print(
-                        f"[WARN] {role_label} 토론 응답이 불완전하여 "
-                        f"{token_limit * 2} 토큰으로 재시도합니다."
-                    )
-                    continue
-            except Exception as error:
-                raise RuntimeError(
-                    f"{role_label} 토론 발언 생성에 실패했습니다: {error}"
-                ) from error
-
-        raise RuntimeError(
-            f"{role_label} 토론 JSON 응답 생성에 실패했습니다: {last_error}"
-        ) from last_error
+        try:
+            result=structured_response(self.client,instructions,json.dumps(payload,ensure_ascii=False,default=str),f"{role}_debate_turn",PARTICIPANT_SCHEMA)
+            return self._validate_citations(result,state.get("evidence_catalog",[]))
+        except Exception as error:
+            raise RuntimeError(f"{role_label} 토론 발언 생성에 실패했습니다") from error
 
     @staticmethod
     def _validate_citations(
@@ -352,14 +319,7 @@ class AnalysisDebateAgent:
 
     @staticmethod
     def _ensure_complete(response: Any) -> None:
-        status = getattr(response, "status", "completed")
-        if status == "completed":
-            return
-        details = getattr(response, "incomplete_details", None)
-        usage = getattr(response, "usage", None)
-        raise ValueError(
-            f"응답 상태={status}, 상세={details}, 사용량={usage}"
-        )
+        ensure_complete(response)
 
     def _build_graph(self):
         builder = StateGraph(DebateState)
@@ -412,7 +372,7 @@ class AnalysisDebateAgent:
 {json.dumps(evidence_catalog, ensure_ascii=False, indent=2, default=str)}
 
 [시계열 시장 국면 비교]
-{json.dumps(regime_analysis, ensure_ascii=False, indent=2, default=str) if regime_analysis else "추가 데이터 필요"}
+{build_regime_context(regime_analysis) if regime_analysis else "추가 데이터 필요"}
 
 [영상 관점별 요약]
 {json.dumps(video_summary, ensure_ascii=False, indent=2) if video_summary else "사용하지 않음"}

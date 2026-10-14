@@ -9,6 +9,7 @@ from agents.moderator_prompt import (
     MODERATOR_SUMMARY_PROMPT,
 )
 from config import MODEL_NAME
+from tools.structured_response import structured_response, ensure_complete
 
 
 AGENDA_SCHEMA = {
@@ -130,54 +131,11 @@ class ModeratorAgent:
         schema: dict[str, Any],
         max_output_tokens: int,
     ) -> dict[str, Any]:
-        last_error: Exception | None = None
-        for attempt in range(2):
-            token_limit = max_output_tokens * (attempt + 1)
-            try:
-                response = self.client.responses.create(
-                    model=MODEL_NAME,
-                    instructions=instructions,
-                    text={
-                        "format": {
-                            "type": "json_schema",
-                            "name": schema_name,
-                            "strict": True,
-                            "schema": schema,
-                        }
-                    },
-                    input=input_text,
-                    reasoning={"effort": "minimal"},
-                    max_output_tokens=token_limit,
-                )
-                self._ensure_complete(response)
-                result = json.loads(response.output_text)
-                if not isinstance(result, dict):
-                    raise ValueError("응답이 JSON 객체가 아닙니다.")
-                return result
-            except (json.JSONDecodeError, ValueError) as error:
-                last_error = error
-                if attempt == 0:
-                    print(
-                        f"[WARN] 중재자 {schema_name} 응답이 불완전하여 "
-                        f"{token_limit * 2} 토큰으로 재시도합니다."
-                    )
-                    continue
-            except Exception as error:
-                raise RuntimeError(
-                    f"중재자 {schema_name} 호출에 실패했습니다: {error}"
-                ) from error
-
-        raise RuntimeError(
-            f"중재자 {schema_name} JSON 응답 생성에 실패했습니다: {last_error}"
-        ) from last_error
+        try:
+            return structured_response(self.client,instructions,input_text,schema_name,schema,max_output_tokens)
+        except Exception as error:
+            raise RuntimeError(f"중재자 {schema_name} 응답 생성에 실패했습니다") from error
 
     @staticmethod
     def _ensure_complete(response: Any) -> None:
-        status = getattr(response, "status", "completed")
-        if status == "completed":
-            return
-        details = getattr(response, "incomplete_details", None)
-        usage = getattr(response, "usage", None)
-        raise ValueError(
-            f"응답 상태={status}, 상세={details}, 사용량={usage}"
-        )
+        ensure_complete(response)
