@@ -29,6 +29,30 @@ class RecoveryTests(unittest.TestCase):
         client=self.client([RemoteError(503)]*3)
         with patch('tools.structured_response.time.sleep'),self.assertRaises(RemoteError):structured_response(client,'i','input','phase',SCHEMA)
         self.assertEqual(client.responses.create.call_count,3)
+    def test_credit_balance_exhausted_stops_first_attempt_and_keeps_safe_metadata(self) -> None:
+        error=RemoteError(429,'credit_balance_exhausted')
+        error.args=('private-token-and-error-message',)
+        error.body={'error':{'type':'insufficient_quota','code':'credit_balance_exhausted','message':'private error body'}}
+        client=self.client([error,response()])
+        with tempfile.TemporaryDirectory() as folder,patch.dict(os.environ,{'RESULTS_RESPONSE_METRICS_DIR':folder,'RESULTS_RUN_ID':'synthetic-run','RESULTS_SOURCE_VERSION':'synthetic-version'}),patch('tools.structured_response.time.sleep') as sleep:
+            with self.assertRaises(RemoteError):
+                structured_response(client,'private instructions','private prompt','phase',SCHEMA)
+            self.assertEqual(client.responses.create.call_count,1)
+            sleep.assert_not_called()
+            records=[json.loads(path.read_text(encoding='utf-8')) for path in Path(folder).glob('*.json')]
+        self.assertEqual(len(records),1)
+        self.assertEqual(records[0]['api_code'],'credit_balance_exhausted')
+        self.assertEqual(records[0]['http_status'],429)
+        self.assertNotIn('private',json.dumps(records))
+        self.assertNotIn('body',records[0])
+
+    def test_rate_limit_exceeded_still_retries_then_succeeds(self) -> None:
+        client=self.client([RemoteError(429,'rate_limit_exceeded'),response()])
+        with patch('tools.structured_response.time.sleep') as sleep:
+            self.assertEqual(structured_response(client,'i','input','phase',SCHEMA),{})
+        self.assertEqual(client.responses.create.call_count,2)
+        sleep.assert_called_once_with(1)
+
     def test_truncation_at_ceiling_stops_and_metadata_contains_no_input(self):
         with tempfile.TemporaryDirectory() as folder,patch.dict(os.environ,{'RESULTS_RESPONSE_METRICS_DIR':folder}):
             client=self.client([response("incomplete","max_output_tokens")]*2)

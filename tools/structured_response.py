@@ -24,7 +24,7 @@ def record_response(name: str, limit: int, response: Any = None, error: Exceptio
     record = {"recorded_at":datetime.now(timezone.utc).isoformat(),"run_id":os.getenv("RESULTS_RUN_ID"),"source_version":os.getenv("RESULTS_SOURCE_VERSION"),"phase": name, "limit": limit, "status": getattr(response, "status", "error"), "reason": getattr(getattr(response, "incomplete_details", None), "reason", None), "input_tokens": getattr(usage, "input_tokens", None), "output_tokens": getattr(usage, "output_tokens", None), "reasoning_tokens": getattr(getattr(usage, "output_tokens_details", None), "reasoning_tokens", None)}
     if error is not None:
         record.update(error_type=type(error).__name__, http_status=getattr(error, "status_code", None))
-        if getattr(error,"code",None) in {"insufficient_quota","rate_limit_exceeded","invalid_api_key","context_length_exceeded"}:record["api_code"]=error.code
+        if getattr(error,"code",None) in {"insufficient_quota","credit_balance_exhausted","rate_limit_exceeded","invalid_api_key","context_length_exceeded"}:record["api_code"]=error.code
     try:
         target=Path(folder);target.mkdir(parents=True,exist_ok=True)
         (target/(str(uuid.uuid4())+".json")).write_text(json.dumps(record),encoding="utf-8")
@@ -40,7 +40,7 @@ def structured_response(client: Any, instructions: str, input_text: str, name: s
         except Exception as error:
             record_response(name,limit,error=error)
             status=getattr(error,"status_code",None);code=getattr(error,"code",None)
-            transient=type(error).__name__ in {"APIConnectionError","APITimeoutError"} or (isinstance(status,int) and status>=500) or (status==429 and code!="insufficient_quota")
+            transient=type(error).__name__ in {"APIConnectionError","APITimeoutError"} or (isinstance(status,int) and status>=500) or (status==429 and code not in {"insufficient_quota","credit_balance_exhausted"})
             if not transient or attempt==2: raise
             time.sleep(2**attempt);continue
         record_response(name,limit,response)

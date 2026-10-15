@@ -48,6 +48,22 @@ class DailyTests(unittest.TestCase):
         self.assertEqual([x["type"] for x in report["causes"]],["RuntimeError","ValueError"])
         self.assertTrue(report["causes"][1]["locations"])
         self.assertNotIn("private",json.dumps(report))
+    def test_credit_balance_code_survives_wrapping_without_secret_content(self) -> None:
+        import json,tempfile
+        from pathlib import Path
+        inner=RuntimeError('private provider message')
+        inner.status_code=429
+        inner.code='credit_balance_exhausted'
+        inner.body={'error':{'message':'private API key and prompt'}}
+        outer=RuntimeError('private authorization token')
+        outer.__cause__=inner
+        with tempfile.TemporaryDirectory() as folder,patch('desktop.daily_official.DATA',Path(folder)):
+            report=failure_record('analysis',outer)
+        self.assertEqual(report['causes'][1]['api_code'],'credit_balance_exhausted')
+        self.assertEqual(report['causes'][1]['http_status'],429)
+        self.assertNotIn('private',json.dumps(report))
+        self.assertNotIn('body',report['causes'][1])
+
     def test_failure_history_preserves_legacy_and_separates_runs(self):
         import json,tempfile
         from pathlib import Path

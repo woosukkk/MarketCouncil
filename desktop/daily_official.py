@@ -84,7 +84,7 @@ def failure_record(stage: str, error: Exception) -> dict:
         status=getattr(current,"status_code",None)
         if isinstance(status,int):entry["http_status"]=status
         code=getattr(current,"code",None)
-        if code in {"insufficient_quota","rate_limit_exceeded","invalid_api_key","context_length_exceeded"}:entry["api_code"]=code
+        if code in {"insufficient_quota","credit_balance_exhausted","rate_limit_exceeded","invalid_api_key","context_length_exceeded"}:entry["api_code"]=code
         chain.append(entry);current=current.__cause__
     record["causes"]=chain
     return record
