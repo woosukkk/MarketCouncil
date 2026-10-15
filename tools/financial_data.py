@@ -29,11 +29,33 @@ def format_number(value) -> str:
     return f"{number:,.0f}"
 
 
-def calculate_growth(current, previous):
-    if current is None or previous in (None, 0):
+def calculate_growth(current: float | None, previous: float | None) -> float | None:
+    current_value, previous_value = _number(current), _number(previous)
+    if current_value is None or previous_value is None or previous_value <= 0:
         return None
+    return ((current_value - previous_value) / previous_value) * 100
 
-    return ((current - previous) / previous) * 100
+
+def operating_income_change(current: float | None, previous: float | None) -> dict:
+    current_value, previous_value = _number(current), _number(previous)
+    if current_value is None or previous_value is None:
+        return {"status": "확인 불가", "absolute_change": None, "growth_pct": None}
+    delta = current_value - previous_value
+    if current_value == previous_value:
+        status = "변동 없음"
+    elif current_value > 0 and previous_value <= 0:
+        status = "흑자전환"
+    elif current_value < 0 and previous_value >= 0:
+        status = "적자전환"
+    elif current_value == 0:
+        status = "손익분기 전환"
+    elif current_value < 0 and previous_value < 0:
+        status = "적자축소" if delta > 0 else "적자확대"
+    else:
+        status = "증가" if delta > 0 else "감소"
+    growth = calculate_growth(current_value, previous_value) if current_value >= 0 else None
+    return {"status": status, "absolute_change": delta, "growth_pct": growth}
+
 
 
 def calculate_margin(operating_income, revenue):
@@ -255,10 +277,12 @@ def get_financial_data(company_name: str) -> dict:
         previous_revenue,
     )
 
-    operating_income_growth = calculate_growth(
-        current_operating_income,
-        previous_operating_income,
-    )
+    income_change = operating_income_change(current_operating_income, previous_operating_income)
+    operating_income_growth = income_change["growth_pct"]
+    income_growth_text = format_percent(operating_income_growth)
+    if operating_income_growth is None and income_change["absolute_change"] is not None:
+        income_growth_text = f'{income_change["status"]} (절대 변화: {format_number(income_change["absolute_change"])})'
+
 
     current_operating_margin = calculate_margin(
         current_operating_income,
@@ -294,9 +318,8 @@ def get_financial_data(company_name: str) -> dict:
         "previous_operating_income": format_number(
             previous_operating_income
         ),
-        "operating_income_growth": format_percent(
-            operating_income_growth
-        ),
+        "operating_income_growth": income_growth_text,
+        "operating_income_change": income_change,
 
         "current_operating_margin": format_percent(
             current_operating_margin
