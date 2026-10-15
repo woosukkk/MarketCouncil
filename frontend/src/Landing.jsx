@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {dateLabel, resultsUrl} from './data.js';
+import {readResult} from './resultValidation.js';
 
 // Remember revealed sections across home/service navigation until page reload.
 const revealedSections = new Set();
@@ -10,7 +11,7 @@ export default function Landing({navigate}) {
     const abort=new AbortController();
     fetch(resultsUrl('index.json'),{signal:abort.signal,cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json()})
       .then(rows=>{if(!rows[0])throw Error();return fetch(resultsUrl(`${rows[0].id}.json`),{signal:abort.signal})})
-      .then(r=>{if(!r.ok)throw Error();return r.json()}).then(setSample).catch(()=>{});
+      .then(r=>{if(!r.ok)throw Error();return r.json()}).then(readResult).then(setSample).catch(()=>{});
     return()=>abort.abort();
   },[]);
   useEffect(()=>{

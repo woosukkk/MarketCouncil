@@ -1,3 +1,4 @@
+import {validateResult} from './resultValidation.js';
 const fields = ['company_name','created_at','financial_data','agenda','rounds','issue_statuses','moderator_summary','navigation','bull_analysis','bear_analysis'];
 const evidenceFields = ['evidence_id','source_id','exact_quote','reason','verified','title','source_type','source_url','published_at','page_number','source_page_url'];
 function compact(value) {
@@ -8,7 +9,7 @@ function compact(value) {
 export function prepareResult(text) {
   let data;
   try {data=JSON.parse(text.replace(/^\uFEFF/,''));} catch {throw Error('분석 JSON 파일을 선택하세요. 파일 내용을 읽을 수 없습니다.');}
-  if(!data || Array.isArray(data) || typeof data.company_name!=='string' || !data.company_name.trim() || data.company_name.length>120 || !Array.isArray(data.rounds)) throw Error('MarketCouncil 분석 결과 파일이 아닙니다.');
+  validateResult(data);
   const payload=compact(Object.fromEntries(fields.filter(f=>f in data).map(f=>[f,data[f]])));
   if(new TextEncoder().encode(JSON.stringify(payload)).length>1900000) throw Error('결과 크기가 업로드 한도를 넘습니다. 더 작은 결과 파일을 선택하세요.');
   return payload;

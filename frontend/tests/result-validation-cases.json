@@ -1,0 +1,306 @@
+{
+  "base": {
+    "company_name": "Example",
+    "created_at": "2026-10-15",
+    "financial_data": {
+      "ticker": "EXAMPLE",
+      "price_date": "2026-10-14"
+    },
+    "agenda": [
+      {
+        "issue_id": "A",
+        "title": "Question",
+        "question": "What changed?",
+        "bull_claim": "Up",
+        "bear_claim": "Down"
+      }
+    ],
+    "rounds": [
+      {
+        "round": 1,
+        "bull_response": {
+          "issues": [
+            {
+              "issue_id": "A",
+              "claim": "Claim",
+              "warrant": "Reason",
+              "qualifier": "Condition",
+              "missing_evidence": [
+                "More data"
+              ],
+              "evidence": [
+                {
+                  "source_id": "S1",
+                  "exact_quote": "Quote",
+                  "verified": true,
+                  "page_number": 1
+                },
+                "Legacy citation",
+                null
+              ]
+            }
+          ]
+        },
+        "bear_response": null,
+        "moderator_review": {
+          "issue_reviews": [
+            {
+              "issue_id": "A",
+              "status": "OPEN",
+              "assessment": "Unresolved"
+            }
+          ]
+        }
+      }
+    ],
+    "navigation": {
+      "overview": "Overview",
+      "issues": [
+        {
+          "issue_id": "A",
+          "title": "Question",
+          "status": "OPEN",
+          "core_disagreement": "Evidence"
+        }
+      ]
+    },
+    "issue_statuses": [
+      {
+        "issue_id": "A",
+        "status": "OPEN"
+      }
+    ],
+    "moderator_summary": {
+      "summary": "Summary",
+      "agreements": [
+        "Fact"
+      ],
+      "unresolved_issues": [],
+      "required_evidence": null
+    }
+  },
+  "cases": [
+    {
+      "name": "current structured result",
+      "valid": true,
+      "fields": {}
+    },
+    {
+      "name": "minimal legacy result",
+      "valid": true,
+      "result": {
+        "company_name": "삼성전자",
+        "rounds": []
+      }
+    },
+    {
+      "name": "nullable legacy optional fields",
+      "valid": true,
+      "fields": {
+        "created_at": null,
+        "financial_data": null,
+        "agenda": null,
+        "navigation": null,
+        "issue_statuses": null,
+        "moderator_summary": null
+      }
+    },
+    {
+      "name": "null agenda entry",
+      "valid": false,
+      "fields": {
+        "agenda": [
+          {
+            "issue_id": "A"
+          },
+          null
+        ]
+      }
+    },
+    {
+      "name": "agenda object instead of list",
+      "valid": false,
+      "fields": {
+        "agenda": {}
+      }
+    },
+    {
+      "name": "object title rendered as React child",
+      "valid": false,
+      "fields": {
+        "agenda": [
+          {
+            "title": {
+              "bad": "value"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "null round entry",
+      "valid": false,
+      "fields": {
+        "rounds": [
+          null
+        ]
+      }
+    },
+    {
+      "name": "wrong response object",
+      "valid": false,
+      "fields": {
+        "rounds": [
+          {
+            "bull_response": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "wrong response issues list",
+      "valid": false,
+      "fields": {
+        "rounds": [
+          {
+            "bull_response": {
+              "issues": "bad"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "wrong evidence child field",
+      "valid": false,
+      "fields": {
+        "rounds": [
+          {
+            "bull_response": {
+              "issues": [
+                {
+                  "evidence": [
+                    {
+                      "exact_quote": {}
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "wrong verified type",
+      "valid": false,
+      "fields": {
+        "rounds": [
+          {
+            "bull_response": {
+              "issues": [
+                {
+                  "evidence": [
+                    {
+                      "verified": "yes"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid missing evidence",
+      "valid": false,
+      "fields": {
+        "rounds": [
+          {
+            "bear_response": {
+              "issues": [
+                {
+                  "missing_evidence": [
+                    {}
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "null moderator review issue",
+      "valid": false,
+      "fields": {
+        "rounds": [
+          {
+            "moderator_review": {
+              "issue_reviews": [
+                null
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "malformed summary list",
+      "valid": false,
+      "fields": {
+        "moderator_summary": {
+          "agreements": "not a list"
+        }
+      }
+    },
+    {
+      "name": "malformed summary child",
+      "valid": false,
+      "fields": {
+        "moderator_summary": {
+          "required_evidence": [
+            {}
+          ]
+        }
+      }
+    },
+    {
+      "name": "null navigation issue",
+      "valid": false,
+      "fields": {
+        "navigation": {
+          "issues": [
+            null
+          ]
+        }
+      }
+    },
+    {
+      "name": "object financial ticker",
+      "valid": false,
+      "fields": {
+        "financial_data": {
+          "ticker": {}
+        }
+      }
+    },
+    {
+      "name": "blank company",
+      "valid": false,
+      "fields": {
+        "company_name": "  "
+      }
+    },
+    {
+      "name": "extra metadata remains supported",
+      "valid": true,
+      "fields": {
+        "extra": {
+          "unknown": "retained"
+        }
+      }
+    }
+  ]
+}

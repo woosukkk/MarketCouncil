@@ -4,6 +4,7 @@ from urllib.parse import urlsplit, parse_qs
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from frontend.export_results import FIELDS, compact_evidence
+from tools.result_validation import validate_result
 
 BASE = "https://snembdnkylggbxtxfqyz.supabase.co"
 PUBLIC_KEY = "sb_publishable_qJ8trycyiIECgCF5xHhcYg_JLHs8msL"
@@ -45,10 +46,13 @@ def upload_result(data: dict, session: dict, identifier: str) -> dict:
     from datetime import datetime
     import uuid
     uuid.UUID(identifier)
+    validate_result(data)
     payload = compact_evidence({key: data[key] for key in FIELDS if key in data})
-    row = {"id": identifier, "user_id": session["user"]["id"], "company_name": data["company_name"],
-           "ticker": data.get("financial_data", {}).get("ticker", ""),
-           "analysis_date": data.get("created_at", datetime.now().isoformat()), "payload": payload}
+    if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > 1900000:
+        raise ValueError("결과 크기가 업로드 한도를 넘습니다. 더 작은 결과 파일을 선택하세요.")
+    row = {"id": identifier, "user_id": session["user"]["id"], "company_name": payload["company_name"],
+           "ticker": (payload.get("financial_data") or {}).get("ticker") or "",
+           "analysis_date": payload.get("created_at") or datetime.now().isoformat(), "payload": payload}
     existing = request("/rest/v1/discussions?id=eq." + identifier + "&select=id", token=session["access_token"], method="GET")
     if existing:
         return existing[0]
