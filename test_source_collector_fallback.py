@@ -1,4 +1,5 @@
 import json
+import unittest
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock, patch
@@ -182,3 +183,11 @@ def test_fallback_event_ids_do_not_collide_across_batches() -> None:
         {"input_document_id": "DOC-025", "url": "https://two.example/story"}
     ])["articles"][0]
     assert first["event_key"] != second["event_key"]
+
+
+def load_tests(loader: unittest.TestLoader, tests: unittest.TestSuite, pattern: str | None) -> unittest.TestSuite:
+    """Include the function-style regressions in the project's unittest command."""
+    tests.addTests(unittest.FunctionTestCase(check, description=name)
+                   for name, check in sorted(globals().items())
+                   if name.startswith("test_") and callable(check))
+    return tests
