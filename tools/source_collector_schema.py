@@ -11,6 +11,7 @@ SOURCE_COLLECTION_SCHEMA = {
                 "report": {"type": "integer", "minimum": 0},
                 "blog": {"type": "integer", "minimum": 0},
                 "youtube": {"type": "integer", "minimum": 0},
+                "unknown": {"type": "integer", "minimum": 0},
                 "missing_types": {
                     "type": "array",
                     "items": {
@@ -21,6 +22,7 @@ SOURCE_COLLECTION_SCHEMA = {
                             "report",
                             "blog",
                             "youtube",
+                            "unknown",
                         ],
                     },
                 },
@@ -31,6 +33,7 @@ SOURCE_COLLECTION_SCHEMA = {
                 "report",
                 "blog",
                 "youtube",
+                "unknown",
                 "missing_types",
             ],
             "additionalProperties": False,
@@ -40,6 +43,7 @@ SOURCE_COLLECTION_SCHEMA = {
             "items": {
                 "type": "object",
                 "properties": {
+                    "input_document_id": {"type": "string"},
                     "title": {"type": "string"},
                     "source_type": {
                         "type": "string",
@@ -49,6 +53,7 @@ SOURCE_COLLECTION_SCHEMA = {
                             "report",
                             "blog",
                             "youtube",
+                            "unknown",
                         ],
                     },
                     "sentiment": {
@@ -72,6 +77,7 @@ SOURCE_COLLECTION_SCHEMA = {
                     },
                 },
                 "required": [
+                    "input_document_id",
                     "title",
                     "source_type",
                     "sentiment",

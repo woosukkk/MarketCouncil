@@ -20,6 +20,7 @@ class SourceCollector:
         "report": 20,
         "blog": 8,
         "youtube": 8,
+        "unknown": 8,
     }
     ANALYSIS_LIMITS = {
         "official": 10,
@@ -27,6 +28,7 @@ class SourceCollector:
         "report": 10,
         "blog": 4,
         "youtube": 4,
+        "unknown": 4,
     }
     SENTIMENT_MINIMUMS = {
         "positive": 8,
@@ -36,6 +38,8 @@ class SourceCollector:
     CLASSIFICATION_BATCH_SIZE = 24
     MAX_EVIDENCE_POOL = 80
     MAX_ARTICLES = 40
+    # shortcut: Only known regulator hosts are trusted; add IR hosts after verification.
+    OFFICIAL_DOMAINS = {"sec.gov", "dart.fss.or.kr", "opendart.fss.or.kr"}
 
     def __init__(self) -> None:
         self.client = OpenAI(api_key=OPENAI_API_KEY)
@@ -64,17 +68,21 @@ class SourceCollector:
                 "search_failures": [{"query": "", "reason": reason}],
                 "extraction_failures": [],
             }
+        documents = [
+            {**document, "input_document_id": f"DOC-{index:03d}"}
+            for index, document in enumerate(collected["documents"], 1)
+        ]
         result = self._classify_batches(
             company_name,
             ticker_text,
-            collected["documents"],
+            documents,
         )
 
         normalized = self._normalize(result)
         normalized["collection_method"] = "searxng+crawl4ai"
         normalized["search_failures"] = collected.get("search_failures", [])
         normalized["extraction_failures"] = collected["extraction_failures"]
-        normalized["source_documents"] = collected["documents"]
+        normalized["source_documents"] = documents
         return normalized
 
     def _classify_batches(
@@ -125,7 +133,7 @@ class SourceCollector:
                 print(f"[WARN] 웹 자료 배치 LLM 분류 실패: {detail}")
                 classified = self._fallback_result(batch)
 
-            articles.extend(classified.get("articles", []))
+            articles.extend(self._ground_articles(classified, batch))
             summary = str(classified.get("summary", "")).strip()
             period = str(classified.get("period", "")).strip()
             if summary:
@@ -140,37 +148,75 @@ class SourceCollector:
             "articles": articles,
         }
 
-    @staticmethod
-    def _fallback_result(documents: list[dict[str, Any]]) -> dict[str, Any]:
+    @classmethod
+    def _source_attribution(cls, url: str, suggested_type: str) -> tuple[str, bool]:
+        host = (urlsplit(url).hostname or "").lower().rstrip(".")
+        if any(host == domain or host.endswith(f".{domain}") for domain in cls.OFFICIAL_DOMAINS):
+            return "official", True
+        if any(host == domain or host.endswith(f".{domain}") for domain in ("youtube.com", "youtu.be")):
+            return "youtube", False
+        if suggested_type in cls.SOURCE_LIMITS and suggested_type not in {"official", "youtube"}:
+            return suggested_type, False
+        return "unknown", False
+
+    @classmethod
+    def _ground_articles(
+        cls,
+        result: dict[str, Any],
+        documents: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        by_id = {document["input_document_id"]: document for document in documents}
+        articles = result.get("articles", [])
+        if not isinstance(articles, list):
+            return []
+        grounded = []
+        for article in articles:
+            if not isinstance(article, dict):
+                continue
+            document = by_id.get(str(article.get("input_document_id", "")))
+            if document is None:
+                continue
+            url = cls._normalize_url(str(document.get("url", "")))
+            if not url or cls._normalize_url(str(article.get("url", ""))) != url:
+                continue
+            source_type, is_primary = cls._source_attribution(
+                url, str(article.get("source_type", "unknown")).lower()
+            )
+            grounded.append({
+                **article,
+                "input_document_id": document["input_document_id"],
+                "title": str(document.get("title", "")),
+                "url": url,
+                "source": (urlsplit(url).hostname or "").lower().rstrip("."),
+                "published_date": str(document.get("published_date", "") or ""),
+                "source_type": source_type,
+                "is_primary_source": is_primary,
+                "credibility_score": min(cls._score(article.get("credibility_score")), 0.2)
+                if source_type == "unknown" else cls._score(article.get("credibility_score")),
+            })
+        return grounded
+
+    @classmethod
+    def _fallback_result(cls, documents: list[dict[str, Any]]) -> dict[str, Any]:
         articles: list[dict[str, Any]] = []
-        for index, document in enumerate(documents):
+        for index, document in enumerate(documents, 1):
             url = str(document.get("url", "")).strip()
             source = (urlsplit(url).hostname or "").lower()
-            focus = str(document.get("search_focus", "")).lower()
-            if "youtube.com/" in url or "youtu.be/" in url:
-                source_type = "youtube"
-            else:
-                source_type = {
-                    "official": "official",
-                    "news": "news",
-                    "report": "report",
-                    "commentary": "blog",
-                }.get(focus, "news")
-
+            source_type, is_primary = cls._source_attribution(url, "unknown")
+            document_id = str(document.get("input_document_id") or f"DOC-{index:03d}")
             articles.append({
+                "input_document_id": document_id,
                 "title": str(document.get("title", "")).strip(),
                 "source_type": source_type,
                 "sentiment": "neutral",
                 "reason": "LLM 분류 실패로 메타데이터만 사용한 임시 분류",
                 "source": source or "unknown",
-                "published_date": str(
-                    document.get("published_date", "")
-                ).strip(),
+                "published_date": str(document.get("published_date", "") or "").strip(),
                 "url": url,
                 "language": "other",
-                "event_key": f"fallback-{index}",
-                "is_primary_source": source_type == "official",
-                "credibility_score": 0.2 if source_type == "blog" else 0.5,
+                "event_key": f"fallback-{document_id}",
+                "is_primary_source": is_primary,
+                "credibility_score": 0.5 if is_primary else 0.2,
             })
 
         return {
