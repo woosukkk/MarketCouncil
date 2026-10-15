@@ -1,4 +1,5 @@
 import math
+import re
 from statistics import fmean, pstdev
 from typing import Any
 
@@ -15,6 +16,14 @@ def _numbers(values: list[Any]) -> list[float]:
     return numbers
 
 
+def _currencies_match(facts: dict[str, Any]) -> bool | None:
+    if "price_currency" not in facts and "financial_currency" not in facts:
+        return None
+    price, financial = facts.get("price_currency"), facts.get("financial_currency")
+    return bool(isinstance(price, str) and isinstance(financial, str)
+                and re.fullmatch(r"[A-Z]{3}", price) and price == financial)
+
+
 def validate_quality_inputs(facts: dict[str, Any]) -> list[str]:
     history = facts.get("annual_history", [])
     missing: list[str] = []
@@ -27,6 +36,9 @@ def validate_quality_inputs(facts: dict[str, Any]) -> list[str]:
         missing.append("시가총액")
     if len(_numbers([row.get("shares_outstanding") for row in history])) < 2:
         missing.append("2개년 이상 발행 주식 수")
+
+    if _currencies_match(facts) is False:
+        missing.append("FCF와 시가총액의 동일 통화 기준")
 
     return missing
 
@@ -75,7 +87,7 @@ def calculate_quality_metrics(facts: dict[str, Any]) -> dict[str, Any]:
     market_cap = facts.get("market_cap")
     fcf_yield = (
         normalized_fcf / market_cap
-        if normalized_fcf is not None and market_cap not in (None, 0)
+        if normalized_fcf is not None and market_cap not in (None, 0) and _currencies_match(facts) is not False
         else None
     )
 
@@ -105,5 +117,5 @@ def calculate_quality_metrics(facts: dict[str, Any]) -> dict[str, Any]:
         "assumptions": [
             "정규화 FCF는 사용 가능한 최근 최대 5개 연도의 평균",
             "가치평가 가정은 적용하지 않음",
-        ],
+        ] + (["FCF와 시가총액의 통화 미검증: 구버전 입력에 통화 정보 없음"] if _currencies_match(facts) is None else []),
     }

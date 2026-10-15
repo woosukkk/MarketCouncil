@@ -101,6 +101,20 @@ def _get_market_cap(company: yf.Ticker) -> float | None:
         return None
 
 
+def _get_currencies(company: yf.Ticker) -> tuple[str | None, str | None]:
+    try:
+        value = company.fast_info["currency"]
+        price_currency = value if isinstance(value, str) and re.fullmatch(r"[A-Z]{3}", value) else None
+    except Exception:
+        price_currency = None
+    try:
+        value = company.get_info().get("financialCurrency")
+        financial_currency = value if isinstance(value, str) and re.fullmatch(r"[A-Z]{3}", value) else None
+    except Exception:
+        financial_currency = None
+    return price_currency, financial_currency
+
+
 def _build_annual_history(
     financials: pd.DataFrame,
     cash_flow: pd.DataFrame,
@@ -246,6 +260,7 @@ def get_financial_data(company_name: str) -> dict:
         balance_sheet,
     )
     market_cap = _get_market_cap(company)
+    price_currency, financial_currency = _get_currencies(company)
 
     current_revenue = None
     previous_revenue = None
@@ -296,6 +311,8 @@ def get_financial_data(company_name: str) -> dict:
 
     financial_facts = {
         "classification": "verified_fact",
+        "price_currency": price_currency,
+        "financial_currency": financial_currency,
         "ticker": ticker_symbol,
         "current_price": current_price,
         "price_date": price_date,
@@ -305,6 +322,8 @@ def get_financial_data(company_name: str) -> dict:
 
     return {
         "ticker": ticker_symbol,
+        "price_currency": price_currency,
+        "financial_currency": financial_currency,
         "current_price": format_number(current_price),
         "price_date": price_date or "데이터 없음",
 
