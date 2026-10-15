@@ -1,28 +1,6 @@
 import os
-import sys
-import types
 import unittest
 
-
-if "langgraph.graph" not in sys.modules:
-    graph_module = types.ModuleType("langgraph.graph")
-    graph_module.END = "END"
-    graph_module.START = "START"
-    graph_module.StateGraph = object
-    langgraph_module = types.ModuleType("langgraph")
-    langgraph_module.graph = graph_module
-    sys.modules["langgraph"] = langgraph_module
-    sys.modules["langgraph.graph"] = graph_module
-
-if "openai" not in sys.modules:
-    openai_module = types.ModuleType("openai")
-    openai_module.OpenAI = object
-    sys.modules["openai"] = openai_module
-
-if "dotenv" not in sys.modules:
-    dotenv_module = types.ModuleType("dotenv")
-    dotenv_module.load_dotenv = lambda: None
-    sys.modules["dotenv"] = dotenv_module
 
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
 
