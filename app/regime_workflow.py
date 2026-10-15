@@ -3,6 +3,7 @@ from typing import Any, Callable
 
 from agents.regime_reason_agent import RegimeReasonAgent
 from tools.evidence_catalog import EvidenceCatalog
+from tools.evidence_dates import parse_evidence_date
 from tools.market_regime import detect_regimes, fetch_price_history
 
 
@@ -267,8 +268,4 @@ class RegimeWorkflow:
 
     @staticmethod
     def _date(value: Any) -> date | None:
-        text = str(value or "").strip()[:10]
-        try:
-            return date.fromisoformat(text)
-        except ValueError:
-            return None
+        return parse_evidence_date(value)
