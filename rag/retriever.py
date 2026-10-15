@@ -1,6 +1,6 @@
 from rag.chroma_client import get_chroma_client
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 MODEL_NAME = "BAAI/bge-m3"
 DB_PATH = "vector_db_bge_m3"
@@ -24,42 +24,36 @@ class ReportRetriever:
         source_types: set[str] | None = None,
         company_name: str | None = None,
     ) -> list[dict]:
+        if isinstance(top_k, bool) or not isinstance(top_k, int) or not 1 <= top_k <= 50:
+            raise ValueError("top_k는 1~50의 정수여야 합니다.")
+        cutoff = int(datetime.now(timezone.utc).timestamp())
+        if as_of_date:
+            try:
+                cutoff_text = f"{as_of_date}T23:59:59" if len(as_of_date) == 10 else as_of_date
+                cutoff_date = datetime.fromisoformat(cutoff_text)
+                if cutoff_date.tzinfo is None:
+                    cutoff_date = cutoff_date.replace(tzinfo=timezone(timedelta(hours=9)))
+                cutoff = int(cutoff_date.timestamp())
+            except (ValueError, TypeError) as error:
+                raise ValueError("as_of_date는 ISO 날짜 형식이어야 합니다.") from error
         if not self.collection.count():
             return []
         if self.model is None:
             from sentence_transformers import SentenceTransformer
             self.model = SentenceTransformer(MODEL_NAME)
-        query_embedding = self.model.encode(
-            [query]
-        ).tolist()
-
-        cutoff = int(datetime.now().timestamp())
-        if as_of_date:
-            try:
-                cutoff_text = as_of_date
-                if len(as_of_date) == 10:
-                    cutoff_text = f"{as_of_date}T23:59:59"
-                cutoff = int(datetime.fromisoformat(cutoff_text).timestamp())
-            except ValueError as error:
-                raise ValueError(
-                    "as_of_date는 ISO 날짜 형식이어야 합니다."
-                ) from error
-
-        query_options = {
-            "query_embeddings": query_embedding,
-            "n_results": max(top_k * 3, top_k),
-        }
+        query_embedding = self.model.encode([query]).tolist()
+        filters = []
         if source_types:
             sorted_types = sorted(source_types)
-            query_options["where"] = (
-                {"source_type": sorted_types[0]}
-                if len(sorted_types) == 1
-                else {"source_type": {"$in": sorted_types}}
-            )
-
+            filters.append({"source_type": sorted_types[0]} if len(sorted_types) == 1 else {"source_type": {"$in": sorted_types}})
         if company_name:
-            company_filter = {"company": company_name}
-            query_options["where"] = {"$and": [query_options["where"], company_filter]} if "where" in query_options else company_filter
+            filters.append({"company": company_name})
+        if as_of_date:
+            # Restrict candidates before ranking; undated evidence cannot prove a historical claim.
+            filters.extend([{"published_timestamp": {"$gt": 0}}, {"published_timestamp": {"$lte": cutoff}}])
+        query_options = {"query_embeddings": query_embedding, "n_results": top_k * 3}
+        if filters:
+            query_options["where"] = filters[0] if len(filters) == 1 else {"$and": filters}
 
         results = self.collection.query(
             **query_options,
@@ -79,7 +73,7 @@ class ReportRetriever:
             published_timestamp = int(
                 metadata.get("published_timestamp", 0) or 0
             )
-            if published_timestamp > cutoff:
+            if published_timestamp > cutoff or (as_of_date and published_timestamp <= 0):
                 continue
 
             age_days = None
