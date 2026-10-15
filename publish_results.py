@@ -12,7 +12,7 @@ from urllib.parse import quote
 ROOT = Path(__file__).resolve().parent
 
 
-def publish_results() -> int:
+def publish_results(manifest: Path | None = None) -> int:
     from dotenv import load_dotenv
     load_dotenv(ROOT / '.env.result-upload')
     base = os.environ.get('RESULTS_SUPABASE_URL', '').rstrip('/')
@@ -23,7 +23,7 @@ def publish_results() -> int:
     if not re.fullmatch(r'[a-z0-9-]+', bucket):
         raise ValueError('Invalid storage bucket name')
     from frontend.export_results import export
-    export()
+    export(manifest)
     directory = ROOT / 'frontend' / 'public' / 'data'
     records = json.loads((directory / 'index.json').read_text(encoding='utf-8'))
 
@@ -48,6 +48,8 @@ def publish_results() -> int:
 
 
 def publish_snapshot(records: list[dict], directory: Path, upload: Callable[[str, bytes], None]) -> None:
+    if not records:
+        raise ValueError("Refusing to replace the public index with an empty selection")
     published = []
     for record in records:
         identifier = record['id']
@@ -62,4 +64,7 @@ def publish_snapshot(records: list[dict], directory: Path, upload: Callable[[str
 
 
 if __name__ == '__main__':
-    print(f'Published {publish_results()} results')
+    import argparse
+    parser = argparse.ArgumentParser(description='Publish only explicitly approved public results')
+    parser.add_argument('--manifest', type=Path)
+    print(f'Published {publish_results(parser.parse_args().manifest)} results')
