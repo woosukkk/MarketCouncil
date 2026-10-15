@@ -2,8 +2,10 @@ import json
 import math
 import re
 from copy import deepcopy
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from tools.evidence_dates import parse_evidence_date
+from tools.evidence_text import is_navigation_text
 from urllib.parse import urlsplit
 
 
@@ -63,6 +65,8 @@ class EvidenceCatalog:
                 "chunk_id": "",
                 "page_number": None,
                 "content": str(document.get("content", "")),
+                "extraction_method": str(document.get("extraction_method", "")),
+                "body_extraction_status": str(document.get("body_extraction_status", "")),
             }
             entries.append(cls._with_quotes(entry))
         return entries
@@ -84,6 +88,8 @@ class EvidenceCatalog:
                 "chunk_id": "",
                 "page_number": None,
                 "content": str(document.get("content", "")),
+                "extraction_method": str(document.get("extraction_method", "")),
+                "body_extraction_status": str(document.get("body_extraction_status", "")),
             })
             for index, document in enumerate(documents, 1)
         ]
@@ -95,6 +101,8 @@ class EvidenceCatalog:
             "source_type",
             "title",
             "published_at",
+            "extraction_method",
+            "body_extraction_status",
             "quotes",
         )
         return [{key: entry.get(key) for key in fields} for entry in catalog]
@@ -217,7 +225,16 @@ class EvidenceCatalog:
         price_day = price_date.isoformat() if price_date else "기준일 미제공"
 
         def amount(value: Any, unit: str = currency) -> str:
-            return "확인 불가" if value is None else f"{value} {unit}"
+            if value is None:
+                return "확인 불가"
+            try:
+                number = Decimal(str(value).replace(",", ""))
+            except InvalidOperation:
+                return "확인 불가"
+            if not number.is_finite():
+                return "확인 불가"
+            converted = f" (조원 환산={(number / Decimal('1e12')).normalize():f}조원)" if unit == "KRW" and abs(number) >= Decimal('1e12') else ""
+            return f"{value} {unit}{converted}"
 
         def ratio(value: Any) -> str:
             if type(value) in (int, float) and math.isfinite(value):
@@ -260,27 +277,42 @@ class EvidenceCatalog:
         source_id = str(entry.get("source_id", ""))
         content = str(entry.get("content", ""))
         candidates: list[str] = []
-        for block in re.split(r"\n\s*\n|\n", content):
-            parts = re.split(r"(?<=[.!?。])\s+", block.strip())
-            for part in parts:
-                text = part.strip()
-                if len(text) < 15:
-                    continue
-                if len(text) <= 500:
-                    candidates.append(text)
-                else:
-                    candidates.extend(
-                        text[start : start + 500].strip()
-                        for start in range(0, len(text), 500)
-                    )
-                if len(candidates) >= cls.MAX_QUOTES_PER_SOURCE:
-                    break
-            if len(candidates) >= cls.MAX_QUOTES_PER_SOURCE:
-                break
+        seen: set[str] = set()
+
+        def append(start: int | None, end: int) -> None:
+            if start is None:
+                return
+            text = content[start:end].strip()
+            if len(text) >= 15 and text.casefold() not in seen and not is_navigation_text(text):
+                candidates.append(text)
+                seen.add(text.casefold())
+
+        start: int | None = None
+        end = 0
+        # Keep adjacent table labels and short numeric rows together, using exact source spans.
+        for match in re.finditer(r"[^\r\n]+", content):
+            line = match.group()
+            if is_navigation_text(line):
+                append(start, end)
+                start = None
+                continue
+            if start is not None and match.end() - start > 500:
+                append(start, end)
+                start = None
+            position = match.start()
+            while match.end() - position > 500:
+                boundary = content.rfind(" ", position, position + 501)
+                boundary = boundary if boundary > position else position + 500
+                append(position, boundary)
+                position = boundary
+                while position < match.end() and content[position].isspace():
+                    position += 1
+            start = position if start is None else start
+            end = match.end()
+        append(start, end)
         entry["quotes"] = [
             {"quote_id": f"{source_id}-Q{index:02d}", "text": text}
             for index, text in enumerate(candidates[: cls.MAX_QUOTES_PER_SOURCE], 1)
-            if text
         ]
         return entry
 

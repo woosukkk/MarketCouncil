@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Any
 
 from tools.evidence_dates import parse_evidence_date
+from tools.evidence_text import is_navigation_text
 
 
 _NUMBER = re.compile(
@@ -103,6 +104,9 @@ def assess_issue_evidence(
         text = str(quote["text"])
         if ("exact_quote" in item and item["exact_quote"] != text) or ("content" in source and text not in str(source["content"])):
             identity_valid = False
+            continue
+        if is_navigation_text(text):
+            warnings.add("non_evidentiary_quote")
             continue
         quoted_numbers.update(_financial_numbers(text))
         published = parse_evidence_date(source.get("published_at") or source.get("published_date"))

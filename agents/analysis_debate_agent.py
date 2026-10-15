@@ -14,6 +14,7 @@ from config import MODEL_NAME, OPENAI_API_KEY
 from tools.regime_context import build_regime_context
 from tools.citation_quality import assess_issue_evidence
 from tools.evidence_dates import parse_evidence_date
+from tools.evidence_text import is_navigation_text
 from tools.structured_response import structured_response, ensure_complete
 
 
@@ -185,6 +186,7 @@ class AnalysisDebateAgent:
             "bear_response": state.get("bear_response", {}),
             "original_evidence_and_analysis": state["debate_input"],
         })
+        self._apply_quality_limits(review, state.get("bull_response", {}), state.get("bear_response", {}))
         rounds = [
             *state.get("rounds", []),
             {
@@ -196,6 +198,31 @@ class AnalysisDebateAgent:
         ]
         print(f"[중재자 {round_number}라운드 검토 완료]")
         return {"rounds": rounds, "moderator_review": review}
+
+    @staticmethod
+    def _apply_quality_limits(review: dict[str, Any], *responses: dict[str, Any]) -> None:
+        flagged: dict[str, set[str]] = {}
+        for response in responses:
+            for issue in response.get("issues", []):
+                quality = issue.get("citation_quality", {})
+                reasons = set(quality.get("warnings", [])) & {"number_not_in_quotes", "non_evidentiary_quote", "future_source"}
+                if quality.get("identity_status") in {"missing", "invalid"}:
+                    reasons.add("citation_identity_requires_review")
+                if reasons:
+                    flagged.setdefault(str(issue.get("issue_id", "")), set()).update(reasons)
+        for item in review.get("issue_reviews", []):
+            reasons = flagged.get(str(item.get("issue_id", "")))
+            if not reasons:
+                continue
+            item["model_status"] = item.get("status")
+            item["status"] = "UNKNOWN"
+            item["quality_review_required"] = sorted(reasons)
+            item["question_for_bull"] = ""
+            item["question_for_bear"] = ""
+            note = f"{item.get('issue_id', '')}: 선택 인용의 수치·본문 또는 출처 확인이 필요합니다."
+            missing = review.setdefault("missing_evidence", [])
+            if note not in missing:
+                missing.append(note)
 
     def prepare_next_round(self, state: DebateState) -> DebateState:
         return {
@@ -324,6 +351,7 @@ class AnalysisDebateAgent:
         cutoff = parse_evidence_date(as_of_date)
         warning_text = {
             "number_not_in_quotes": "핵심 수치를 직접 확인할 수 있는 인용문 추가 필요",
+            "non_evidentiary_quote": "메뉴·로고 대신 주장을 뒷받침하는 본문 인용 필요",
             "source_date_missing": "근거 자료의 게시일 확인 필요",
             "future_source": "분석 기준일 이후 자료를 제외하고 당시 확인 가능한 근거 추가 필요",
             "stale_forecast": "단기 전망의 기간에 맞는 최신 근거 추가 필요",
@@ -338,6 +366,9 @@ class AnalysisDebateAgent:
                 key = (evidence.get("source_id"), evidence.get("quote_id"))
                 if key not in quotes:
                     errors.append({**evidence, "error": "제공된 원문에서 인용 쌍을 확인할 수 없음"})
+                    continue
+                if is_navigation_text(quotes[key]):
+                    errors.append({**evidence, "error": "메뉴·로고·이동 링크는 주장 근거로 사용할 수 없음"})
                     continue
                 published = parse_evidence_date(sources[str(key[0])].get("published_at") or sources[str(key[0])].get("published_date"))
                 if cutoff is not None and published is not None and published > cutoff:
