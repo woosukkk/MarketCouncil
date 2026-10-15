@@ -155,14 +155,6 @@ class Desktop:
     def lookup_company(self) -> None:
         if self.busy:return
         name=self.company.get().strip()
-        from desktop.preferences import load_preferences
-        preferences=load_preferences(DATA/"preferences.json")
-        for entry,value in [(self.company,preferences.get("company")),(self.search,preferences.get("search"))]:
-            if value:entry.delete(0,"end");entry.insert(0,value)
-        ttk.Button(analysis_panel,text="기업명·검색 주소 기억하기",command=self.remember).pack(anchor="w")
-        ttk.Button(setup_panel,text="새 버전 확인",command=self.check_version).pack(anchor="w",pady=8)
-        self.version_status=ttk.Label(setup_panel,text="버전 0.4.0 · API 키와 로그인 정보는 저장하지 않습니다.")
-        self.version_status.pack(anchor="w")
         self.matched_name=None;self.company_candidates=[];self.company_choice.set("")
         def work() -> None:
             from tools.company_lookup import find_companies
