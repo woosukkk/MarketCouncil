@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -11,6 +12,8 @@ from agents.analysis_debate_prompt import (
 from agents.moderator_agent import ModeratorAgent
 from config import MODEL_NAME, OPENAI_API_KEY
 from tools.regime_context import build_regime_context
+from tools.citation_quality import assess_issue_evidence
+from tools.evidence_dates import parse_evidence_date
 from tools.structured_response import structured_response, ensure_complete
 
 
@@ -68,6 +71,7 @@ PARTICIPANT_SCHEMA = {
 
 class DebateState(TypedDict, total=False):
     debate_input: str
+    analysis_as_of: str
     evidence_catalog: list[dict[str, Any]]
     financial_data: dict[str, Any]
     agenda: list[dict[str, Any]]
@@ -105,7 +109,12 @@ class AnalysisDebateAgent:
         evidence_catalog: list[dict[str, Any]],
         regime_analysis: dict[str, Any] | None = None,
         video_summary: dict[str, Any] | None = None,
+        as_of_date: str | None = None,
     ) -> dict[str, Any]:
+        day = parse_evidence_date(as_of_date) if as_of_date is not None else datetime.now(timezone(timedelta(hours=9))).date()
+        if day is None:
+            raise ValueError("분석 기준일을 명확한 날짜로 지정하세요.")
+        analysis_as_of = day.isoformat()
         debate_input = self._build_input(
             company_name=company_name,
             financial_data=financial_data,
@@ -115,10 +124,12 @@ class AnalysisDebateAgent:
             evidence_catalog=evidence_catalog,
             regime_analysis=regime_analysis,
             video_summary=video_summary,
+            analysis_as_of=analysis_as_of,
         )
         result = self.graph.invoke(
             {
                 "debate_input": debate_input,
+                "analysis_as_of": analysis_as_of,
                 "evidence_catalog": evidence_catalog,
                 "financial_data": financial_data,
                 "current_round": 1,
@@ -130,6 +141,7 @@ class AnalysisDebateAgent:
         rounds = result.get("rounds", [])
         latest = rounds[-1] if rounds else {}
         return {
+            "analysis_as_of": analysis_as_of,
             "agenda": result.get("agenda", []),
             "rounds": rounds,
             "issue_statuses": result.get("moderator_review", {}).get(
@@ -165,6 +177,7 @@ class AnalysisDebateAgent:
         round_number = state["current_round"]
         print(f"\n[중재자 {round_number}라운드 검토 시작]")
         review = self.moderator.review_round({
+            "analysis_as_of": state.get("analysis_as_of"),
             "agenda": state.get("agenda", []),
             "round": round_number,
             "previous_rounds": state.get("rounds", []),
@@ -201,6 +214,7 @@ class AnalysisDebateAgent:
             stop_reason = str(review.get("reason", "중재자가 토론 종료를 결정했습니다."))
         print("\n[중재자 토론 최종 정리 시작]")
         summary = self.moderator.summarize({
+            "analysis_as_of": state.get("analysis_as_of"),
             "agenda": state.get("agenda", []),
             "rounds": state.get("rounds", []),
             "final_issue_reviews": review.get("issue_reviews", []),
@@ -275,6 +289,7 @@ class AnalysisDebateAgent:
         role_label = "상승 관점" if role == "bull" else "하락 관점"
         review = state.get("moderator_review", {})
         payload = {
+            "analysis_as_of": state.get("analysis_as_of"),
             "round": state["current_round"],
             "agenda": state.get("agenda", []),
             "previous_rounds": state.get("rounds", []),
@@ -291,30 +306,53 @@ class AnalysisDebateAgent:
         )
         try:
             result=structured_response(self.client,instructions,json.dumps(payload,ensure_ascii=False,default=str),f"{role}_debate_turn",PARTICIPANT_SCHEMA)
-            return self._validate_citations(result,state.get("evidence_catalog",[]))
+            return self._validate_citations(result,state.get("evidence_catalog",[]),state.get("analysis_as_of"))
         except Exception as error:
             raise RuntimeError(f"{role_label} 토론 발언 생성에 실패했습니다") from error
 
     @staticmethod
     def _validate_citations(
-        response: dict[str, Any], catalog: list[dict[str, Any]]
+        response: dict[str, Any], catalog: list[dict[str, Any]], as_of_date: str | None = None,
     ) -> dict[str, Any]:
+        sources = {str(source.get("source_id", "")): source for source in catalog}
         quotes = {
             (source["source_id"], quote["quote_id"]): quote["text"]
             for source in catalog
             for quote in source.get("quotes", [])
             if source.get("source_id") and quote.get("quote_id") and quote.get("text")
         }
+        cutoff = parse_evidence_date(as_of_date)
+        warning_text = {
+            "number_not_in_quotes": "핵심 수치를 직접 확인할 수 있는 인용문 추가 필요",
+            "source_date_missing": "근거 자료의 게시일 확인 필요",
+            "future_source": "분석 기준일 이후 자료를 제외하고 당시 확인 가능한 근거 추가 필요",
+            "stale_forecast": "단기 전망의 기간에 맞는 최신 근거 추가 필요",
+        }
         for issue in response.get("issues", []):
+            quality = assess_issue_evidence(issue, catalog, as_of_date)
             valid, errors = [], []
             for evidence in issue.get("evidence", []):
+                if not isinstance(evidence, dict):
+                    errors.append({"error": "제공된 원문에서 인용 쌍을 확인할 수 없음"})
+                    continue
                 key = (evidence.get("source_id"), evidence.get("quote_id"))
                 if key not in quotes:
                     errors.append({**evidence, "error": "제공된 원문에서 인용 쌍을 확인할 수 없음"})
                     continue
+                published = parse_evidence_date(sources[str(key[0])].get("published_at") or sources[str(key[0])].get("published_date"))
+                if cutoff is not None and published is not None and published > cutoff:
+                    errors.append({**evidence, "error": "분석 기준일 이후에 게시된 자료"})
+                    continue
                 valid.append({**evidence, "citation_valid": True, "exact_quote": quotes[key]})
             issue["evidence"] = valid
             issue["citation_errors"] = errors
+            issue["citation_quality"] = quality
+            notes = [warning_text[code] for code in quality["warnings"] if code in warning_text]
+            if quality["identity_status"] != "matched":
+                notes.append("주장을 뒷받침하는 원문 인용 확인 필요")
+            existing = issue.get("missing_evidence", "")
+            existing = existing if isinstance(existing, str) else ""
+            issue["missing_evidence"] = " / ".join([existing] + [note for note in notes if note not in existing]).strip(" / ")
         return response
 
     @staticmethod
@@ -353,8 +391,10 @@ class AnalysisDebateAgent:
         evidence_catalog: list[dict[str, Any]],
         regime_analysis: dict[str, Any] | None,
         video_summary: dict[str, Any] | None,
+        analysis_as_of: str | None = None,
     ) -> str:
         return f"""기업명: {company_name}
+분석 기준일: {analysis_as_of or "확인 불가"} (주가일·재무 기준기간과 구분)
 
 [공통 금융 데이터]
 {json.dumps(financial_data, ensure_ascii=False, indent=2, default=str)}

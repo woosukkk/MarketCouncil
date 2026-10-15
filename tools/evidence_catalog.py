@@ -1,7 +1,9 @@
 import json
+import math
 import re
 from copy import deepcopy
 from typing import Any
+from tools.evidence_dates import parse_evidence_date
 from urllib.parse import urlsplit
 
 
@@ -203,26 +205,58 @@ class EvidenceCatalog:
     @staticmethod
     def _financial_entry(financial_data: dict[str, Any]) -> dict[str, Any]:
         ticker = str(financial_data.get("ticker", "")).strip()
-        url = f"https://finance.yahoo.com/quote/{ticker}" if ticker else ""
-        return EvidenceCatalog._with_quotes({
-            "source_id": "FIN-001",
-            "source_type": "financial_data",
+        facts = financial_data.get("financial_facts") or {}
+        metrics = financial_data.get("derived_metrics") or {}
+        history = [row for row in facts.get("annual_history", [])[:5] if isinstance(row, dict)]
+        currency = facts.get("financial_currency") or financial_data.get("financial_currency") or "재무 통화 단위 미제공"
+        price_currency = facts.get("price_currency") or financial_data.get("price_currency") or "주가 통화 단위 미제공"
+        period_text = ", ".join(str(row.get("period") or "기간 미제공") for row in history) or "재무 기준기간 미제공"
+        current_period = str(history[0].get("period") or "기간 미제공") if history else "기간 미제공"
+        previous_period = str(history[1].get("period") or "기간 미제공") if len(history) > 1 else "기간 미제공"
+        price_date = parse_evidence_date(financial_data.get("price_date") or facts.get("price_date"))
+        price_day = price_date.isoformat() if price_date else "기준일 미제공"
+
+        def amount(value: Any, unit: str = currency) -> str:
+            return "확인 불가" if value is None else f"{value} {unit}"
+
+        def ratio(value: Any) -> str:
+            if type(value) in (int, float) and math.isfinite(value):
+                return f"{value * 100:.12g}% (원래 비율 {value})"
+            return "확인 불가"
+
+        candidates = [
+            f"주가 기준일={price_day}; 현재 주가={amount(facts.get('current_price', financial_data.get('current_price')), price_currency)}; 시가총액={amount(facts.get('market_cap'), price_currency)}; 주가일은 재무 기준기간이 아님.",
+            f"매출 비교: 현재 연간({current_period})={amount(financial_data.get('current_revenue'))}; 이전 연간({previous_period})={amount(financial_data.get('previous_revenue'))}; 제공된 성장률={financial_data.get('revenue_growth', '확인 불가')}; 재무 기준기간={period_text}.",
+            f"영업이익 비교: 현재 연간({current_period})={amount(financial_data.get('current_operating_income'))}; 이전 연간({previous_period})={amount(financial_data.get('previous_operating_income'))}; 제공된 변화={financial_data.get('operating_income_growth', '확인 불가')}; 재무 기준기간={period_text}.",
+        ]
+        if metrics:
+            fcf_rows = [{"period": row.get("period"), "free_cash_flow": amount(row.get("free_cash_flow"))} for row in history]
+            candidates.extend([
+                f"정규화 FCF(normalized_fcf)={amount(metrics.get('normalized_fcf'))}; 구분=제공된 계산 지표; 기준=사용 가능한 최근 최대 5개 연간 FCF의 평균; 연간 입력={json.dumps(fcf_rows, ensure_ascii=False, default=str)}.",
+                f"FCF yield(fcf_yield)={ratio(metrics.get('fcf_yield'))}; 구분=제공된 계산 지표; 기준=정규화 연간 FCF/시가총액; FCF={amount(metrics.get('normalized_fcf'))}; 시가총액={amount(facts.get('market_cap'), price_currency)}; 주가 기준일={price_day}; 재무 기준기간={period_text}.",
+                f"발행 주식 수 변화율(dilution_rate)={ratio(metrics.get('dilution_rate'))}; 구분=제공된 계산 지표, EPS 희석률 아님; 기준=유효한 최신/최초 연간 발행 주식 수의 비율에서 1 차감; 입력={json.dumps([{'period': row.get('period'), 'shares_outstanding': str(row['shares_outstanding']) + ' 주' if row.get('shares_outstanding') is not None else '확인 불가'} for row in history], ensure_ascii=False, default=str)}.",
+            ])
+            for key, label in [("average_cash_conversion", "FCF/순이익 평균"), ("debt_to_equity", "최근 총부채/자본"), ("positive_fcf_ratio", "양의 연간 FCF 비율"), ("revenue_growth_volatility", "연간 매출 증가율 표준편차"), ("operating_margin_volatility", "연간 영업이익률 표준편차")]:
+                metric_period = current_period if key == "debt_to_equity" else period_text
+                candidates.append(f"{label}({key})={ratio(metrics.get(key))}; 구분=제공된 계산 지표; 재무 기준기간={metric_period}.")
+            candidates.append(f"계산 한계: 누락 입력={json.dumps(metrics.get('missing_inputs', []), ensure_ascii=False)}; 제공된 가정={json.dumps(metrics.get('assumptions', []), ensure_ascii=False)}; 기간별 통화 변동·환산 여부는 입력에 없으면 확인 불가; 단기 추세나 미래 실적을 확정하지 않음.")
+        if history:
+            candidates.append(f"최근 연간 원본 입력(주가 기준일과 별개): {json.dumps(history[0], ensure_ascii=False, default=str)}; 통화={currency}.")
+        candidates = candidates[:EvidenceCatalog.MAX_QUOTES_PER_SOURCE]
+        return {
+            "source_id": "FIN-001", "source_type": "financial_data",
             "title": f"{ticker or '기업'} 금융 데이터",
-            "source_url": url,
-            "published_at": str(financial_data.get("price_date", "")),
-            "document_id": "",
-            "chunk_id": "",
-            "page_number": None,
-            "content": json.dumps(
-                financial_data,
-                ensure_ascii=False,
-                indent=2,
-                default=str,
-            ),
-        })
+            "source_url": f"https://finance.yahoo.com/quote/{ticker}" if ticker else "",
+            "published_at": price_date.isoformat() if price_date else "",
+            "document_id": "", "chunk_id": "", "page_number": None,
+            "content": "\n\n".join(candidates),
+            "quotes": [{"quote_id": f"FIN-001-Q{index:02d}", "text": text} for index, text in enumerate(candidates, 1)],
+        }
 
     @classmethod
     def _with_quotes(cls, entry: dict[str, Any]) -> dict[str, Any]:
+        published = parse_evidence_date(entry.get("published_at"))
+        entry["published_at"] = published.isoformat() if published else ""
         source_id = str(entry.get("source_id", ""))
         content = str(entry.get("content", ""))
         candidates: list[str] = []
