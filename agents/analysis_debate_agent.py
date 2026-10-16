@@ -207,7 +207,7 @@ class AnalysisDebateAgent:
         for response in responses:
             for issue in response.get("issues", []):
                 quality = issue.get("citation_quality", {})
-                reasons = set(quality.get("warnings", [])) & {"number_not_in_quotes", "non_evidentiary_quote", "future_source"}
+                reasons = set(quality.get("warnings", [])) & {"number_not_in_quotes", "non_evidentiary_quote", "future_source", "invalid_numeric_format"}
                 if quality.get("identity_status") in {"missing", "invalid"}:
                     reasons.add("citation_identity_requires_review")
                 if reasons:
@@ -352,6 +352,7 @@ class AnalysisDebateAgent:
         cutoff = parse_evidence_date(as_of_date)
         warning_text = {
             "number_not_in_quotes": "핵심 수치를 직접 확인할 수 있는 인용문 추가 필요",
+            "invalid_numeric_format": "원화 수치의 단위 순서와 표기 확인 필요",
             "non_evidentiary_quote": "메뉴·로고 대신 주장을 뒷받침하는 본문 인용 필요",
             "source_date_missing": "근거 자료의 게시일 확인 필요",
             "future_source": "분석 기준일 이후 자료를 제외하고 당시 확인 가능한 근거 추가 필요",

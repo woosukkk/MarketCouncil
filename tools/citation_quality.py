@@ -14,6 +14,10 @@ _NUMBER = re.compile(
     r"(?P<unit>퍼센트포인트|퍼센트|%p|%|KRW|USD|달러|원|shares?|주|배)?",
     re.IGNORECASE,
 )
+_DECIMAL_NUMBER = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
+_KRW_COMPOUND = re.compile(r"(?<![\d.,eE+-])(?P<value>[+-]?" + _DECIMAL_NUMBER + r"(?:\s*[조억만천백십]\s*(?:" + _DECIMAL_NUMBER + r")?)+)\s*원")
+_TABLE_VALUE = re.compile(r"[+-]?" + _DECIMAL_NUMBER)
+_TABLE_LABEL = re.compile(r"(?:보통주식|우선주식|기타주식|보통주|우선주)")
 _SCALES = {"조": "1e12", "억": "1e8", "만": "1e4", "천": "1e3",
            "trillion": "1e12", "billion": "1e9", "million": "1e6", "thousand": "1e3"}
 _STOCK_CONTEXT = re.compile(r"주식|발행|유통|취득|소각|증자|지분|거래량|매수|매도|매입|보유|보통주|우선주|shares?", re.IGNORECASE)
@@ -24,10 +28,78 @@ _SHORT_TERM = re.compile(
 _FORECAST = re.compile(r"전망|예상|가이던스|목표주가|예측|forecast|outlook|guidance|projection", re.IGNORECASE)
 
 
+def _compound_krw(expression: str) -> Decimal | None:
+    """Add descending Korean money groups; a small unit may qualify a large one."""
+    compact = re.sub(r"\s+", "", expression)
+    sign = -1 if compact.startswith("-") else 1
+    compact = compact.lstrip("+-")
+    tokens = re.findall(_DECIMAL_NUMBER + r"|[조억만천백십]", compact)
+    if "".join(tokens) != compact:
+        return None
+    total: Decimal | None = None
+    group: Decimal | None = None
+    pending: Decimal | None = None
+    previous_large, previous_small = Decimal("1e16"), Decimal("1e4")
+    for token in tokens:
+        if token[0].isdigit():
+            if pending is not None:
+                return None
+            pending = Decimal(token.replace(",", ""))
+            continue
+        unit = Decimal({"조": "1e12", "억": "1e8", "만": "1e4", "천": "1e3", "백": "1e2", "십": "1e1"}[token])
+        if unit >= Decimal("1e4"):
+            if unit >= previous_large or (pending is None and group is None):
+                return None
+            coefficient = pending if group is None else group if pending is None else group + pending
+            part = coefficient * unit
+            total = part if total is None else total + part
+            group, pending = None, None
+            previous_large, previous_small = unit, Decimal("1e4")
+        else:
+            if unit >= previous_small or pending is None:
+                return None
+            part = pending * unit
+            group = part if group is None else group + part
+            pending, previous_small = None, unit
+    parts = [part for part in (total, group, pending) if part is not None]
+    value = parts[0]
+    for part in parts[1:]:
+        value += part
+    return sign * value
+
+
+def _table_numbers(text: str) -> set[tuple[str, Decimal]]:
+    """Read numeric rows only immediately below an explicit currency/share header."""
+    numbers = set()
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        unit = re.search(r"\(\s*(원|주)\s*\)", line)
+        if unit is None or (unit[1] == "주" and not _STOCK_CONTEXT.search(line)):
+            continue
+        dimension = "KRW" if unit[1] == "원" else "shares"
+        for row in lines[index + 1:index + 5]:
+            row = row.strip()
+            if _TABLE_VALUE.fullmatch(row):
+                numbers.add((dimension, Decimal(row.replace(",", ""))))
+            elif not row or _TABLE_LABEL.fullmatch(row):
+                continue
+            else:
+                break
+    return numbers
+
+
 def _financial_numbers(text: str) -> set[tuple[str, Decimal]]:
     """Read explicit financial units, excluding calendar values and week horizons."""
-    numbers = set()
+    numbers = _table_numbers(text)
+    compound_spans = []
+    for compound in _KRW_COMPOUND.finditer(text):
+        compound_spans.append(compound.span())
+        value = _compound_krw(compound["value"])
+        if value is not None:
+            numbers.add(("KRW", value))
     for match in _NUMBER.finditer(text):
+        if any(match.start() < end and start < match.end() for start, end in compound_spans):
+            continue
         raw = match["number"]
         value = Decimal(raw.replace(",", ""))
         scale = (match["scale"] or "").lower()
@@ -84,8 +156,9 @@ def assess_issue_evidence(
                    if isinstance(issue.get(key), str)]
     claim_numbers = {number for text in claim_texts for number in _financial_numbers(text)}
     short_term = any(_SHORT_TERM.search(text) for text in claim_texts)
+    invalid_claim_number = any(_compound_krw(match["value"]) is None for text in claim_texts for match in _KRW_COMPOUND.finditer(text))
     quoted_numbers = set()
-    warnings = set()
+    warnings = {"invalid_numeric_format"} if invalid_claim_number else set()
     evidence = issue.get("evidence", [])
     if not isinstance(evidence, list):
         evidence = []
@@ -108,6 +181,8 @@ def assess_issue_evidence(
         if is_navigation_text(text):
             warnings.add("non_evidentiary_quote")
             continue
+        if any(_compound_krw(match["value"]) is None for match in _KRW_COMPOUND.finditer(text)):
+            warnings.add("invalid_numeric_format")
         quoted_numbers.update(_financial_numbers(text))
         published = parse_evidence_date(source.get("published_at") or source.get("published_date"))
         if published is None:
@@ -131,7 +206,7 @@ def assess_issue_evidence(
     return {
         "identity_status": "missing" if not evidence else "matched" if identity_valid else "invalid",
         "semantic_status": "not_evaluated",
-        "numeric_status": "not_applicable" if not claim_numbers else "needs_review" if unmatched else "values_present",
+        "numeric_status": "needs_review" if invalid_claim_number or unmatched or "invalid_numeric_format" in warnings else "not_applicable" if not claim_numbers else "values_present",
         "claim_number_count": len(claim_numbers),
         "unmatched_number_count": len(unmatched),
         "as_of_date_valid": cutoff is not None,

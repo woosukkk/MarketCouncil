@@ -28,6 +28,69 @@ class CitationQualityTests(unittest.TestCase):
                 self.assertIn("number_not_in_quotes", self.assess("이익률 0.79%", quoted)["warnings"])
         self.assertEqual(self.assess("매출 $1 billion", "매출 USD 1,000 million")["unmatched_number_count"], 0)
 
+    def test_compound_korean_won_is_one_exact_value(self) -> None:
+        result = self.assess("매출 107.4조원", "매출 107조 4000억 원")
+        self.assertEqual(result["numeric_status"], "values_present")
+        self.assertEqual(result["claim_number_count"], 1)
+        self.assertEqual(self.assess("매출 107조 4000억 원", "매출 107.4조원")["claim_number_count"], 1)
+
+    def test_small_coefficient_unit_can_qualify_a_large_money_unit(self) -> None:
+        for quote in ("매출 4천억 원", "매출 4천억원", "매출 4천 0백억원"):
+            with self.subTest(quote=quote):
+                self.assertEqual(self.assess("매출 4000억원", quote)["numeric_status"], "values_present")
+        result = self.assess("매출 1,230,045,000,000원", "매출 1조 2천3백억 4천5백만원")
+        self.assertEqual(result["numeric_status"], "values_present")
+
+    def test_compound_money_requires_won_and_descending_units(self) -> None:
+        for quote in ("매출 107조 4000억", "매출 4000억 107조원", "매출 107조 2조원", "매출 4백 2천억원"):
+            with self.subTest(quote=quote):
+                self.assertIn("number_not_in_quotes", self.assess("매출 107.4조원", quote)["warnings"])
+
+    def test_invalid_compound_in_claim_is_reviewed_even_if_quote_repeats_it(self) -> None:
+        result = self.assess("매출 4000억 107조원", "매출 4000억 107조원")
+        self.assertEqual(result["numeric_status"], "needs_review")
+        self.assertIn("invalid_numeric_format", result["warnings"])
+        self.assertEqual(result["semantic_status"], "not_evaluated")
+
+    def test_explicit_table_currency_header_qualifies_adjacent_numeric_row(self) -> None:
+        quote = "2. 취득예정금액(원)\n보통주식\n14,999,999,992,000\n기타주식"
+        result = self.assess("취득예정금액 14,999,999,992,000원", quote)
+        self.assertEqual(result["numeric_status"], "values_present")
+        self.assertEqual(result["semantic_status"], "not_evaluated")
+        self.assertIn("number_not_in_quotes", self.assess("취득예정금액 14.999조원", quote)["warnings"])
+
+    def test_explicit_table_stock_header_qualifies_adjacent_numeric_row(self) -> None:
+        quote = "1. 취득예정주식(주)\n보통주식\n53,285,968\n기타주식"
+        result = self.assess("취득예정주식은 53,285,968주", quote)
+        self.assertEqual(result["numeric_status"], "values_present")
+        self.assertIn("number_not_in_quotes", self.assess("취득예정금액 53,285,968원", quote)["warnings"])
+
+    def test_table_header_does_not_reach_across_text_or_another_unit_header(self) -> None:
+        for quote in ("취득예정금액(원)\n다른 설명 문장\n100", "취득예정금액(원)\n취득예정주식(주)\n보통주식\n100", "취득예정금액(원)\n\n\n\n\n100"):
+            with self.subTest(quote=quote):
+                self.assertIn("number_not_in_quotes", self.assess("취득예정금액 100원", quote)["warnings"])
+
+    def test_table_week_header_is_not_a_share_quantity(self) -> None:
+        for quote in ("기간(주)\n4", "향후 4주 동안 매수 검토", "향후 1~4주 전망"):
+            with self.subTest(quote=quote):
+                self.assertIn("number_not_in_quotes", self.assess("보통주식 4주", quote)["warnings"])
+        self.assertEqual(self.assess("향후 1~4주 전망", "기간(주)\n4")["claim_number_count"], 0)
+
+    def test_compound_parser_does_not_split_scaled_scientific_notation(self) -> None:
+        result = self.assess("매출 100000000000원", "매출 1e+3억원")
+        self.assertEqual(result["numeric_status"], "values_present")
+        self.assertIn("number_not_in_quotes", self.assess("매출 3억원", "매출 1e+3억원")["warnings"])
+
+    def test_table_and_compound_checks_keep_original_quotes_and_semantic_limit(self) -> None:
+        quote = "취득예정금액(원)\n보통주식\n400,000,000,000"
+        issue = {"claim": "취득예정금액 4천억원", "evidence": [{"source_id": "S1", "quote_id": "Q1", "exact_quote": quote}]}
+        catalog = [{"source_id": "S1", "content": quote, "published_at": "2026-10-01", "quotes": [{"quote_id": "Q1", "text": quote}]}]
+        original = copy.deepcopy((issue, catalog))
+        result = assess_issue_evidence(issue, catalog, "2026-10-15")
+        self.assertEqual(result["numeric_status"], "values_present")
+        self.assertEqual(result["semantic_status"], "not_evaluated")
+        self.assertEqual((issue, catalog), original)
+
     def test_scientific_notation_is_one_value_with_its_original_unit(self) -> None:
         quote = "FCF yield=1e-05% (원래 비율 1e-07)"
         correct = self.assess("FCF yield 0.00001%", quote)
