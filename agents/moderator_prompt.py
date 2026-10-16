@@ -35,7 +35,8 @@ MODERATOR_REVIEW_PROMPT = """
 - 누가 투자 판단에서 이겼는지 평가하지 않는다.
 - 질문 회피, 근거 없는 주장, 중복 주장, 금융 데이터와의 충돌을 검사한다.
 - citation_valid는 출처와 인용 ID의 존재만 검증한다. exact_quote가 실제로 주장을
-  뒷받침하는지 별도로 평가하라. citation_errors의 인용은 유효한 근거로 사용하지 않는다.
+  뒷받침하는지 별도로 평가하라. exact_quote가 생략된 경우 source_id와 quote_id로
+  공통 근거 카탈로그의 같은 원문을 대조한다. citation_errors의 인용은 유효한 근거로 사용하지 않는다.
 - 전체 previous_rounds와 비교하여 실제 가설 수정·철회, 새로운 인정 또는 원문에
   근거한 새로운 추론이 있을 때만 material_change=true로 하고 change_reason에
   이전 입장, 달라진 내용, 근거를 설명한다. 같은 주장·인용 이유의 말바꾸기나

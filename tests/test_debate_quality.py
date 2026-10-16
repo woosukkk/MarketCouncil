@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 os.environ.setdefault("OPENAI_API_KEY", "offline-test-key")
 
 from agents.analysis_debate_agent import AnalysisDebateAgent
+from tools.debate_payload import DYNAMIC_SECTION
 
 
 class DebateQualityIntegrationTests(unittest.TestCase):
@@ -54,7 +55,7 @@ class DebateQualityIntegrationTests(unittest.TestCase):
         self.assertIn("분기별 비교 필요", issue["missing_evidence"])
         self.assertIn("핵심 수치를 직접 확인할 수 있는 인용문 추가 필요", issue["missing_evidence"])
         self.assertTrue(issue["evidence"][0]["citation_valid"])
-        self.assertEqual(json.loads(generate.call_args.args[2])["analysis_as_of"], "2026-10-15")
+        self.assertEqual(json.loads(generate.call_args.args[2].rsplit(DYNAMIC_SECTION, 1)[1])["analysis_as_of"], "2026-10-15")
 
     def test_matched_identity_and_number_do_not_assert_semantic_truth(self) -> None:
         raw = self.response("매출이 30% 감소했다")
@@ -135,9 +136,9 @@ class DebateQualityIntegrationTests(unittest.TestCase):
         self.assertEqual(generate.call_count, 4)
         self.assertEqual([call.args[3] for call in generate.call_args_list], ["bull_debate_turn", "bear_debate_turn"] * 2)
         for call in generate.call_args_list:
-            payload = json.loads(call.args[2])
-            self.assertEqual(payload["analysis_as_of"], "2026-10-15")
-            self.assertIn("분석 기준일: 2026-10-15", payload["original_evidence_and_analysis"])
+            common, raw_state = call.args[2].rsplit(DYNAMIC_SECTION, 1)
+            self.assertEqual(json.loads(raw_state)["analysis_as_of"], "2026-10-15")
+            self.assertIn("분석 기준일: 2026-10-15", common)
         self.assertEqual(self.agent.moderator.review_round.call_count, 2)
         for call in self.agent.moderator.review_round.call_args_list:
             self.assertEqual(call.args[0]["analysis_as_of"], "2026-10-15")

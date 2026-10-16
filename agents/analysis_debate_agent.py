@@ -15,6 +15,7 @@ from tools.regime_context import build_regime_context
 from tools.citation_quality import assess_issue_evidence
 from tools.evidence_dates import parse_evidence_date
 from tools.evidence_text import is_navigation_text
+from tools.debate_payload import debate_payload
 from tools.structured_response import structured_response, ensure_complete
 
 
@@ -185,6 +186,7 @@ class AnalysisDebateAgent:
             "bull_response": state.get("bull_response", {}),
             "bear_response": state.get("bear_response", {}),
             "original_evidence_and_analysis": state["debate_input"],
+            "evidence_catalog": state.get("evidence_catalog", []),
         })
         self._apply_quality_limits(review, state.get("bull_response", {}), state.get("bear_response", {}))
         rounds = [
@@ -324,7 +326,6 @@ class AnalysisDebateAgent:
             "current_opponent_response": (
                 state.get("bull_response", {}) if role == "bear" else {}
             ),
-            "original_evidence_and_analysis": state["debate_input"],
         }
         instructions = (
             BULL_ANALYSIS_DEBATE_PROMPT
@@ -332,7 +333,7 @@ class AnalysisDebateAgent:
             else BEAR_ANALYSIS_DEBATE_PROMPT
         )
         try:
-            result=structured_response(self.client,instructions,json.dumps(payload,ensure_ascii=False,default=str),f"{role}_debate_turn",PARTICIPANT_SCHEMA)
+            result=structured_response(self.client,instructions,debate_payload(state["debate_input"],payload,state.get("evidence_catalog",[])),f"{role}_debate_turn",PARTICIPANT_SCHEMA)
             return self._validate_citations(result,state.get("evidence_catalog",[]),state.get("analysis_as_of"))
         except Exception as error:
             raise RuntimeError(f"{role_label} 토론 발언 생성에 실패했습니다") from error

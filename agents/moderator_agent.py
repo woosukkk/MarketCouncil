@@ -9,6 +9,7 @@ from agents.moderator_prompt import (
     MODERATOR_SUMMARY_PROMPT,
 )
 from config import MODEL_NAME
+from tools.debate_payload import debate_payload
 from tools.structured_response import structured_response, ensure_complete
 
 
@@ -108,7 +109,11 @@ class ModeratorAgent:
     def review_round(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._respond(
             MODERATOR_REVIEW_PROMPT,
-            json.dumps(payload, ensure_ascii=False, indent=2, default=str),
+            debate_payload(
+                payload["original_evidence_and_analysis"],
+                {key: value for key, value in payload.items() if key not in {"original_evidence_and_analysis", "evidence_catalog"}},
+                payload.get("evidence_catalog", []),
+            ),
             "debate_review",
             REVIEW_SCHEMA,
             2000,
