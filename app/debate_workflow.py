@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from agents.analysis_debate_agent import AnalysisDebateAgent
@@ -87,23 +88,24 @@ class DebateWorkflow:
             f"{build_regime_context(regime_analysis)}"
         )
 
-        print("\n[상승 관점 최초 분석 시작]")
-        bull_result = self.bull_agent.analyze_with_context(
-            company_name=company_name,
-            financial_data=financial_data,
-            report_context=report_context,
-            web_context=context["bull_web_context"],
-        )
-        print("[상승 관점 최초 분석 완료]")
-
-        print("\n[하락 관점 최초 분석 시작]")
-        bear_result = self.bear_agent.analyze_with_context(
-            company_name=company_name,
-            financial_data=financial_data,
-            report_context=report_context,
-            web_context=context["bear_web_context"],
-        )
-        print("[하락 관점 최초 분석 완료]")
+        print("\n[상승·하락 관점 최초 분석 시작]")
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            bull_future = executor.submit(
+                self.bull_agent.analyze_with_context,
+                company_name=company_name,
+                financial_data=financial_data,
+                report_context=report_context,
+                web_context=context["bull_web_context"],
+            )
+            bear_future = executor.submit(
+                self.bear_agent.analyze_with_context,
+                company_name=company_name,
+                financial_data=financial_data,
+                report_context=report_context,
+                web_context=context["bear_web_context"],
+            )
+            bull_result, bear_result = bull_future.result(), bear_future.result()
+        print("[상승·하락 관점 최초 분석 완료]")
 
         sentiment_result = self.sentiment_agent.analyze(
             company_name,
