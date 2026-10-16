@@ -1,5 +1,5 @@
 import {validateResult} from './resultValidation.js';
-const fields = ['company_name','created_at','financial_data','agenda','rounds','issue_statuses','moderator_summary','navigation','bull_analysis','bear_analysis'];
+const fields = ['company_name','created_at','analysis_as_of','financial_data','agenda','rounds','issue_statuses','moderator_summary','navigation','bull_analysis','bear_analysis'];
 const evidenceFields = ['evidence_id','source_id','exact_quote','reason','verified','title','source_type','source_url','published_at','page_number','source_page_url'];
 function compact(value) {
   if(Array.isArray(value)) return value.map(compact);

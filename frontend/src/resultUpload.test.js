@@ -27,3 +27,9 @@ test('same account and result reuse ID without changing visibility',async()=>{
  await assert.rejects(()=>uploadResult(client,null,JSON.stringify(result)));
 });
 
+
+
+test('result upload retains the analysis evidence cutoff date',()=>{
+ const payload=prepareResult(JSON.stringify({...result,analysis_as_of:'2026-10-16'}));
+ assert.equal(payload.analysis_as_of,'2026-10-16');
+});

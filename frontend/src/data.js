@@ -48,8 +48,14 @@ export function researchRows(rows,query='',company='',order='newest') {
 }
 export const koreaToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 
+export function publicOfficialSelections(selections, rows) {
+ const publicIds=new Set(rows.filter(row=>row.visibility==='public').map(row=>row.id));
+ return selections.filter(selection=>publicIds.has(selection.discussion_id));
+}
+
 export function mergeLibrary(archive, selections, rows) {
- const dates=new Map(selections.map(x=>[x.discussion_id,x.publication_date]));
+ const dates=new Map();
+ for(const selection of selections){const previous=dates.get(selection.discussion_id);if(!previous||selection.publication_date>previous)dates.set(selection.discussion_id,selection.publication_date);}
  const official=rows.filter(x=>x.visibility==='public'&&dates.has(x.id)).map(x=>({id:x.id,company_name:x.company_name,ticker:x.ticker,created_at:x.analysis_date,summary:x.summary||'',issue_count:Array.isArray(x.issues)?x.issues.length:0,round_count:null,official_date:dates.get(x.id),discussion:true,personal:true}));
  const seen=new Set();
  return [...official,...archive].filter(x=>{const key=x.company_name+'|'+x.created_at;if(seen.has(key))return false;seen.add(key);return true}).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));

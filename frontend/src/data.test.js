@@ -44,3 +44,24 @@ test('library includes only public official discussions and sorts with archive',
  assert.equal(mergeLibrary([{...archive[0],created_at:'2026-10-13'}],dates,rows).length,1);
  assert.equal(archive.length,1);assert.equal(mergeLibrary(archive,[],[])[0],archive[0]);
 });
+
+
+test('repeated official discussion uses the latest publication date in any query order',async()=>{
+ const {mergeLibrary}=await import('./data.js');
+ const dates=[{discussion_id:'same',publication_date:'2026-10-16'},{discussion_id:'same',publication_date:'2026-10-12'}];
+ const rows=[{id:'same',company_name:'삼성전자',analysis_date:'2026-10-10',visibility:'public'}];
+ for(const selections of [dates,[...dates].reverse()]){
+  const result=mergeLibrary([],selections,rows);
+  assert.equal(result.length,1);assert.equal(result[0].official_date,'2026-10-16');
+ }
+});
+
+
+test('official badges require a matching public discussion',async()=>{
+ const {publicOfficialSelections}=await import('./data.js');
+ const selections=['public','private','shared','missing'].map(discussion_id=>({discussion_id,publication_date:'2026-10-16'}));
+ const rows=[{id:'public',visibility:'public'},{id:'private',visibility:'private'},{id:'shared',visibility:'shared'}];
+ assert.deepEqual(publicOfficialSelections(selections,rows),[selections[0]]);
+ assert.deepEqual(publicOfficialSelections(selections,[]),[]);
+ assert.equal(selections.length,4);
+});
