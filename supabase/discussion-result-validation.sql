@@ -77,13 +77,24 @@ begin
 end;
 $$;
 
--- Existing rows are retained; new inserts and updates must pass the check.
--- Run VALIDATE CONSTRAINT only after reviewing any legacy rows that fail it.
-do $$
+-- A NOT VALID CHECK still checks every UPDATE, including a legacy privacy withdrawal.
+alter table public.discussions drop constraint if exists discussions_payload_shape;
+create or replace function public.enforce_discussion_result() returns trigger
+ language plpgsql set search_path='' as $$
 begin
- if not exists(select 1 from pg_constraint where conrelid='public.discussions'::regclass and conname='discussions_payload_shape') then
-  alter table public.discussions add constraint discussions_payload_shape check(public.valid_discussion_result(payload)) not valid;
+ -- Legacy rows can always be withdrawn; changed payloads and new publications are validated.
+ if TG_OP='INSERT' or new.payload is distinct from old.payload
+    or (new.visibility in ('public','shared') and (new.visibility is distinct from old.visibility
+        or new.share_token is distinct from old.share_token)) then
+  if not public.valid_discussion_result(new.payload) then
+   raise exception 'Invalid discussion result' using errcode='23514',constraint='discussions_payload_shape';
+  end if;
  end if;
+ return new;
 end;
 $$;
+revoke all on function public.enforce_discussion_result() from public;
+drop trigger if exists enforce_discussion_result on public.discussions;
+create trigger enforce_discussion_result before insert or update of payload,visibility,share_token on public.discussions
+ for each row execute function public.enforce_discussion_result();
 commit;

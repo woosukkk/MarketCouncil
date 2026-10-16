@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SOURCE = ROOT.parent / "results" / "analysis_debate"
 PUBLIC_MANIFEST = ROOT.parent / "public-results.json"
-FIELDS = ("company_name", "created_at", "financial_data", "agenda", "rounds", "issue_statuses", "moderator_summary", "navigation", "bull_analysis", "bear_analysis")
+FIELDS = ("company_name", "created_at", "analysis_as_of", "financial_data", "agenda", "rounds", "issue_statuses", "moderator_summary", "navigation", "bull_analysis", "bear_analysis")
 
 
 EVIDENCE_FIELDS = ("evidence_id", "source_id", "exact_quote", "reason", "verified", "title", "source_type", "source_url", "published_at", "page_number", "source_page_url")

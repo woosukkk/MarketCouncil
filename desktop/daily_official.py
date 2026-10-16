@@ -122,7 +122,7 @@ def run() -> int:
             config = credentials()
             state_path = DATA / "state.json"
             state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {}
-            from desktop.cloud import request, upload_result
+            from desktop.cloud import request, upload_result, official_selection, select_official
             session = {}
             def prepare() -> None:
                 nonlocal stage
@@ -131,7 +131,7 @@ def run() -> int:
                 config["refresh_token"] = session["refresh_token"]; save_credentials(config)
                 if request("/rest/v1/rpc/is_official_editor", {}, session["access_token"]) is not True:
                     raise RuntimeError("operator")
-                rows = request("/rest/v1/daily_official_discussions?publication_date=eq." + today() + "&select=discussion_id", token=session["access_token"], method="GET")
+                rows = official_selection(session, today())
                 if rows:
                     save_state({"day": today(), "status": "completed"})
                     raise AlreadyPublished()
@@ -166,7 +166,7 @@ def run() -> int:
                 identifier = str(uuid.uuid5(uuid.NAMESPACE_URL, session["user"]["id"] + hashlib.sha256(json.dumps(result, sort_keys=True, ensure_ascii=False).encode()).hexdigest()))
                 stage = "publish"
                 upload_result(result, session, identifier)
-                request("/rest/v1/rpc/select_daily_official", {"discussion": identifier}, session["access_token"])
+                select_official(session, identifier, state["day"])
             outcome = run_once(state, today(), prepare, analyze, publish, save_state, resume=True)
             if outcome == "completed": notify("오늘 삼성전자 공식 토론 게시가 완료됐습니다. 웹 커뮤니티에서 확인하세요.")
             elif state.get("status") in ("attempting", "analysis_failed"):

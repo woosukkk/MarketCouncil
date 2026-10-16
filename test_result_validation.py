@@ -35,6 +35,11 @@ class ResultValidationTests(unittest.TestCase):
             self.assertEqual(row["ticker"], "")
             self.assertIsInstance(row["analysis_date"], str)
 
+    def test_analysis_cutoff_survives_desktop_upload(self) -> None:
+        with patch("desktop.cloud.request", side_effect=[[],[{"id":"saved"}]]) as api:
+            upload_result({"company_name":"Example","rounds":[],"analysis_as_of":"2026-10-16"}, {"user":{"id":"owner"},"access_token":"unused"}, "11111111-1111-4111-8111-111111111111")
+            self.assertEqual(api.call_args.args[1]["payload"]["analysis_as_of"], "2026-10-16")
+
     def test_render_collections_are_bounded(self) -> None:
         with self.assertRaises(ValueError):
             validate_result({"company_name":"Example","rounds":[{}]*1001})

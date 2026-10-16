@@ -26,6 +26,20 @@ class OfficialTests(unittest.TestCase):
             self.assertEqual(api.call_args.args[0],'/rest/v1/rpc/select_daily_official')
             self.assertEqual(api.call_args.args[2],'token')
 
+    def test_same_result_retry_is_allowed_without_replacing_another_selection(self):
+        with patch('desktop.cloud.request',side_effect=[True,[{'discussion_id':'same'}]]) as api:
+            self.assertEqual(prepare_official(SESSION,'same'),SESSION)
+            self.assertIn('discussions!inner(visibility)',api.call_args.args[0])
+            self.assertIn('discussions.visibility=eq.public',api.call_args.args[0])
+        with patch('desktop.cloud.request',side_effect=[True,[{'discussion_id':'other'}]]):
+            with self.assertRaisesRegex(ValueError,'이미'):prepare_official(SESSION,'same')
+
+    def test_official_request_fixes_day_and_never_silently_replaces(self):
+        with patch('desktop.cloud.official_day',return_value='2026-10-16'),patch('desktop.cloud.request',side_effect=[True,[],'2026-10-16']) as api,patch('desktop.cloud.upload_result'):
+            publish_official(DATA,SESSION)
+            self.assertEqual(api.call_args.args[1]['expected_day'],'2026-10-16')
+            self.assertIs(api.call_args.args[1]['replace_existing'],False)
+
     def test_expired_session_is_refreshed_before_permission_check(self):
         with patch('desktop.cloud.request',side_effect=[SESSION,True,[]]) as api:
             self.assertEqual(prepare_official({**SESSION,'refresh_token':'refresh'}),SESSION)
