@@ -84,4 +84,33 @@ class ParallelAnalysisTests(unittest.TestCase):
             unused.assert_not_called()
 
 
+class RetrieverLifecycleTests(unittest.TestCase):
+    def test_release_drops_embedding_model_reference(self) -> None:
+        import weakref
+        from rag.retriever import ReportRetriever
+        retriever=ReportRetriever.__new__(ReportRetriever)
+        class Model:pass
+        model=Model()
+        reference=weakref.ref(model)
+        retriever.model=model
+        del model
+        retriever.release_model()
+        self.assertIsNone(retriever.model)
+        self.assertIsNone(reference())
+
+    def test_collection_releases_model_on_success_and_failure(self) -> None:
+        from app.comparison_workflow import ComparisonWorkflow
+        for fails in (False,True):
+            workflow=ComparisonWorkflow.__new__(ComparisonWorkflow)
+            release=Mock()
+            workflow.bull_tools=NS(retriever=NS(release_model=release))
+            workflow.graph=NS(invoke=Mock(side_effect=RuntimeError('collection failed')) if fails else Mock(return_value={'evidence':'preserved'}))
+            if fails:
+                with self.assertRaisesRegex(RuntimeError,'collection failed'):
+                    workflow.run('company')
+            else:
+                self.assertEqual(workflow.run('company'),{'evidence':'preserved'})
+            release.assert_called_once_with()
+
+
 if __name__=='__main__':unittest.main()

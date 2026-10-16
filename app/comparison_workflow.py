@@ -373,6 +373,8 @@ URL: {article.get("url", "")}"""
         self,
         company_name: str,
     ) -> ComparisonState:
-        return self.graph.invoke({
-            "company_name": company_name,
-        })
+        try:
+            return self.graph.invoke({"company_name": company_name})
+        finally:
+            # Embeddings are no longer needed during the subsequent web and LLM analysis.
+            self.bull_tools.retriever.release_model()

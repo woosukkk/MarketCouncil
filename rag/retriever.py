@@ -1,5 +1,6 @@
 from rag.chroma_client import get_chroma_client
 
+import gc
 from datetime import datetime, timedelta, timezone
 
 MODEL_NAME = "BAAI/bge-m3"
@@ -15,6 +16,10 @@ class ReportRetriever:
         self.collection = self.client.get_or_create_collection(
             name=COLLECTION_NAME
             )
+
+    def release_model(self) -> None:
+        self.model = None
+        gc.collect()
 
     def search(
         self,
