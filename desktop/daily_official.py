@@ -10,6 +10,7 @@ import uuid
 from ctypes import wintypes
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from desktop.cloud import OfficialSchemaRequired
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "MarketCouncil" / "daily"
@@ -122,7 +123,7 @@ def run() -> int:
             config = credentials()
             state_path = DATA / "state.json"
             state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {}
-            from desktop.cloud import request, upload_result, official_selection, select_official
+            from desktop.cloud import request, upload_result, official_selection, select_official, check_official_schema
             session = {}
             def prepare() -> None:
                 nonlocal stage
@@ -135,6 +136,7 @@ def run() -> int:
                 if rows:
                     save_state({"day": today(), "status": "completed"})
                     raise AlreadyPublished()
+                check_official_schema(session, today())
             def analyze() -> str:
                 nonlocal stage
                 stage = "services"
@@ -178,7 +180,10 @@ def run() -> int:
                 save_failure(stage,error,run_id)
                 note="상세 원인은 운영자용 로컬 기록에 저장했습니다."
             except OSError:note="로컬 진단 기록 저장도 실패했습니다. 저장 공간과 권한을 확인하세요."
-            notify("자동 분석 또는 게시에 실패했습니다. 기존 결과는 유지됩니다. "+note)
+            if isinstance(error, OfficialSchemaRequired):
+                notify(str(error)+" "+note)
+            else:
+                notify("자동 분석 또는 게시에 실패했습니다. 기존 결과는 유지됩니다. "+note)
             return 1
         finally:
             lock.seek(0); msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)

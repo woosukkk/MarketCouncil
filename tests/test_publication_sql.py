@@ -137,6 +137,16 @@ class PublicationSQLTests(unittest.TestCase):
         self.assertEqual(self.sql("select count(*) from public.daily_official_discussions;"), "0")
         self.assertEqual(self.sql("select count(*) from public.discussions;"), "2")
 
+    def test_null_schema_probe_never_publishes_or_changes_a_selection(self) -> None:
+        for has_selection in (False, True):
+            if has_selection:
+                self.select(A)
+            before = self.sql("select coalesce(string_agg(discussion_id::text,','),'') from public.daily_official_discussions;")
+            result = self.owner_sql("select public.select_daily_official(null,(clock_timestamp() at time zone 'Asia/Seoul')::date,false);", check=False)
+            self.assertIn("Own discussion required", result)
+            self.assertEqual(self.sql("select coalesce(string_agg(discussion_id::text,','),'') from public.daily_official_discussions;"), before)
+            self.assertEqual(self.sql(f"select visibility from public.discussions where id='{B}';"), "private")
+
     def test_wrong_day_and_unauthorized_cannot_publish(self) -> None:
         result = self.owner_sql(f"select public.select_daily_official('{A}',(clock_timestamp() at time zone 'Asia/Seoul')::date-1,false);", check=False)
         self.assertIn("official_date_changed", result)

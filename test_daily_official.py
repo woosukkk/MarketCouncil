@@ -34,6 +34,20 @@ class DailyTests(unittest.TestCase):
         analyze=Mock()
         with self.assertRaises(RuntimeError):run_once({},"2026-10-12",Mock(side_effect=RuntimeError()),analyze,Mock(),Mock())
         analyze.assert_not_called()
+    def test_old_database_stops_daily_run_before_services_or_paid_analysis(self):
+        import tempfile
+        from pathlib import Path
+        from desktop.daily_official import run
+        from desktop.cloud import CloudAPIError
+        session={'user':{'id':'owner'},'access_token':'token','refresh_token':'rotated'}
+        with tempfile.TemporaryDirectory() as folder,patch('desktop.daily_official.DATA',Path(folder)),patch('desktop.daily_official.credentials',return_value={'refresh_token':'old'}),patch('desktop.daily_official.save_credentials'),patch('desktop.daily_official.source_version',return_value='test'),patch('desktop.daily_official.save_failure') as failure,patch('desktop.daily_official.notify') as notification,patch('desktop.cloud.request',side_effect=[session,True,[],CloudAPIError(404)]),patch('app.local_services.ensure_local_services') as services:
+            self.assertEqual(run(),1)
+            services.assert_not_called()
+            self.assertEqual(failure.call_args.args[0],'account')
+            self.assertIn('DB 마이그레이션',str(failure.call_args.args[1]))
+            self.assertIn('DB 마이그레이션',notification.call_args.args[0])
+            self.assertIn('OfficialSchemaRequired',failure_record('account',failure.call_args.args[1])['error_type'])
+
     def test_failure_record_excludes_exception_content(self):
         import json
         report = failure_record("account", RuntimeError("private-token-and-key"))

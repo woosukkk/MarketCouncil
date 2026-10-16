@@ -11,6 +11,17 @@ PUBLIC_KEY = "sb_publishable_qJ8trycyiIECgCF5xHhcYg_JLHs8msL"
 SITE = "https://frontend-six-pi-h5i7tztups.vercel.app/app"
 
 
+class CloudAPIError(RuntimeError):
+    """Keep only the HTTP status; provider bodies can contain private data."""
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+        super().__init__(f"계정 연결에 실패했습니다 (HTTP {status_code}). 로그인 또는 권한을 확인하세요.")
+
+
+class OfficialSchemaRequired(RuntimeError):
+    """A safe, actionable setup failure that must stop before paid analysis."""
+
+
 def request(path: str, body: dict | None = None, token: str = "", method: str = "POST") -> object:
     headers = {"apikey": PUBLIC_KEY, "Content-Type": "application/json", "Prefer": "return=representation"}
     if token:
@@ -21,7 +32,7 @@ def request(path: str, body: dict | None = None, token: str = "", method: str = 
             raw = response.read()
             return json.loads(raw) if raw else None
     except HTTPError as error:
-        raise RuntimeError(f"계정 연결에 실패했습니다 (HTTP {error.code}). 로그인 또는 권한을 확인하세요.") from None
+        raise CloudAPIError(error.code) from None
     except (URLError, TimeoutError):
         raise RuntimeError("네트워크 연결을 확인하고 다시 시도하세요.") from None
 
@@ -78,15 +89,32 @@ def select_official(session: dict, identifier: str, day: str) -> str:
                    session["access_token"])
 
 
+def check_official_schema(session: dict, day: str) -> None:
+    """Probe the new RPC with a null discussion, which can never publish a row."""
+    try:
+        request("/rest/v1/rpc/select_daily_official",
+                {"discussion": None, "expected_day": day, "replace_existing": False},
+                session["access_token"])
+    except CloudAPIError as error:
+        if error.status_code == 400:
+            return  # The matching RPC rejects the deliberately absent discussion.
+        if error.status_code == 404:
+            raise OfficialSchemaRequired("공식 게시 DB 마이그레이션이 필요합니다. 설정 적용 전에는 유료 분석을 시작하지 않습니다.") from None
+        raise
+    raise RuntimeError("공식 게시 설정을 안전하게 확인하지 못했습니다. 운영자에게 문의하세요.")
+
+
 def prepare_official(session: dict, discussion_id: str | None = None) -> dict:
     """Check operator access and today's selection before any paid analysis."""
     if session.get("refresh_token"):
         session = request("/auth/v1/token?grant_type=refresh_token", {"refresh_token": session["refresh_token"]})
     if request("/rest/v1/rpc/is_official_editor", {}, session["access_token"]) is not True:
         raise ValueError("공식 운영자 계정으로 이메일 계정 연결을 먼저 진행하세요.")
-    rows = official_selection(session, official_day())
+    day = official_day()
+    rows = official_selection(session, day)
     if rows and any(row["discussion_id"] != discussion_id for row in rows):
         raise ValueError("오늘 공식 토론이 이미 게시되어 있습니다. 새 분석을 시작하지 않습니다.")
+    check_official_schema(session, day)
     return session
 
 
