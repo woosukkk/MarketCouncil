@@ -376,5 +376,5 @@ URL: {article.get("url", "")}"""
         try:
             return self.graph.invoke({"company_name": company_name})
         finally:
-            # Embeddings are no longer needed during the subsequent web and LLM analysis.
+            # Do not retain the embedding model during the subsequent LLM analysis.
             self.bull_tools.retriever.release_model()

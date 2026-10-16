@@ -114,6 +114,13 @@ class RecoveryTests(unittest.TestCase):
             workflow.debate_agent.bull_turn({"current_round":1});workflow.debate_agent.bull_turn({"current_round":1})
             self.assertEqual(workflow.debate_agent.graph,'rebuilt')
             self.assertEqual(workflow.evidence_workflow.run('company'),{"context":1})
+            original_read = Path.read_bytes
+            def changed_prompt(path):
+                value = original_read(path)
+                return value + b" changed prompt" if path.name == "bull_prompt.py" else value
+            with patch.object(Path, "read_bytes", changed_prompt):
+                with self.assertRaisesRegex(ValueError, "scope"):
+                    RecoverableDebateWorkflow(Path(folder)/'c.json','company','day')
     def test_regime_prompt_excludes_chart_series(self):
         from agents.analysis_debate_agent import AnalysisDebateAgent
         text=AnalysisDebateAgent._build_input('company',{},'bull','bear',{},[],{'price_series':['private_series_marker'],'comparison':['keep comparison']},None)

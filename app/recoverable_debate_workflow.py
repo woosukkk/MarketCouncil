@@ -9,7 +9,47 @@ class RecoverableDebateWorkflow(DebateWorkflow):
     def __init__(self, checkpoint_path: Path, company: str, day: str) -> None:
         super().__init__()
         root=Path(__file__).resolve().parent.parent
-        names=["app/debate_workflow.py","app/comparison_workflow.py","rag/retriever.py","agents/analysis_debate_agent.py","agents/moderator_agent.py","agents/analysis_debate_prompt.py","agents/moderator_prompt.py","tools/structured_response.py","tools/debate_payload.py","tools/analysis_checkpoint.py","tools/evidence_catalog.py","tools/evidence_text.py","tools/crawl4ai_extractor.py","tools/source_collector.py","tools/citation_quality.py","tools/evidence_dates.py","tools/financial_data.py","tools/quality_valuation.py"]
+        names = [
+            'app/debate_workflow.py',
+            'app/comparison_workflow.py',
+            'rag/retriever.py',
+            'agents/analysis_debate_agent.py',
+            'agents/bull_agent.py',
+            'agents/bull_prompt.py',
+            'agents/bear_agent.py',
+            'agents/bear_prompt.py',
+            'agents/sentiment_agent.py',
+            'agents/sentiment_prompt.py',
+            'agents/debate_navigator_agent.py',
+            'agents/moderator_agent.py',
+            'agents/analysis_debate_prompt.py',
+            'agents/moderator_prompt.py',
+            'tools/structured_response.py',
+            'tools/debate_payload.py',
+            'tools/analysis_checkpoint.py',
+            'tools/evidence_catalog.py',
+            'tools/evidence_text.py',
+            'tools/crawl4ai_extractor.py',
+            'tools/source_collector.py',
+            'tools/citation_quality.py',
+            'tools/evidence_dates.py',
+            'tools/financial_data.py',
+            'tools/quality_valuation.py',
+            'agents/debate_navigator_prompt.py',
+            'agents/video_debate_agent.py',
+            'agents/video_debate_prompt.py',
+            'agents/video_topic_prompt.py',
+            'app/regime_workflow.py',
+            'agents/regime_reason_agent.py',
+            'agents/regime_reason_prompt.py',
+            'tools/regime_context.py',
+            'tools/market_regime.py',
+            'tools/historical_evidence_collector.py',
+            'tools/open_source_web_collector.py',
+            'tools/searxng_search.py',
+            'tools/source_collector_prompt.py',
+            'tools/source_collector_schema.py',
+        ]
         signature=hashlib.sha256(b"".join((root/name).read_bytes() for name in names)).hexdigest()
         checkpoint=AnalysisCheckpoint(checkpoint_path,company+"|"+day+"|"+MODEL_NAME+"|"+signature)
         for obj,method,label in [(self.evidence_workflow,"run","collect"),(self.historical_collector,"collect","history"),(self.regime_workflow,"run","regime"),(self.bull_agent,"analyze_with_context","bull_initial"),(self.bear_agent,"analyze_with_context","bear_initial"),(self.sentiment_agent,"analyze","sentiment"),(self.video_agent,"run_latest_short_topics","shorts"),(self.navigator_agent,"analyze","navigation")]:
