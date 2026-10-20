@@ -10,7 +10,7 @@ import uuid
 from ctypes import wintypes
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from desktop.cloud import OfficialSchemaRequired
+from desktop.cloud import CloudNetworkError, OfficialSchemaRequired
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "MarketCouncil" / "daily"
@@ -86,6 +86,17 @@ def failure_record(stage: str, error: Exception) -> dict:
         if isinstance(status,int):entry["http_status"]=status
         code=getattr(current,"code",None)
         if code in {"insufficient_quota","credit_balance_exhausted","rate_limit_exceeded","invalid_api_key","context_length_exceeded"}:entry["api_code"]=code
+        if isinstance(current, CloudNetworkError):
+            if current.network_kind in {"dns", "timeout", "tls", "response_incomplete", "connection_refused", "connection_reset", "connection_aborted", "network"}:
+                entry["network_kind"] = current.network_kind
+            if type(current.attempts) is int and 1 <= current.attempts <= 3:
+                entry["attempts"] = current.attempts
+            if type(current.retry_allowed) is bool:
+                entry["retry_allowed"] = current.retry_allowed
+            for key in ("errno", "winerror"):
+                value = getattr(current, key, None)
+                if type(value) is int:
+                    entry[key] = value
         chain.append(entry);current=current.__cause__
     record["causes"]=chain
     return record

@@ -1,5 +1,10 @@
 """User-scoped desktop API. No service-role or server secret is accepted."""
+import errno
 import json
+import socket
+import ssl
+import time
+from http.client import IncompleteRead
 from urllib.parse import urlsplit, parse_qs
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -22,19 +27,66 @@ class OfficialSchemaRequired(RuntimeError):
     """A safe, actionable setup failure that must stop before paid analysis."""
 
 
+class CloudNetworkError(RuntimeError):
+    """Keep transport metadata only; URLs and provider messages are private."""
+    def __init__(self, kind: str, attempts: int, retry_allowed: bool,
+                 error_number: int | None = None, windows_error: int | None = None) -> None:
+        self.network_kind = kind
+        self.attempts = attempts
+        self.retry_allowed = retry_allowed
+        self.errno = error_number
+        self.winerror = windows_error
+        super().__init__("네트워크 연결에 실패했습니다. 인터넷 연결을 확인한 뒤 다시 시도하세요.")
+
+
+def _network_failure(error: BaseException, method: str, attempts: int) -> CloudNetworkError:
+    reason = error.reason if isinstance(error, URLError) else error
+    number = getattr(reason, "errno", None)
+    windows_error = getattr(reason, "winerror", None)
+    number = number if isinstance(number, int) and not isinstance(number, bool) else None
+    windows_error = windows_error if isinstance(windows_error, int) and not isinstance(windows_error, bool) else None
+    native_code = windows_error if windows_error is not None else number
+    if isinstance(reason, socket.gaierror):
+        kind = "dns"
+        transient = number == socket.EAI_AGAIN
+    elif isinstance(reason, TimeoutError) or native_code in (errno.ETIMEDOUT, 10060):
+        kind, transient = "timeout", True
+    elif isinstance(reason, ssl.SSLError):
+        kind, transient = "tls", False
+    elif isinstance(reason, IncompleteRead):
+        kind, transient = "response_incomplete", True
+    elif isinstance(reason, ConnectionRefusedError) or native_code in (errno.ECONNREFUSED, 10061):
+        kind, transient = "connection_refused", True
+    elif isinstance(reason, ConnectionResetError) or native_code in (errno.ECONNRESET, 10054):
+        kind, transient = "connection_reset", True
+    elif isinstance(reason, ConnectionAbortedError) or native_code in (errno.ECONNABORTED, 10053):
+        kind, transient = "connection_aborted", True
+    else:
+        kind = "network"
+        transient = native_code in (errno.ENETUNREACH, errno.EHOSTUNREACH, errno.EAGAIN, 10051, 10065)
+    retry_allowed = transient and method in ("GET", "HEAD")
+    return CloudNetworkError(kind, attempts, retry_allowed, number, windows_error)
+
+
 def request(path: str, body: dict | None = None, token: str = "", method: str = "POST") -> object:
     headers = {"apikey": PUBLIC_KEY, "Content-Type": "application/json", "Prefer": "return=representation"}
     if token:
         headers["Authorization"] = "Bearer " + token
+    method = method.upper()
     req = Request(BASE + path, data=json.dumps(body).encode() if body is not None else None, headers=headers, method=method)
-    try:
-        with urlopen(req, timeout=60) as response:
-            raw = response.read()
-            return json.loads(raw) if raw else None
-    except HTTPError as error:
-        raise CloudAPIError(error.code) from None
-    except (URLError, TimeoutError):
-        raise RuntimeError("네트워크 연결을 확인하고 다시 시도하세요.") from None
+    for attempt in range(1, 4):
+        try:
+            with urlopen(req, timeout=60) as response:
+                raw = response.read()
+                return json.loads(raw) if raw else None
+        except HTTPError as error:
+            raise CloudAPIError(error.code) from None
+        except (OSError, IncompleteRead) as error:
+            failure = _network_failure(error, method, attempt)
+            # urllib may follow redirects, so even a connect error cannot prove a POST was unsent.
+            if not failure.retry_allowed or attempt == 3:
+                raise failure from None
+            time.sleep(0.5 * attempt)
 
 
 def send_login(email: str) -> None:
