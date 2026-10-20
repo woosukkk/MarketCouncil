@@ -38,6 +38,7 @@ class PublicationSQLTests(unittest.TestCase):
             cls.sql("""
                 create role anon nologin;
                 create role authenticated nologin;
+                alter default privileges in schema public grant execute on functions to anon,authenticated;
                 create schema auth;
                 create table auth.users(id uuid primary key);
                 create function auth.uid() returns uuid language sql stable as $$
@@ -75,6 +76,32 @@ class PublicationSQLTests(unittest.TestCase):
 
     def select(self, identifier: str, replace: bool = False, check: bool = True) -> str:
         return self.owner_sql(f"select public.select_daily_official('{identifier}',(clock_timestamp() at time zone 'Asia/Seoul')::date,{str(replace).lower()});", check=check)
+
+    def test_function_acl_restricts_supabase_defaults_and_existing_anon_grants(self) -> None:
+        expected = {
+            "is_official_editor()": "f|t",
+            "select_daily_official(uuid,date,boolean)": "f|t",
+            "enforce_discussion_result()": "f|f",
+            "remove_withdrawn_official()": "f|f",
+            "valid_discussion_result(jsonb)": "t|t",
+            "read_shared_discussion(uuid)": "t|t",
+        }
+
+        def check_acl() -> None:
+            for signature, privileges in expected.items():
+                with self.subTest(function=signature):
+                    self.assertEqual(self.sql(
+                        f"select has_function_privilege('anon','public.{signature}','EXECUTE'),"
+                        f"has_function_privilege('authenticated','public.{signature}','EXECUTE');"
+                    ), privileges)
+
+        check_acl()
+        for signature in tuple(expected)[:4]:
+            self.sql(f"grant execute on function public.{signature} to anon,authenticated;")
+        for _ in range(2):
+            for filename in ("discussion-result-validation.sql", "discussion-publication-state.sql"):
+                self.sql((ROOT / "supabase" / filename).read_text(encoding="utf-8"))
+            check_acl()
 
     def test_sql_validator_matches_shared_web_and_desktop_contract(self) -> None:
         fixture = json.loads((ROOT / "frontend/tests/result-validation-cases.json").read_text(encoding="utf-8"))

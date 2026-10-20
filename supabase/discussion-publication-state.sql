@@ -1,4 +1,7 @@
 begin;
+-- Supabase default privileges may grant anon directly, independently of PUBLIC.
+revoke all on function public.is_official_editor() from public,anon;
+grant execute on function public.is_official_editor() to authenticated;
 create or replace function public.remove_withdrawn_official() returns trigger
  language plpgsql security definer set search_path='' as $$
 begin
@@ -6,7 +9,7 @@ begin
  return new;
 end;
 $$;
-revoke all on function public.remove_withdrawn_official() from public;
+revoke all on function public.remove_withdrawn_official() from public,anon,authenticated;
 drop trigger if exists remove_withdrawn_official on public.discussions;
 create trigger remove_withdrawn_official after update of visibility on public.discussions
  for each row when (new.visibility<>'public') execute function public.remove_withdrawn_official();
@@ -45,6 +48,6 @@ begin
  return day;
 end;
 $$;
-revoke all on function public.select_daily_official(uuid,date,boolean) from public;
+revoke all on function public.select_daily_official(uuid,date,boolean) from public,anon;
 grant execute on function public.select_daily_official(uuid,date,boolean) to authenticated;
 commit;

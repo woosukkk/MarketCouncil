@@ -93,7 +93,7 @@ begin
  return new;
 end;
 $$;
-revoke all on function public.enforce_discussion_result() from public;
+revoke all on function public.enforce_discussion_result() from public,anon,authenticated;
 drop trigger if exists enforce_discussion_result on public.discussions;
 create trigger enforce_discussion_result before insert or update of payload,visibility,share_token on public.discussions
  for each row execute function public.enforce_discussion_result();
