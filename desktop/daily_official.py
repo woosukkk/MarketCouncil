@@ -7,6 +7,7 @@ import subprocess
 import sys
 import traceback
 import uuid
+from contextlib import ExitStack
 from ctypes import wintypes
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -68,8 +69,23 @@ def run_once(state: dict, day: str, prepare, analyze, publish, persist, resume: 
     return "completed"
 
 def notify(message: str) -> None:
-    # Native dialog is intentional: the user requested a startup/completion alarm.
-    ctypes.windll.user32.MessageBoxW(None, message, "MarketCouncil 자동 공식 토론", 0x40 | 0x10000)
+    # A completion alarm must not keep the scheduled task alive awaiting a click.
+    window = None
+    try:
+        import tkinter as tk
+        from tkinter import ttk
+        window = tk.Tk()
+        window.title("MarketCouncil 자동 공식 토론")
+        window.attributes("-topmost", True)
+        ttk.Label(window, text=message, wraplength=440, padding=16).pack()
+        ttk.Button(window, text="확인", command=window.destroy).pack(pady=(0, 12))
+        window.after(8000, window.destroy)
+        window.mainloop()
+    except Exception:
+        # Notification failure must not turn a completed publication into a failed run.
+        if window is not None:
+            try: window.destroy()
+            except Exception: pass
 
 def failure_record(stage: str, error: Exception) -> dict:
     record = {"day": today(), "stage": stage, "error_type": type(error).__name__, "credentials_present": (DATA / "credentials.dpapi").exists()}
@@ -130,6 +146,15 @@ def run() -> int:
         os.environ["RESULTS_RUN_ID"]=run_id
         os.environ["RESULTS_SOURCE_VERSION"]=source_version()
         stage = "credentials"
+        services = ExitStack()
+        def record_cleanup_error(service: str) -> None:
+            stage = {"SearXNG": "cleanup_search", "Docker Desktop": "cleanup_docker"}[service]
+            save_failure(stage, RuntimeError("Local service cleanup failed"), run_id)
+        def close_services() -> None:
+            try: services.close()
+            except Exception as error:
+                try: save_failure("cleanup", error, run_id)
+                except Exception: pass
         try:
             config = credentials()
             state_path = DATA / "state.json"
@@ -153,8 +178,8 @@ def run() -> int:
                 stage = "services"
                 os.chdir(ROOT)
                 os.environ.update(OPENAI_API_KEY=config["openai_key"], DART_API_KEY=config.get("dart_key", ""), SEARXNG_URL=config["search"], MARKETCOUNCIL_TICKER="005930.KS", CHROMA_MODE="local", RESULTS_AUTO_UPLOAD="false")
-                from app.local_services import ensure_local_services
-                ensure_local_services()
+                from app.local_services import daily_local_services
+                services.enter_context(daily_local_services(record_cleanup_error))
                 stage = "analysis"
                 from app.recoverable_debate_workflow import RecoverableDebateWorkflow
                 from tools.analysis_debate_store import AnalysisDebateStore
@@ -181,12 +206,14 @@ def run() -> int:
                 upload_result(result, session, identifier)
                 select_official(session, identifier, state["day"])
             outcome = run_once(state, today(), prepare, analyze, publish, save_state, resume=True)
+            close_services()
             if outcome == "completed": notify("오늘 삼성전자 공식 토론 게시가 완료됐습니다. 웹 커뮤니티에서 확인하세요.")
             elif state.get("status") in ("attempting", "analysis_failed"):
                 notify("오늘 분석이 중단되거나 실패했습니다. 오늘 복구 시도 한도에 도달해 더 실행하지 않습니다. 로컬 결과와 실행 환경을 확인하세요.")
             return 0
         except AlreadyPublished: return 0
         except Exception as error:
+            close_services()
             try:
                 save_failure(stage,error,run_id)
                 note="상세 원인은 운영자용 로컬 기록에 저장했습니다."
@@ -197,7 +224,9 @@ def run() -> int:
                 notify("자동 분석 또는 게시에 실패했습니다. 기존 결과는 유지됩니다. "+note)
             return 1
         finally:
-            lock.seek(0); msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+            try: close_services()
+            finally:
+                lock.seek(0); msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
 
 class AlreadyPublished(Exception): pass
 
