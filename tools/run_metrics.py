@@ -2,6 +2,7 @@
 import json
 import os
 import platform
+import sys
 import time
 import uuid
 from datetime import datetime, timezone
@@ -11,7 +12,11 @@ from typing import Callable, Any
 
 def measure_analysis(company: str, run: Callable[[], Any], folder: Path) -> Any:
     started=time.perf_counter();cpu=time.process_time()
-    report={"schema_version":1,"kind":"monitoring","id":str(uuid.uuid4()),"recorded_at":datetime.now(timezone.utc).isoformat(),"label":company,"version":"source","scope":"analysis","status":"success","metrics":{},"environment":{"os":platform.system(),"python":platform.python_version(),"cpu_count":os.cpu_count()}}
+    version = "source"
+    if getattr(sys, "frozen", False):
+        from desktop.preferences import VERSION
+        version = "desktop-v" + VERSION
+    report={"schema_version":1,"kind":"monitoring","id":str(uuid.uuid4()),"recorded_at":datetime.now(timezone.utc).isoformat(),"label":company,"version":version,"scope":"analysis","status":"success","metrics":{},"environment":{"os":platform.system(),"python":platform.python_version(),"cpu_count":os.cpu_count()}}
     try:
         return run()
     except Exception:

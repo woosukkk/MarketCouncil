@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 RELEASES = "https://api.github.com/repos/woosukkk/MarketCouncil/releases?per_page=30"
 
 

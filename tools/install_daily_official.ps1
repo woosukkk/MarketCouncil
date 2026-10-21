@@ -1,10 +1,17 @@
-﻿$ErrorActionPreference = 'Stop'
+﻿param([string]$ExecutablePath)
+$ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $taskUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-$runner = Join-Path $repoRoot 'venv\Scripts\pythonw.exe'
-if (!(Test-Path -LiteralPath $runner)) { throw 'Project Python runtime is missing' }
-$launcher = Join-Path $repoRoot 'tools\run_daily_official.ps1'
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -WindowStyle Hidden -File "' + $launcher + '"') -WorkingDirectory $repoRoot
+if ($ExecutablePath) {
+    $runner = [System.IO.Path]::GetFullPath($ExecutablePath)
+    if (!(Test-Path -LiteralPath $runner -PathType Leaf) -or [System.IO.Path]::GetExtension($runner) -ne '.exe') { throw 'Desktop executable is missing' }
+    $action = New-ScheduledTaskAction -Execute $runner -Argument '--daily-official' -WorkingDirectory (Split-Path -Parent $runner)
+} else {
+    $runner = Join-Path $repoRoot 'venv\Scripts\pythonw.exe'
+    if (!(Test-Path -LiteralPath $runner)) { throw 'Project Python runtime is missing' }
+    $launcher = Join-Path $repoRoot 'tools\run_daily_official.ps1'
+    $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -WindowStyle Hidden -File "' + $launcher + '"') -WorkingDirectory $repoRoot
+}
 $login = New-ScheduledTaskTrigger -AtLogOn -User $taskUser
 $login.Delay = 'PT2M'
 $daily = New-ScheduledTaskTrigger -Daily -At '09:00'

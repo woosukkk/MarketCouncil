@@ -1,5 +1,8 @@
 """Reuse the existing workflow, caching completed local stages and debate turns."""
 import hashlib
+import json
+import re
+import sys
 from pathlib import Path
 from app.debate_workflow import DebateWorkflow
 from tools.analysis_checkpoint import AnalysisCheckpoint
@@ -7,7 +10,6 @@ from config import MODEL_NAME
 
 class RecoverableDebateWorkflow(DebateWorkflow):
     def __init__(self, checkpoint_path: Path, company: str, day: str) -> None:
-        super().__init__()
         root=Path(__file__).resolve().parent.parent
         names = [
             'app/debate_workflow.py',
@@ -50,7 +52,17 @@ class RecoverableDebateWorkflow(DebateWorkflow):
             'tools/source_collector_prompt.py',
             'tools/source_collector_schema.py',
         ]
-        signature=hashlib.sha256(b"".join((root/name).read_bytes() for name in names)).hexdigest()
+        if getattr(sys, "frozen", False):
+            from desktop.preferences import VERSION
+            metadata = json.loads((Path(sys._MEIPASS) / "release-build.json").read_text(encoding="utf-8"))
+            commit = metadata.get("source_commit") if isinstance(metadata, dict) else None
+            version = metadata.get("version") if isinstance(metadata, dict) else None
+            if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit) or version != VERSION:
+                raise ValueError("Invalid desktop build metadata")
+            signature = hashlib.sha256(("desktop|" + version + "|" + commit).encode()).hexdigest()
+        else:
+            signature=hashlib.sha256(b"".join((root/name).read_bytes() for name in names)).hexdigest()
+        super().__init__()
         checkpoint=AnalysisCheckpoint(checkpoint_path,company+"|"+day+"|"+MODEL_NAME+"|"+signature)
         for obj,method,label in [(self.evidence_workflow,"run","collect"),(self.historical_collector,"collect","history"),(self.regime_workflow,"run","regime"),(self.bull_agent,"analyze_with_context","bull_initial"),(self.bear_agent,"analyze_with_context","bear_initial"),(self.sentiment_agent,"analyze","sentiment"),(self.video_agent,"run_latest_short_topics","shorts"),(self.navigator_agent,"analyze","navigation")]:
             setattr(obj,method,checkpoint.bind(getattr(obj,method),label))

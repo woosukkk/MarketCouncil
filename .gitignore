@@ -80,3 +80,4 @@ hf_cache/
 build/
 dist/
 *.spec
+/release-build.json

@@ -14,7 +14,61 @@ from pathlib import Path
 from desktop.cloud import CloudNetworkError, OfficialSchemaRequired
 
 ROOT = Path(__file__).resolve().parent.parent
+BUNDLE = Path(getattr(sys, "_MEIPASS", ROOT))
 DATA = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "MarketCouncil" / "daily"
+
+def runtime_root() -> Path:
+    return DATA.parent if getattr(sys, "frozen", False) else ROOT
+
+
+def launch_command(*, setup: bool = False) -> list[str]:
+    if getattr(sys, "frozen", False):
+        return [sys.executable, "--daily-setup" if setup else "--daily-official"]
+    command = [str(ROOT / "venv" / "Scripts" / "pythonw.exe"), "-m", "desktop.daily_official"]
+    return [*command, "--setup"] if setup else command
+
+
+def install_command() -> list[str]:
+    command = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+               str(BUNDLE / "tools" / "install_daily_official.ps1")]
+    if getattr(sys, "frozen", False):
+        command.extend(["-ExecutablePath", str(Path(sys.executable).resolve())])
+    return command
+
+
+def prepare_runtime(search: str) -> None:
+    root = runtime_root()
+    root.mkdir(parents=True, exist_ok=True)
+    os.chdir(root)
+    if not getattr(sys, "frozen", False):
+        return
+    import shutil
+    from app import local_services
+    os.environ["HF_HOME"] = str(root / "models")
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(root / "browser")
+    infra = root / "infra" / "searxng"
+    infra.mkdir(parents=True, exist_ok=True)
+    for name in ("docker-compose.yml", "settings.yml"):
+        shutil.copyfile(BUNDLE / "infra" / "searxng" / name, infra / name)
+    local_services.PROJECT_ROOT = root
+    local_services.COMPOSE_FILE = infra / "docker-compose.yml"
+    local_services.SEARXNG_URL = search
+
+
+def ensure_browser() -> None:
+    if not getattr(sys, "frozen", False):
+        return
+    root = runtime_root()
+    if (root / "browser-ready").exists():
+        return
+    with (root / "browser-install.log").open("w", encoding="utf-8") as output:
+        completed = subprocess.run([sys.executable, "--install-browser"], stdout=output,
+                                   stderr=output, timeout=600,
+                                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    if completed.returncode:
+        raise RuntimeError("브라우저 준비 실패. 로컬 browser-install.log를 확인하세요.")
+    (root / "browser-ready").write_text("ready", encoding="utf-8")
+
 
 class Blob(ctypes.Structure):
     _fields_ = [("size", wintypes.DWORD), ("data", ctypes.POINTER(ctypes.c_ubyte))]
@@ -118,6 +172,17 @@ def failure_record(stage: str, error: Exception) -> dict:
     return record
 
 def source_version() -> str:
+    if getattr(sys, "frozen", False):
+        import re
+        from desktop.preferences import VERSION
+        try:
+            metadata = json.loads((BUNDLE / "release-build.json").read_text(encoding="utf-8"))
+            commit = metadata.get("source_commit") if isinstance(metadata, dict) else None
+            if isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}", commit) and metadata.get("version") == VERSION:
+                return commit
+        except (OSError, ValueError):
+            pass
+        return "unknown"
     try:
         result=subprocess.run(["git","rev-parse","--short","HEAD"],cwd=ROOT,capture_output=True,text=True,timeout=2,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
         value=result.stdout.strip()
@@ -176,10 +241,11 @@ def run() -> int:
             def analyze() -> str:
                 nonlocal stage
                 stage = "services"
-                os.chdir(ROOT)
                 os.environ.update(OPENAI_API_KEY=config["openai_key"], DART_API_KEY=config.get("dart_key", ""), SEARXNG_URL=config["search"], MARKETCOUNCIL_TICKER="005930.KS", CHROMA_MODE="local", RESULTS_AUTO_UPLOAD="false")
+                prepare_runtime(config["search"])
                 from app.local_services import daily_local_services
                 services.enter_context(daily_local_services(record_cleanup_error))
+                ensure_browser()
                 stage = "analysis"
                 from app.recoverable_debate_workflow import RecoverableDebateWorkflow
                 from tools.analysis_debate_store import AnalysisDebateStore
@@ -235,11 +301,11 @@ def setup() -> None:
     from tkinter import ttk, messagebox
     from dotenv import dotenv_values
     from desktop.cloud import send_login, login_link, request
-    defaults = dotenv_values(ROOT / ".env")
-    window = tk.Tk(); window.title("MarketCouncil 매일 삼성전자 자동 게시 설정"); window.geometry("640x460")
+    defaults = {} if getattr(sys, "frozen", False) else dotenv_values(ROOT / ".env")
+    window = tk.Tk(); window.title("MarketCouncil 매일 삼성전자 자동 게시 설정"); window.geometry("640x560")
     ttk.Label(window, text="로그인 시 및 매일 오전 9시 확인 · 하루 1회 분석 후 공식 공개", wraplength=600).pack(pady=12)
     fields = {}
-    for name, label, default, secret in [("email", "공식 운영자 이메일", "tkftor8544@gmail.com", False), ("key", "OpenAI 키 · Windows 계정에 암호화 저장", defaults.get("OPENAI_API_KEY", ""), True), ("search", "검색 서비스", defaults.get("SEARXNG_URL", "http://127.0.0.1:8080"), False), ("link", "메일의 로그인 버튼 링크 복사 후 붙여넣기", "", True)]:
+    for name, label, default, secret in [("email", "공식 운영자 이메일", "" if getattr(sys, "frozen", False) else "tkftor8544@gmail.com", False), ("key", "OpenAI 키 · Windows 계정에 암호화 저장", defaults.get("OPENAI_API_KEY", ""), True), ("dart", "DART 키 (선택) · Windows 계정에 암호화 저장", defaults.get("DART_API_KEY", ""), True), ("search", "검색 서비스", defaults.get("SEARXNG_URL", "http://127.0.0.1:8080"), False), ("link", "메일의 로그인 버튼 링크 복사 후 붙여넣기", "", True)]:
         ttk.Label(window, text=label).pack(anchor="w", padx=20)
         entry = ttk.Entry(window, show="•" if secret else ""); entry.pack(fill="x", padx=20, pady=4); entry.insert(0, default or ""); fields[name] = entry
     def mail() -> None:
@@ -255,12 +321,12 @@ def setup() -> None:
             session = login_link(fields["link"].get())
             if session["user"].get("email", "").lower() != fields["email"].get().strip().lower(): raise ValueError("email")
             if request("/rest/v1/rpc/is_official_editor", {}, session["access_token"]) is not True: raise ValueError("operator")
-            save_credentials({"openai_key": key, "dart_key": defaults.get("DART_API_KEY", ""), "search": fields["search"].get().strip(), "refresh_token": session["refresh_token"]})
-            completed = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ROOT / "tools" / "install_daily_official.ps1")], capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            save_credentials({"openai_key": key, "dart_key": fields["dart"].get().strip(), "search": fields["search"].get().strip(), "refresh_token": session["refresh_token"]})
+            completed = subprocess.run(install_command(), capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
             if completed.returncode: raise RuntimeError("scheduler")
             (DATA / "setup-complete").write_text("configured", encoding="utf-8")
             messagebox.showinfo("설정 완료", "Windows 로그인과 매일 오전 9시에 자동 확인합니다. 오늘 실행을 시작합니다. 분석 결과와 근거는 공식 공개됩니다.")
-            subprocess.Popen([str(ROOT / "venv" / "Scripts" / "pythonw.exe"), "-m", "desktop.daily_official"], cwd=ROOT, creationflags=subprocess.CREATE_NO_WINDOW)
+            subprocess.Popen(launch_command(), cwd=runtime_root(), creationflags=subprocess.CREATE_NO_WINDOW)
             window.destroy()
         except Exception: messagebox.showerror("설정 실패", "키·검색 주소와 새 로그인 링크, 공식 운영자 권한을 확인하세요. 일정 등록에 실패한 경우 설정을 다시 저장하세요.")
     ttk.Button(window, text="로그인 메일 보내기", command=mail).pack(pady=5)

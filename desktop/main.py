@@ -1,4 +1,4 @@
-"""Windows desktop entry point. Keys and login sessions live in memory only."""
+"""Windows desktop entry point; daily settings are saved only on explicit setup."""
 import os
 import sys
 import json
@@ -67,8 +67,10 @@ class Desktop:
         for entry,value in [(self.company,preferences.get("company")),(self.search,preferences.get("search"))]:
             if value:entry.delete(0,"end");entry.insert(0,value)
         ttk.Button(analysis_panel,text="기업명·검색 주소 기억하기",command=self.remember).pack(anchor="w")
+        ttk.Button(setup_panel,text="운영자 · 매일 삼성전자 자동 게시 설정",command=self.setup_daily).pack(anchor="w",pady=8)
         ttk.Button(setup_panel,text="새 버전 확인",command=self.check_version).pack(anchor="w",pady=8)
-        self.version_status=ttk.Label(setup_panel,text="버전 0.4.0 · API 키와 로그인 정보는 저장하지 않습니다.")
+        from desktop.preferences import VERSION
+        self.version_status=ttk.Label(setup_panel,text=f"버전 {VERSION} · 일반 분석 키는 저장하지 않습니다. 자동 게시 설정은 Windows 계정에 암호화 저장합니다.",wraplength=780)
         self.version_status.pack(anchor="w")
         self.matched_name=None;self.company_candidates=[]
         ttk.Label(row,text="기업명으로 종목을 찾습니다. 해외 기업은 영문 이름을 입력하세요.").pack(anchor="w")
@@ -96,6 +98,13 @@ class Desktop:
             save_preferences(DATA/"preferences.json",self.company.get().strip(),self.search.get().strip())
             messagebox.showinfo("입력 설정 저장","기업명과 검색 주소를 기억합니다. API 키와 로그인 정보는 저장하지 않습니다.")
         except OSError:messagebox.showerror("저장 실패","입력 설정을 저장하지 못했습니다.")
+
+    def setup_daily(self) -> None:
+        if self.busy:return
+        from desktop.daily_official import launch_command
+        try:
+            subprocess.Popen(launch_command(setup=True),cwd=Path(sys.executable).parent if getattr(sys,"frozen",False) else Path(__file__).resolve().parent.parent,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
+        except OSError:messagebox.showerror("설정 창 실행 실패","설정 창을 열지 못했습니다. 프로그램 파일과 접근 권한을 확인하세요.")
 
     def check_version(self) -> None:
         def work() -> None:
@@ -280,7 +289,7 @@ class Desktop:
         self.root.destroy()
 
 
-if __name__=="__main__":
+def main() -> None:
     import multiprocessing
     multiprocessing.freeze_support()
     if "--install-browser" in sys.argv:
@@ -289,14 +298,26 @@ if __name__=="__main__":
         from playwright.__main__ import main
         sys.argv=["playwright","install","chromium"]
         main()
+    elif "--daily-official" in sys.argv:
+        from desktop.daily_official import run
+        raise SystemExit(run())
+    elif "--daily-setup" in sys.argv:
+        from desktop.daily_official import setup
+        setup()
     elif "--self-check" in sys.argv:
         output_path=Path(sys.argv[sys.argv.index("--self-check")+1])
         try:
             from desktop.cloud import PUBLIC_KEY
+            from desktop.daily_official import install_command, launch_command
+            if getattr(sys,"frozen",False):
+                assert Path(install_command()[5]).is_file()
+                assert launch_command() == [sys.executable,"--daily-official"]
+                assert launch_command(setup=True) == [sys.executable,"--daily-setup"]
+                assert install_command()[-2:] == ["-ExecutablePath",str(Path(sys.executable).resolve())]
             os.environ["OPENAI_API_KEY"]="self-check-not-a-real-key"
             os.environ["CHROMA_MODE"]="local"
             from tools.financial_data import TICKER_MAP
-            from app.debate_workflow import DebateWorkflow
+            from app.recoverable_debate_workflow import RecoverableDebateWorkflow
             from rag.retriever import ReportRetriever
             from playwright.__main__ import main
             from playwright._impl._driver import compute_driver_executable
@@ -307,7 +328,7 @@ if __name__=="__main__":
             import tempfile
             with tempfile.TemporaryDirectory(prefix="marketcouncil-check-",ignore_cleanup_errors=True) as temporary:
                 os.chdir(temporary)
-                workflow=DebateWorkflow()
+                workflow=RecoverableDebateWorkflow(Path(temporary)/"analysis-self-check.json","self-check","2000-01-01")
                 assert workflow.evidence_workflow.bull_tools.retriever.collection.count()==0
                 workflow.evidence_workflow.bull_tools.retriever.client._system.stop()
                 os.chdir(output_path.parent)
@@ -322,3 +343,7 @@ if __name__=="__main__":
             sys.exit(1)
     else:
         Desktop(tk.Tk()).root.mainloop()
+
+
+if __name__=="__main__":
+    main()

@@ -39,3 +39,11 @@ class PerformanceTests(unittest.TestCase):
             self.assertNotIn("private content",json.dumps(records))
             with patch('tools.run_metrics.Path.mkdir',side_effect=OSError):
                 self.assertEqual(measure_analysis("삼성전자",lambda:7,path),7)
+
+    def test_packaged_measurement_identifies_release(self) -> None:
+        from desktop.preferences import VERSION
+        with tempfile.TemporaryDirectory() as folder, patch('tools.run_metrics.sys.frozen', True, create=True):
+            path=Path(folder)
+            self.assertEqual(measure_analysis("Example",lambda:42,path),42)
+            record=json.loads(next(path.glob('*.json')).read_text(encoding="utf-8"))
+            self.assertEqual(record["version"],"desktop-v"+VERSION)

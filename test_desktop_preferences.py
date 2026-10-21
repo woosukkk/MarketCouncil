@@ -15,6 +15,6 @@ class PreferencesTest(unittest.TestCase):
             path.write_text('[]',encoding="utf-8")
             self.assertEqual(load_preferences(path),{})
     def test_only_new_desktop_releases(self):
-        releases=[{"tag_name":"web-v99.0.0"},{"tag_name":"desktop-v0.4.1"},{"tag_name":"desktop-v0.5.0","draft":True},{"tag_name":"desktop-vbad"}]
-        self.assertEqual(newer_release(releases)["tag_name"],"desktop-v0.4.1")
+        releases=[{"tag_name":"web-v99.0.0"},{"tag_name":"desktop-v0.5.1"},{"tag_name":"desktop-v0.6.0","draft":True},{"tag_name":"desktop-vbad"}]
+        self.assertEqual(newer_release(releases)["tag_name"],"desktop-v0.5.1")
         self.assertIsNone(newer_release([{"tag_name":"desktop-v0.3.0"}]))
