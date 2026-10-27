@@ -34,3 +34,15 @@ Vercel의 gitDirty=1 표시 때문에 태그는 배포 메타데이터의 기준
 6. 배포하지 않은 코드 변경은 배포 버전으로 기록하지 않습니다.
 
 Railway의 과거 배포는 이번에 정확한 배포 커밋/시각 기록을 확인하지 못해 태그를 추정해서 만들지 않았습니다.
+
+
+## 2026-10-27 검증 배포
+
+| 버전 | 실제 빌드 커밋 | 배포 주소 |
+| --- | --- | --- |
+| desktop-v0.5.0 | b9f2f87e65d27f944c79b7813c28206519e00826 | https://github.com/woosukkk/MarketCouncil/releases/tag/desktop-v0.5.0 |
+| web-v0.11.0 | b9f2f87e65d27f944c79b7813c28206519e00826 | https://frontend-m12kpx7qw-woosukk.vercel.app |
+
+현재 공개 다운로드는 desktop-v0.5.0의 MarketCouncil-Windows.zip입니다. 위 Windows 프로그램 절의 0.1.x 현재 파일·해시 설명은 과거 기록입니다. 0.4.0 릴리스 자산은 유지했습니다.
+
+검증한 커밋의 git archive 스냅샷에서 빌드해 기존 미커밋 작업을 포함하지 않았습니다. 웹의 운영 주소는 https://frontend-six-pi-h5i7tztups.vercel.app 이며, Vercel 배포 dpl_GAAWK2MqLR8aJxACQN774HPxAAqM의 프로덕션 연결과 공개 페이지 응답을 확인했습니다. 두 버전은 annotated tag로 실제 빌드 커밋을 가리킵니다. 상세 검증과 제한은 release-verification-2026-10-27.md 및 이슈 #23을 참조합니다.
