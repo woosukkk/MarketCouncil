@@ -1,3 +1,4 @@
+from tools.run_metrics import create_response, measure_stage
 import json
 from typing import Any
 
@@ -74,6 +75,7 @@ class DebateNavigatorAgent:
     def __init__(self, client: OpenAI | None = None) -> None:
         self.client = client or OpenAI(api_key=OPENAI_API_KEY)
 
+    @measure_stage("navigation")
     def analyze(self, debate: dict[str, Any]) -> dict[str, Any]:
         payload = {
             "agenda": debate.get("agenda", []),
@@ -82,7 +84,7 @@ class DebateNavigatorAgent:
             "moderator_summary": debate.get("moderator_summary", {}),
         }
         try:
-            response = self.client.responses.create(
+            response = create_response(self.client, "debate_navigation",
                 model=MODEL_NAME,
                 instructions=DEBATE_NAVIGATOR_PROMPT,
                 text={

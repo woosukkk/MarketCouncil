@@ -3,6 +3,8 @@ import copy
 import hashlib
 import json
 import threading
+import time
+from tools.run_metrics import record_cached_stage
 from pathlib import Path
 from typing import Any, Callable
 
@@ -16,10 +18,14 @@ class AnalysisCheckpoint:
             self.steps=record["steps"]
 
     def call(self, name: str, callback: Callable, *args: Any, **kwargs: Any) -> Any:
+        started=time.perf_counter()
         fingerprint=hashlib.sha256(json.dumps([args,kwargs],sort_keys=True,ensure_ascii=False,default=str).encode()).hexdigest()
         with self._lock:
             cached=self.steps.get(name)
-            if cached and cached.get("input_hash")==fingerprint:return copy.deepcopy(cached["value"])
+            if cached and cached.get("input_hash")==fingerprint:
+                value=copy.deepcopy(cached["value"])
+                record_cached_stage(name,(time.perf_counter()-started)*1000)
+                return value
         value=callback(*args,**kwargs)
         # Independent stages may finish together; persist both without holding the lock during API calls.
         with self._lock:

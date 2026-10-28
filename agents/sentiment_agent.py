@@ -1,3 +1,4 @@
+from tools.run_metrics import measure_stage
 from typing import Any
 
 from tools.source_collector import SourceCollector
@@ -7,6 +8,7 @@ class SentimentAgent:
     def __init__(self) -> None:
         self.source_collector = SourceCollector()
 
+    @measure_stage("sentiment")
     def analyze(
         self,
         company_name: str,

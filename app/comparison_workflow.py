@@ -1,3 +1,4 @@
+from tools.run_metrics import measure_stage
 import json
 from typing import TypedDict
 
@@ -40,6 +41,7 @@ class ComparisonWorkflow:
         self.evidence_resolver = EvidenceResolver()
         self.graph = self._build_graph()
 
+    @measure_stage("financial_data")
     def collect_financial_data(
         self,
         state: ComparisonState,
@@ -58,6 +60,7 @@ class ComparisonWorkflow:
             "financial_data": financial_data,
         }
 
+    @measure_stage("bull_report_search")
     def retrieve_bull_reports(
         self,
         state: ComparisonState,
@@ -77,6 +80,7 @@ class ComparisonWorkflow:
             "bull_chunks": bull_chunks,
         }
 
+    @measure_stage("valuation")
     def calculate_quality_and_valuation(
         self,
         state: ComparisonState,
@@ -89,6 +93,7 @@ class ComparisonWorkflow:
         print("[1.1] 공통 품질·가치 지표 계산 완료")
         return {"financial_data": financial_data}
 
+    @measure_stage("filing_search")
     def retrieve_regulatory_filings(
         self,
         state: ComparisonState,
@@ -101,6 +106,7 @@ class ComparisonWorkflow:
         print("[2] 공식 공시 검색 완료")
         return {"filing_chunks": filing_chunks}
 
+    @measure_stage("bear_report_search")
     def retrieve_bear_reports(
         self,
         state: ComparisonState,
@@ -120,6 +126,7 @@ class ComparisonWorkflow:
             "bear_chunks": bear_chunks,
         }
 
+    @measure_stage("report_context")
     def build_report_contexts(
         self,
         state: ComparisonState,
@@ -165,6 +172,7 @@ class ComparisonWorkflow:
             ),
         }
 
+    @measure_stage("web_collection")
     def collect_web_sources(
         self,
         state: ComparisonState,
@@ -182,6 +190,7 @@ class ComparisonWorkflow:
             "source_data": source_data,
         }
 
+    @measure_stage("web_context")
     def build_web_contexts(
         self,
         state: ComparisonState,
@@ -199,6 +208,7 @@ class ComparisonWorkflow:
             "shared_web_context": shared_web_context,
         }
 
+    @measure_stage("evidence_resolution")
     def resolve_evidence(
         self,
         state: ComparisonState,
@@ -369,6 +379,7 @@ URL: {article.get("url", "")}"""
 
         return builder.compile()
 
+    @measure_stage("collect")
     def run(
         self,
         company_name: str,

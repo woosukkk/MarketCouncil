@@ -1,3 +1,4 @@
+from tools.run_metrics import create_response, measure_stage
 import json
 from typing import Any
 
@@ -55,6 +56,7 @@ class VideoDebateAgent:
         self.transcript_tool = YouTubeTranscriptTool()
         self.shorts_tool = YouTubeChannelShorts()
 
+    @measure_stage("shorts")
     def run_latest_short_topics(self, company_name: str) -> dict[str, Any]:
         shorts = self.shorts_tool.latest(limit=3)
         transcripts: list[dict[str, Any]] = []
@@ -87,6 +89,7 @@ class VideoDebateAgent:
             "topics": topics,
         }
 
+    @measure_stage("video_topics")
     def _extract_topics(
         self,
         company_name: str,
@@ -98,7 +101,7 @@ class VideoDebateAgent:
             "shorts": transcripts,
         }
         try:
-            response = self.client.responses.create(
+            response = create_response(self.client, "shorts_debate_topics",
                 model=MODEL_NAME,
                 instructions=VIDEO_TOPIC_SYSTEM_PROMPT,
                 text={
@@ -185,6 +188,7 @@ class VideoDebateAgent:
             f"{transcript_text}"
         )
 
+    @measure_stage("video_summary")
     def _response(
         self,
         instructions: str,
@@ -192,7 +196,7 @@ class VideoDebateAgent:
         max_output_tokens: int,
     ) -> str:
         try:
-            response = self.client.responses.create(
+            response = create_response(self.client, "video_summary",
                 model=MODEL_NAME,
                 instructions=instructions,
                 input=input_text,

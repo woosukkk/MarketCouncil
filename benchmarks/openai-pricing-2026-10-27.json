@@ -1,0 +1,10 @@
+{
+  "model": "gpt-5-mini",
+  "as_of": "2026-10-27",
+  "source": "openai_api_pricing",
+  "source_url": "https://developers.openai.com/api/docs/models/gpt-5-mini",
+  "currency": "USD",
+  "input_per_million": 0.25,
+  "cached_input_per_million": 0.025,
+  "output_per_million": 2.0
+}

@@ -1,3 +1,4 @@
+from tools.run_metrics import measure_stage
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, TypedDict
@@ -155,12 +156,14 @@ class AnalysisDebateAgent:
             "bear_rebuttal": latest.get("bear_response", {}),
         }
 
+    @measure_stage("create_agenda")
     def create_agenda(self, state: DebateState) -> DebateState:
         print("\n[중재자 토론 의제 선정 시작]")
         result = self.moderator.create_agenda(state["debate_input"])
         print("[중재자 토론 의제 선정 완료]")
         return {"agenda": result.get("agenda", [])}
 
+    @measure_stage("bull_turn")
     def bull_turn(self, state: DebateState) -> DebateState:
         round_number = state["current_round"]
         print(f"\n[토론 {round_number}라운드 상승 관점 발언 시작]")
@@ -168,6 +171,7 @@ class AnalysisDebateAgent:
         print(f"[토론 {round_number}라운드 상승 관점 발언 완료]")
         return {"bull_response": response}
 
+    @measure_stage("bear_turn")
     def bear_turn(self, state: DebateState) -> DebateState:
         round_number = state["current_round"]
         print(f"\n[토론 {round_number}라운드 하락 관점 반론 시작]")
@@ -175,6 +179,7 @@ class AnalysisDebateAgent:
         print(f"[토론 {round_number}라운드 하락 관점 반론 완료]")
         return {"bear_response": response}
 
+    @measure_stage("moderator_review")
     def moderator_review(self, state: DebateState) -> DebateState:
         round_number = state["current_round"]
         print(f"\n[중재자 {round_number}라운드 검토 시작]")
@@ -233,6 +238,7 @@ class AnalysisDebateAgent:
             "bear_response": {},
         }
 
+    @measure_stage("summarize")
     def summarize(self, state: DebateState) -> DebateState:
         review = state.get("moderator_review", {})
         if state["current_round"] >= state["max_rounds"]:

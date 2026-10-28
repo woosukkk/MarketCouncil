@@ -252,8 +252,7 @@ def run() -> int:
                 from tools.debate_transcript_renderer import DebateTranscriptRenderer
                 from tools.run_metrics import measure_analysis
                 os.environ["RESULTS_RESPONSE_METRICS_DIR"]=str(DATA / "response-metrics")
-                workflow=RecoverableDebateWorkflow(DATA / ("analysis-"+today()+".json"),"삼성전자",today())
-                result = measure_analysis("삼성전자", lambda: workflow.run("삼성전자"), DATA.parent / "metrics")
+                result = measure_analysis("삼성전자", lambda: RecoverableDebateWorkflow(DATA / ("analysis-"+today()+".json"),"삼성전자",today()).run("삼성전자"), DATA.parent / "metrics")
                 path = Path(AnalysisDebateStore().save("삼성전자", result)).resolve()
                 DebateTranscriptRenderer().save(result)
                 return str(path)

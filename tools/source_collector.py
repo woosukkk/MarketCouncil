@@ -1,3 +1,4 @@
+from tools.run_metrics import create_response, measure_stage
 import json
 import re
 import time
@@ -85,6 +86,7 @@ class SourceCollector:
         normalized["source_documents"] = documents
         return normalized
 
+    @measure_stage("source_classification")
     def _classify_batches(
         self,
         company_name: str,
@@ -108,7 +110,7 @@ class SourceCollector:
             last_error: Exception | None = None
             for attempt in range(2):
                 try:
-                    response = self.client.responses.create(
+                    response = create_response(self.client, "source_collection",
                         model=MODEL_NAME,
                         instructions=SOURCE_COLLECTION_PROMPT,
                         text={

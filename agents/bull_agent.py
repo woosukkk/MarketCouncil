@@ -1,3 +1,4 @@
+from tools.run_metrics import create_response, measure_stage
 from openai import OpenAI
 
 from agents.bull_prompt import BULL_SYSTEM_PROMPT
@@ -36,6 +37,7 @@ class BullAgent:
             retrieved_chunks,
         )
 
+    @measure_stage("bull_initial")
     def analyze_with_context(
         self,
         company_name: str,
@@ -94,7 +96,7 @@ class BullAgent:
 출처와 게시일을 표시해.
 """.strip()
 
-        response = self.client.responses.create(
+        response = create_response(self.client, "bull_initial",
             model=MODEL_NAME,
             instructions=BULL_SYSTEM_PROMPT,
             input=user_prompt,

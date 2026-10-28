@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from typing import Any
 
 from agents.analysis_debate_agent import AnalysisDebateAgent
@@ -91,6 +92,7 @@ class DebateWorkflow:
         print("\n[상승·하락 관점 최초 분석 시작]")
         with ThreadPoolExecutor(max_workers=2) as executor:
             bull_future = executor.submit(
+                copy_context().run,
                 self.bull_agent.analyze_with_context,
                 company_name=company_name,
                 financial_data=financial_data,
@@ -98,6 +100,7 @@ class DebateWorkflow:
                 web_context=context["bull_web_context"],
             )
             bear_future = executor.submit(
+                copy_context().run,
                 self.bear_agent.analyze_with_context,
                 company_name=company_name,
                 financial_data=financial_data,

@@ -1,3 +1,4 @@
+from tools.run_metrics import create_response
 import json
 from typing import Any
 
@@ -19,7 +20,7 @@ class ReportSourceCollector:
         ticker: str | None = None,
     ) -> dict[str, Any]:
         try:
-            response = self.client.responses.create(
+            response = create_response(self.client, "report_source_collection",
                 model=MODEL_NAME,
                 instructions=REPORT_SOURCE_PROMPT,
                 tools=[{

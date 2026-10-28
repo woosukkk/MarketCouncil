@@ -1,3 +1,4 @@
+from tools.run_metrics import create_response, measure_stage
 import json
 from typing import Any
 
@@ -54,9 +55,10 @@ class RegimeReasonAgent:
     def __init__(self, client: OpenAI | None = None) -> None:
         self.client = client or OpenAI(api_key=OPENAI_API_KEY)
 
+    @measure_stage("regime_reasons")
     def analyze(self, payload: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
         try:
-            response = self.client.responses.create(
+            response = create_response(self.client, "regime_reasons",
                 model=MODEL_NAME,
                 instructions=REGIME_REASON_PROMPT,
                 text={

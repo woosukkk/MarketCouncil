@@ -1,3 +1,4 @@
+from tools.run_metrics import create_response
 from openai import OpenAI
 
 from config import MODEL_NAME, OPENAI_API_KEY
@@ -47,7 +48,7 @@ class WebSearchTool:
 자료가 없으면 "최신 긍정 근거 없음"이라고 작성한다.
 """
 
-        response = self.client.responses.create(
+        response = create_response(self.client, "bull_web_search",
             model=MODEL_NAME,
             tools=[
                 {
@@ -99,7 +100,7 @@ class WebSearchTool:
 자료가 없으면 "최신 부정 근거 없음"이라고 작성한다.
 """
 
-        response = self.client.responses.create(
+        response = create_response(self.client, "bear_web_search",
             model=MODEL_NAME,
             tools=[
                 {

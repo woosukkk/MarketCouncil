@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from tools.run_metrics import create_response
 
 class ResponseIncomplete(ValueError):
     def __init__(self, response: Any) -> None:
@@ -36,7 +37,7 @@ def structured_response(client: Any, instructions: str, input_text: str, name: s
     for attempt in range(3):
         response=None
         try:
-            response=client.responses.create(model=__import__("config").MODEL_NAME,instructions=instructions,text={"format":{"type":"json_schema","name":name,"strict":True,"schema":schema}},input=input_text,reasoning={"effort":"minimal"},max_output_tokens=limit)
+            response=create_response(client,name,model=__import__("config").MODEL_NAME,instructions=instructions,text={"format":{"type":"json_schema","name":name,"strict":True,"schema":schema}},input=input_text,reasoning={"effort":"minimal"},max_output_tokens=limit)
         except Exception as error:
             record_response(name,limit,error=error)
             status=getattr(error,"status_code",None);code=getattr(error,"code",None)

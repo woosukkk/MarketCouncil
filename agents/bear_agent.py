@@ -1,3 +1,4 @@
+from tools.run_metrics import create_response, measure_stage
 from openai import OpenAI
 
 from agents.bear_prompt import BEAR_SYSTEM_PROMPT
@@ -36,6 +37,7 @@ class BearAgent:
             retrieved_chunks,
         )
 
+    @measure_stage("bear_initial")
     def analyze_with_context(
         self,
         company_name: str,
@@ -97,7 +99,7 @@ class BearAgent:
 출처와 게시일을 표시해.
 """.strip()
 
-        response = self.client.responses.create(
+        response = create_response(self.client, "bear_initial",
             model=MODEL_NAME,
             instructions=BEAR_SYSTEM_PROMPT,
             input=user_prompt,

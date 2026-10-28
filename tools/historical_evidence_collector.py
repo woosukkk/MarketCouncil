@@ -1,3 +1,4 @@
+from tools.run_metrics import measure_stage
 import asyncio
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -20,6 +21,7 @@ class HistoricalEvidenceCollector:
             else None
         )
 
+    @measure_stage("history")
     def collect(self, company_name: str, ticker: str) -> list[dict[str, Any]]:
         today = date.today()
         start_date = today - timedelta(days=365 * 3)

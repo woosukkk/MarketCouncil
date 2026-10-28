@@ -1,3 +1,4 @@
+from tools.run_metrics import measure_stage
 from datetime import date
 from typing import Any, Callable
 
@@ -19,6 +20,7 @@ class RegimeWorkflow:
         self.reason_agent = reason_agent or RegimeReasonAgent()
         self.history_provider = history_provider
 
+    @measure_stage("regime")
     def run(
         self,
         company_name: str,
