@@ -46,3 +46,13 @@ Railway의 과거 배포는 이번에 정확한 배포 커밋/시각 기록을 �
 현재 공개 다운로드는 desktop-v0.5.0의 MarketCouncil-Windows.zip입니다. 위 Windows 프로그램 절의 0.1.x 현재 파일·해시 설명은 과거 기록입니다. 0.4.0 릴리스 자산은 유지했습니다.
 
 검증한 커밋의 git archive 스냅샷에서 빌드해 기존 미커밋 작업을 포함하지 않았습니다. 웹의 운영 주소는 https://frontend-six-pi-h5i7tztups.vercel.app 이며, Vercel 배포 dpl_GAAWK2MqLR8aJxACQN774HPxAAqM의 프로덕션 연결과 공개 페이지 응답을 확인했습니다. 두 버전은 annotated tag로 실제 빌드 커밋을 가리킵니다. 상세 검증과 제한은 release-verification-2026-10-27.md 및 이슈 #23을 참조합니다.
+
+
+## 2026-10-28 관리자 측정 배포
+
+- web-v0.12.0: 0918b6e8255c9ce44e8f8682e7ab949e8ca87432
+- 배포 주소: https://frontend-5akd9zjnw-woosukk.vercel.app
+- 운영 주소: https://frontend-six-pi-h5i7tztups.vercel.app/app?view=admin
+- Vercel 배포: dpl_7xhd1fqxmiFxU3TzGvwx9vyBTBDt, READY와 기존 운영 주소 연결 확인.
+- 단계/API 토큰 관측과 답변 근거 품질 관리자 탭을 배포했다. 기존 Windows 다운로드 desktop-v0.5.0은 유지한다. 상세 수집은 최신 소스 실행부터 지원하며 이번에 새 Windows 패키지를 만들지 않았다.
+- 깨끗한 커밋 스냅샷을 배포했고 공개 /, /app?view=admin, /download 및 실제 JS index-BRrqQEMN.js 응답과 새 기능 문구를 확인했다.
