@@ -6,7 +6,7 @@ import math
 import statistics
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 
@@ -33,7 +33,7 @@ def score(case: dict, retrieved: list[dict]) -> dict:
     matches=lambda gold,row:row.get("source")==gold["source"] and ("chunk_id" not in gold or str(row.get("chunk_id"))==str(gold["chunk_id"]))
     hits=[any(matches(gold,row) for row in retrieved) for gold in expected]
     relevant=[any(matches(gold,row) for gold in expected) for row in retrieved]
-    cutoff=datetime.fromisoformat(case["as_of_date"]+"T23:59:59").timestamp()
+    cutoff=datetime.fromisoformat(case["as_of_date"]+"T23:59:59").replace(tzinfo=timezone(timedelta(hours=9))).timestamp()
     metadata=[row.get("metadata") or {} for row in retrieved]
     return {"recall":sum(hits)/len(hits),"precision":sum(relevant)/len(retrieved) if retrieved else 0,"mrr":next((1/(i+1) for i,v in enumerate(relevant) if v),0),"hit":int(any(hits)),"mixed_company":sum(bool(x.get("company")) and x["company"]!=case["company"] for x in metadata),"unknown_company":sum(not x.get("company") for x in metadata),"future_sources":sum(float(x.get("published_timestamp",0) or 0)>cutoff for x in metadata),"retrieved_count":len(retrieved)}
 
