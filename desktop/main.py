@@ -331,12 +331,34 @@ def main() -> None:
                 workflow=RecoverableDebateWorkflow(Path(temporary)/"analysis-self-check.json","self-check","2000-01-01")
                 assert workflow.evidence_workflow.bull_tools.retriever.collection.count()==0
                 workflow.evidence_workflow.bull_tools.retriever.client._system.stop()
+                # Exercise bundled pricing and measurements without an SDK or paid call.
+                from types import SimpleNamespace as NS
+                from tools.run_metrics import create_response, measure_analysis, measure_stage
+                from desktop.preferences import VERSION
+                response=NS(status="completed",usage=NS(input_tokens=100,output_tokens=10,
+                    input_tokens_details=NS(cached_tokens=25),output_tokens_details=NS(reasoning_tokens=4)))
+                client=NS(responses=NS(create=lambda **kwargs:response))
+                def synthetic_analysis() -> object:
+                    with measure_stage("summarize"):
+                        return create_response(client,"debate_summary",model="gpt-5-mini",input="synthetic-self-check")
+                metrics=Path(temporary)/"metrics"
+                assert measure_analysis("synthetic-packaging-check",synthetic_analysis,metrics) is response
+                record=json.loads(next(metrics.glob("*.json")).read_text(encoding="utf-8"))
+                assert record["version"] == ("desktop-v"+VERSION if getattr(sys,"frozen",False) else "source")
+                assert record["llm"]["pricing"]["model"] == "gpt-5-mini"
+                assert record["llm"]["request_count"] == record["llm"]["usage_known_calls"] == 1
+                assert record["llm"]["input_tokens"] == 100 and record["llm"]["output_tokens"] == 10
+                assert record["llm"]["cached_input_tokens"] == 25 and record["llm"]["reasoning_tokens"] == 4
+                assert record["llm"]["cost_status"] == "estimated" and record["llm"]["estimated_cost_usd"] > 0
+                assert record["llm"]["by_phase"][0]["phase"] == "debate_summary"
+                assert record["stages"][0]["name"] == "summarize"
+                assert "synthetic-self-check" not in json.dumps(record)
                 os.chdir(output_path.parent)
             root=tk.Tk();root.withdraw();ui=Desktop(root)
             assert ui.run_button.winfo_exists()
             root.destroy()
             assert PUBLIC_KEY.startswith("sb_publishable_")
-            output_path.write_text("desktop imports OK",encoding="utf-8")
+            output_path.write_text("desktop imports OK; synthetic stage/token/pricing checks OK",encoding="utf-8")
         except Exception:
             import traceback
             output_path.write_text(traceback.format_exc(),encoding="utf-8")

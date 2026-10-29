@@ -25,7 +25,7 @@ function ApiObservations({report}){
  const llm=report.llm;
  return <section>
   <h2>최근 분석의 단계와 API 관측</h2>
-  {!llm?<p className="muted">이 기록에는 상세 계측이 없습니다. 현재 다운로드 0.5.0은 전체 시간만 수집합니다. 새 단계·토큰 계측은 업데이트한 소스의 다음 실행부터 기록됩니다.</p>:<>
+  {!llm?<p className="muted">이 기록에는 상세 계측이 없습니다. Windows 0.6.0 이상 또는 최신 소스로 새 분석을 실행하면 단계·토큰 계측이 기록됩니다. 0.5.0은 전체 시간만 수집하며 이전 기록은 유지됩니다.</p>:<>
    <div className="detail-metrics">
     <div><span>관측 API 요청 / 오류</span><strong>{metricText(llm.request_count)} / {metricText(llm.error_count)}</strong></div>
     <div><span>관측 입력 / 출력 토큰</span><strong>{metricText(llm.input_tokens)} / {metricText(llm.output_tokens)}</strong></div>
@@ -137,7 +137,7 @@ export default function Admin({session,allowed,checking}){
    <h2>RAG 검색 품질</h2><div className="detail-metrics">{[['정답 근거 포함률','recall'],['검색 정밀도','precision'],['정답의 검색 순위 · MRR','mrr'],['검색 지연 p95 · ms','p95_ms']].map(([label,key])=><div key={key}><span>{label}</span><strong>{metricText(latest?.metrics[key],key!=='p95_ms')}</strong></div>)}</div>
    <p className="muted">최신 검색 평가 기록 기준입니다. 정답 근거가 지정된 고정 질문으로 측정하며 모델 준비 시간은 제외합니다. 데이터셋·문서 저장소·모델·검색 개수가 같은 기록끼리 비교하세요. 답변의 의미 판정은 별도 탭에서 확인합니다.</p>
   </>}
-  {!loading&&reports.length===0&&<div className="paper"><h3>아직 측정 기록이 없습니다.</h3><p>{tab==='quality'?'로컬 검토 파일에 사람 정답을 작성하고 별도 예측 파일과 비교한 품질 보고서를 가져오세요. 원문이 든 검토 파일은 업로드하지 마세요. 검수 전 보고서는 의미 품질을 미평가로 표시합니다.':tab==='rag'?'실제 문서에서 질문과 정답 근거를 지정한 평가 데이터셋을 준비한 뒤, 로컬 평가 결과를 가져오세요. 임의 점수나 예시 결과는 표시하지 않습니다.':'Windows 프로그램 0.5.0 이상 또는 소스의 분석에서 생성되는 MarketCouncil/metrics 기록을 가져오세요. 0.5.0은 전체 시간만 수집하고 새 상세 계측은 소스의 다음 실행부터 기록됩니다. 이전 실행에 새 수치를 소급 생성하지 않습니다.'}</p></div>}
+  {!loading&&reports.length===0&&<div className="paper"><h3>아직 측정 기록이 없습니다.</h3><p>{tab==='quality'?'로컬 검토 파일에 사람 정답을 작성하고 별도 예측 파일과 비교한 품질 보고서를 가져오세요. 원문이 든 검토 파일은 업로드하지 마세요. 검수 전 보고서는 의미 품질을 미평가로 표시합니다.':tab==='rag'?'실제 문서에서 질문과 정답 근거를 지정한 평가 데이터셋을 준비한 뒤, 로컬 평가 결과를 가져오세요. 임의 점수나 예시 결과는 표시하지 않습니다.':'Windows 프로그램 또는 소스의 분석에서 생성되는 MarketCouncil/metrics 기록을 가져오세요. 0.6.0 이상은 단계·API 토큰·관측 비용 추정을, 0.5.0은 전체 시간만 수집합니다. 이전 실행에 새 수치를 소급 생성하지 않습니다.'}</p></div>}
   {tab==='monitoring'&&web&&<>
    <h2>웹 페이지 성능 · Lighthouse</h2><div className="detail-metrics">{[['성능 점수','performance_score'],['주요 콘텐츠 표시 · LCP ms','lcp_ms'],['화면 이동 · CLS','cls'],['작업 지연 · TBT ms','tbt_ms']].map(([label,key])=><div key={key}><span>{label}</span><strong>{metricText(web.metrics[key],key==='performance_score')}</strong></div>)}</div><p className="muted">{new Date(web.recorded_at).toLocaleString('ko-KR')} · {web.settings.form_factor} 실험실 측정 1회 · Lighthouse {web.settings.lighthouse_version}. 실제 방문자 평균이나 서비스 가용성 지표가 아닙니다.</p>
   </>}
