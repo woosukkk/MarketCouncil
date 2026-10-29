@@ -56,3 +56,12 @@ Railway의 과거 배포는 이번에 정확한 배포 커밋/시각 기록을 �
 - Vercel 배포: dpl_7xhd1fqxmiFxU3TzGvwx9vyBTBDt, READY와 기존 운영 주소 연결 확인.
 - 단계/API 토큰 관측과 답변 근거 품질 관리자 탭을 배포했다. 기존 Windows 다운로드 desktop-v0.5.0은 유지한다. 상세 수집은 최신 소스 실행부터 지원하며 이번에 새 Windows 패키지를 만들지 않았다.
 - 깨끗한 커밋 스냅샷을 배포했고 공개 /, /app?view=admin, /download 및 실제 JS index-BRrqQEMN.js 응답과 새 기능 문구를 확인했다.
+
+## 2026-10-29 Windows 상세 계측 배포
+
+| 버전 | 실제 빌드 커밋 | 배포 주소 |
+| --- | --- | --- |
+| desktop-v0.6.0 | ba1c20d2235b3d7015350409fadeae9d6e580814 | https://github.com/woosukkk/MarketCouncil/releases/tag/desktop-v0.6.0 |
+| web-v0.12.1 | ba1c20d2235b3d7015350409fadeae9d6e580814 | https://frontend-okye0n5e9-woosukk.vercel.app |
+
+현재 다운로드는 0.6.0이며 0.5.0의 기존 자산은 유지한다. 새 Windows 분석부터 상세 단계·API 관측·토큰 비용 추정 JSON을 생성한다. 실제 ZIP/EXE·공개 SHA-256·웹 운영 주소와 번들을 확인했다. Vercel 배포는 dpl_8DrSig2TpDDgFU9E6PMQiaKQH5XB이며 운영 주소는 https://frontend-six-pi-h5i7tztups.vercel.app 이다. 두 annotated tag는 실제 빌드 커밋을 가리킨다. 실제 유료 분석·EXE 예약 등록·다른 PC 전체 실행은 검증하지 않았다. 자세한 결과는 release-verification-2026-10-29.md 및 이슈 #25에 기록했다.
