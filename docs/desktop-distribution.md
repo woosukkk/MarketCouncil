@@ -4,7 +4,7 @@ Windows 64-bit MarketCouncil.exe runs analysis locally and ships no owner creden
 
 Install Docker Desktop first and start it. The app prepares its bundled SearXNG configuration in %LOCALAPPDATA%/MarketCouncil/infra. On first use, an empty local Chroma collection returns no report excerpts; the analysis uses available web and financial evidence. Only a populated report library loads BGE-M3 and downloads its model to the user data folder. Documents must have matching company metadata to appear in company-specific searches.
 
-Enter company name and a Yahoo Finance ticker explicitly (e.g. 000660.KS or AAPL). Availability depends on upstream financial data, public documents and search sources. DART API key is optional and improves Korean filing collection. The user's OpenAI key pays for analysis calls.
+Enter a company name, use Find company, then select the official name/exchange/ticker candidate. Known Korean aliases and NAVER are checked against the KIND listing by ticker before partial-name matching; the CLI also accepts a uniquely resolved company name. Availability depends on upstream financial data, public documents and search sources. DART API key is optional and improves Korean filing collection. The user's OpenAI key pays for analysis calls.
 
 Login uses the existing email-link flow. Copy the login button URL from the email without opening it, then paste it into the desktop account connection field. Tokens are one-use; request a new email if already consumed. Default Supabase mail delivery only supports project team emails until custom SMTP is configured.
 
@@ -122,3 +122,10 @@ Windows 폴더형 ZIP에 현재 소스의 기업 검색 수정, 결과 형식 �
 새 ZIP을 별도 폴더에 풀고 실행한다. 자동 게시를 이용한다면 새 폴더에서 설정을 다시 저장해 예약 실행 경로를 갱신한다. 기존 결과·계정 설정과 예약 작업은 이번 배포에서 변경하지 않았다. 다운로드: https://frontend-six-pi-h5i7tztups.vercel.app/download
 
 ZIP을 푼 EXE의 별도 프로필 초기화와 합성 계측 검사를 통과했다. 실제 새 유료 분석·실제 EXE 예약 등록·다른 PC 전체 실행은 검증하지 않았다. 자세한 결과와 SHA-256은 release-verification-2026-10-29.md를 참고한다.
+
+
+## 2026-11-03 국내·미국 기업 확장 검증
+
+SK하이닉스·현대차·NAVER·Apple·Microsoft의 공개 기업 조회와 재무 수집을 확인했다. `현대차`가 `현대차증권`으로 부분 일치하던 문제는 알려진 이름을 종목코드로 먼저 확인해 수정했다. Desktop은 선택한 정식 기업명·티커를 함께 연결하고, 구형 로컬 runner는 선택 기업의 값을 자식 프로세스에 전달해 이전 기업의 환경값이 섞이지 않게 한다. 알려진 기업의 잘못된 이전 티커와 기업명 바인딩 불일치는 재무 조회 전에 차단한다.
+
+사용자는 여러 후보 중 이름·거래소·종목코드를 보고 선택해야 한다. 다른 거래소의 명시적 선택을 기본 종목으로 덮어쓰지 않는다. 개인 분석·저장은 여러 기업을 지원하지만 삼성전자 공식 일일 자동 게시 설정은 유지한다. 회사명이 다른 기존 로컬 문서의 별칭 통합이나 미국 SEC 공시의 자동 역사 수집까지 완료한 것은 아니다. 실제 유료 AI 토론·의미 품질·새 PC 전체 실행은 이번 검사에 포함하지 않는다. [다기업 검증 기록](multi-company-verification-2026-11-03.md)을 참고한다.

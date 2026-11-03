@@ -33,3 +33,31 @@ test('result upload retains the analysis evidence cutoff date',()=>{
  const payload=prepareResult(JSON.stringify({...result,analysis_as_of:'2026-10-16'}));
  assert.equal(payload.analysis_as_of,'2026-10-16');
 });
+
+test('five companies uploaded on the same day keep separate private result identities',async()=>{
+ const companies=[['SK하이닉스','000660.KS'],['현대차','005380.KS'],['NAVER','035420.KS'],['Apple Inc.','AAPL'],['Microsoft Corporation','MSFT']];
+ const inserts=[];
+ const client={from:table=>{
+  assert.equal(table,'discussions');
+  return {select:()=>({eq:(_key,id)=>({maybeSingle:async()=>({data:inserts.find(row=>row.id===id)||null})})}),insert:async row=>{inserts.push(row);return {error:null}}};
+ }};
+ const session={user:{id:'owner'}};
+ for(const [company_name,ticker] of companies){
+  const text=JSON.stringify({...result,company_name,financial_data:{ticker},created_at:'2026-11-03T09:00:00'});
+  assert.deepEqual(await uploadResult(client,session,text),{duplicate:false});
+  assert.deepEqual(await uploadResult(client,session,text),{duplicate:true});
+ }
+ assert.equal(inserts.length,companies.length);
+ assert.equal(new Set(inserts.map(row=>row.id)).size,companies.length);
+ for(const [index,[company_name,ticker]] of companies.entries()){
+  const row=inserts[index];
+  assert.equal(row.user_id,'owner');
+  assert.equal(row.company_name,company_name);
+  assert.equal(row.ticker,ticker);
+  assert.equal(row.analysis_date,'2026-11-03T09:00:00');
+  assert.equal(row.payload.company_name,company_name);
+  assert.equal(row.payload.financial_data.ticker,ticker);
+  assert.ok(!('visibility' in row));
+  assert.ok(!('share_token' in row));
+ }
+});

@@ -65,3 +65,26 @@ test('official badges require a matching public discussion',async()=>{
  assert.deepEqual(publicOfficialSelections(selections,[]),[]);
  assert.equal(selections.length,4);
 });
+
+test('same-day research from five companies remains separate when merged and filtered',async()=>{
+ const {mergeLibrary,researchRows}=await import('./data.js');
+ const companies=[['SK하이닉스','000660.KS'],['현대차','005380.KS'],['NAVER','035420.KS'],['Apple Inc.','AAPL'],['Microsoft Corporation','MSFT']];
+ const rows=companies.map(([company_name,ticker],index)=>({id:`official-${index}`,company_name,ticker,analysis_date:'2026-11-03T09:00:00',visibility:'public'}));
+ const archive=rows.map(row=>({id:`archive-${row.id}`,company_name:row.company_name,ticker:row.ticker,created_at:row.analysis_date}));
+ const dates=rows.map(row=>({discussion_id:row.id,publication_date:'2026-11-03'}));
+ const before=JSON.stringify({rows,archive,dates});
+ const merged=mergeLibrary(archive,dates,rows);
+ assert.equal(merged.length,companies.length);
+ assert.deepEqual(new Set(merged.map(row=>row.id)),new Set(rows.map(row=>row.id)));
+ for(const [company_name,ticker] of companies){
+  const own=merged.find(row=>row.company_name===company_name);
+  assert.equal(own.ticker,ticker);
+  assert.equal(own.official_date,'2026-11-03');
+  assert.deepEqual(researchRows(merged,'',company_name),[own]);
+  assert.deepEqual(researchRows(merged,ticker.toLowerCase()),[own]);
+  assert.deepEqual(researchRows(merged,company_name.toLowerCase()),[own]);
+  const other=companies.find(([name])=>name!==company_name)[0];
+  assert.deepEqual(researchRows(merged,ticker,other),[]);
+ }
+ assert.equal(JSON.stringify({rows,archive,dates}),before);
+});
