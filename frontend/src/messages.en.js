@@ -466,6 +466,6 @@ export const english=Object.freeze({
   "저장 상태를 확인하지 못했습니다. 다시 시도하세요.": "Unable to check whether this result is already saved. Try again.",
   "결과를 업로드하지 못했습니다. 로그인 상태와 인터넷 연결을 확인하세요.": "Unable to upload the result. Check your sign-in status and connection.",
   "분석 결과 형식이 올바르지 않아 열 수 없습니다. 원본 결과를 확인해 주세요.": "The analysis format is invalid. Check the original result file.",
-  "표시 언어": "Interface language"
+  "표시 언어": "Interface language",
   "SK하이닉스·현대차·NAVER·Apple·Microsoft의 기업 조회와 재무 자료 수집을 확인했습니다. 검색된 정식 기업명과 거래소를 보고 후보를 선택하세요. 자료가 없는 기업은 로컬 리포트가 없다고 표시하며, 실제 AI 토론 품질은 기업별 추가 검증이 필요합니다. 매일 공식 자동 게시는 삼성전자로 유지됩니다.": "Company lookup and financial-data collection have been checked for SK hynix, Hyundai Motor, NAVER, Apple and Microsoft. Select a candidate after checking its official name and exchange. Missing local reports are reported as unavailable; actual AI debate quality still requires company-specific evaluation. Daily automatic official publication remains Samsung Electronics.",
 });
