@@ -65,3 +65,13 @@ Railway의 과거 배포는 이번에 정확한 배포 커밋/시각 기록을 �
 | web-v0.12.1 | ba1c20d2235b3d7015350409fadeae9d6e580814 | https://frontend-okye0n5e9-woosukk.vercel.app |
 
 현재 다운로드는 0.6.0이며 0.5.0의 기존 자산은 유지한다. 새 Windows 분석부터 상세 단계·API 관측·토큰 비용 추정 JSON을 생성한다. 실제 ZIP/EXE·공개 SHA-256·웹 운영 주소와 번들을 확인했다. Vercel 배포는 dpl_8DrSig2TpDDgFU9E6PMQiaKQH5XB이며 운영 주소는 https://frontend-six-pi-h5i7tztups.vercel.app 이다. 두 annotated tag는 실제 빌드 커밋을 가리킨다. 실제 유료 분석·EXE 예약 등록·다른 PC 전체 실행은 검증하지 않았다. 자세한 결과는 release-verification-2026-10-29.md 및 이슈 #25에 기록했다.
+
+
+## 2026-11-03 웹 한영 전환 배포
+
+- web-v0.13.0: `0323f210d26b7787be2d4c7b2a30bca2ffaac97e`
+- 배포 주소: https://frontend-azflc9zsf-woosukk.vercel.app
+- 운영 주소: https://frontend-six-pi-h5i7tztups.vercel.app
+- Vercel 배포: `dpl_4gUQPuxjojoucv4GNzryYcF1arV2`, READY와 운영 별칭 연결 확인.
+- 소개·리서치·다운로드 오른쪽 위 언어 전환, 선호 저장과 영문 UI를 배포했다. 분석 본문·인용은 원문을 유지하며 Windows 0.6.0 다운로드는 그대로 사용한다.
+- 최종 웹 테스트 55개와 빌드가 통과한 커밋의 깨끗한 스냅샷을 배포했다. 공개 세 경로와 실제 JS 번들 응답, 운영 브라우저 전환·기존 로그인 상태 유지를 확인했다. 상세 범위와 제한은 [한영 전환 검증](web-language-2026-11-03.md) 및 이슈 #27에 기록했다.
