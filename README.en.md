@@ -72,7 +72,7 @@ Expand a citation to see its excerpt, publication date, page and original-source
 | Windows analysis | Looks up ticker candidates from a company name and runs analysis with the user's key. Saves JSON locally before the user chooses whether to upload it. |
 | Operations and evaluation | Editor-only daily official selection, local scheduled runs and stage recovery, plus admin performance, RAG retrieval and claim–evidence quality reports. |
 
-Samsung Electronics is the operational case for official discussions. Company lookup does not imply equal data coverage across companies or providers. Adding a company to a watchlist does not start an analysis.
+The initial personal-analysis expansion covers SK hynix, Hyundai Motor, NAVER, Apple and Microsoft. Samsung Electronics is the operational case for official discussions. Company lookup does not imply equal data coverage across companies or providers. Adding a company to a watchlist does not start an analysis.
 
 ## System architecture
 
@@ -156,7 +156,7 @@ Open the [research library](https://frontend-six-pi-h5i7tztups.vercel.app/app?la
 
 ### Analyze with the Windows app
 
-1. Download the **Windows 0.6.0** ZIP from the [download page](https://frontend-six-pi-h5i7tztups.vercel.app/download?lang=en) and extract it into a separate folder.
+1. Download the **Windows 0.7.0** ZIP from the [download page](https://frontend-six-pi-h5i7tztups.vercel.app/download?lang=en) and extract it into a separate folder.
 2. Keep `_internal` alongside `MarketCouncil.exe` and run the executable.
 3. Prepare Docker Desktop, enter your own OpenAI key and a company name, then select a ticker candidate. An Open DART key is optional for Korean filings.
 4. Save the result locally. Import its JSON through My research on the website to store it privately, then choose sharing or publication if desired.
@@ -201,6 +201,7 @@ Use **한국어 / EN** to switch interface language, or open an internal route w
 
 | Area | Verified scope |
 | --- | --- |
+| Multi-company expansion (November 3, 2026) | 126 Python and 57 web checks plus the web build passed from a clean build commit. Live company lookup and public financial-provider API checks covered SK hynix, Hyundai Motor, NAVER, Apple and Microsoft: ticker, currency, four annual periods, price and market capitalization. Actual AI debate and RAG quality were not revalidated in this change |
 | Web language release (November 3, 2026) | 55 web checks and production build passed; verified live language switching, preserved sign-in state, public routes and deployed bundle. Analyses and citations retain their original language |
 | Windows 0.6.0 / Web 0.12.1 release (October 29, 2026) | 129 Python and 48 web checks passed; ZIP integrity, executable initialization/synthetic instrumentation, public download and production bundle checked |
 | Analysis observations | Total/stage duration, observed input/output/cache/reasoning tokens, API request/error counts and dated token-price estimates |
@@ -234,6 +235,7 @@ These commands do not rerun a real analysis or publish an official discussion. D
 | [`rag/`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus/rag), [`tools/`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus/tools) | Retrieval, evidence processing, collection, instrumentation and evaluation |
 | [`supabase/`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus/supabase) | Discussions, lists, editor permissions, RLS and publication validation SQL |
 
+- [Multi-company scope and verification](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/multi-company-verification-2026-11-03.md)
 - [Deployment versions and verification](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/deployment-versions.md)
 - [Stage recovery and failure diagnostics](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/analysis-recovery.md)
 - [Admin performance, RAG and evidence quality](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/admin-performance.md)

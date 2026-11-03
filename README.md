@@ -70,7 +70,7 @@ MarketCouncil은 금융 데이터·공시·리서치 문서·웹 자료를 공�
 | Windows 분석 | 기업명으로 종목 후보를 찾고 본인 키로 분석합니다. JSON을 로컬에 저장한 뒤 원하는 결과만 업로드할 수 있습니다. |
 | 운영·평가 | 운영자의 하루 1개 공식 지정, 로컬 예약 실행·단계 복구, 관리자 성능 기록과 RAG 검색/답변 근거 품질 평가를 제공합니다. |
 
-삼성전자 공식 토론을 운영 사례로 사용합니다. 기업명 조회가 가능하더라도 기업·자료원별 데이터 제공 범위가 같지는 않으며, 관심기업 추가만으로 새 분석이 실행되지는 않습니다.
+개인 분석의 우선 확장 대상은 SK하이닉스·현대차·NAVER·Apple·Microsoft입니다. 삼성전자 공식 토론을 운영 사례로 사용합니다. 기업명 조회가 가능하더라도 기업·자료원별 데이터 제공 범위가 같지는 않으며, 관심기업 추가만으로 새 분석이 실행되지는 않습니다.
 
 ## 시스템 구조
 
@@ -154,7 +154,7 @@ Streamlit은 소스에서 저장 결과를 확인하는 별도 로컬 뷰어로 
 
 ### Windows 프로그램으로 분석
 
-1. [다운로드 페이지](https://frontend-six-pi-h5i7tztups.vercel.app/download)에서 **Windows 0.6.0** ZIP을 받아 별도 폴더에 풉니다.
+1. [다운로드 페이지](https://frontend-six-pi-h5i7tztups.vercel.app/download)에서 **Windows 0.7.0** ZIP을 받아 별도 폴더에 풉니다.
 2. `_internal` 폴더를 유지하고 `MarketCouncil.exe`를 실행합니다.
 3. Docker Desktop을 준비하고, 본인 OpenAI 키와 기업명을 입력한 뒤 종목 후보를 선택합니다. Open DART 키는 한국 공시 수집에 선택적으로 사용합니다.
 4. 분석 결과를 로컬에 저장합니다. 웹 마이페이지에서 JSON을 가져와 비공개로 보관한 뒤 공유·게시를 선택할 수 있습니다.
@@ -197,6 +197,7 @@ npm run dev
 
 | 구분 | 확인한 범위 |
 | --- | --- |
+| 다기업 확장 (2026-11-03) | 깨끗한 빌드 커밋에서 Python 126개·웹 57개 검사 및 웹 빌드 통과. SK하이닉스·현대차·NAVER·Apple·Microsoft의 실제 기업 조회와 공개 재무 공급자 API에서 종목·통화·4개 연간 기간·주가·시가총액 확인. 실제 AI 토론·RAG 품질은 이번에 재검증하지 않음 |
 | 웹 한영 전환 (2026-11-03) | 웹 테스트 55개·빌드 통과, 운영 한영 전환·기존 로그인 상태 유지·공개 경로 및 번들 확인. 분석·인용은 원문 유지 |
 | Windows 0.6.0 · Web 0.12.1 배포 검증 (2026-10-29) | Python 129개·웹 48개 검사 통과, ZIP 무결성·실제 EXE 초기화와 합성 계측·공개 다운로드·운영 웹 번들 확인 |
 | 분석 관측 | 전체·단계별 시간, 관측 입력/출력/캐시/추론 토큰, API 단계별 요청·오류와 날짜별 단가의 토큰 비용 추정 |
@@ -230,6 +231,7 @@ npm test
 | [`rag/`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus/rag), [`tools/`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus/tools) | 문서 검색·근거 처리·수집·계측·평가 |
 | [`supabase/`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus/supabase) | 토론·목록·운영자·RLS·게시 검증 SQL |
 
+- [다기업 지원 범위와 검증](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/multi-company-verification-2026-11-03.md)
 - [배포 검증과 버전 기록](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/deployment-versions.md)
 - [로컬 단계 복구와 오류 진단](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/analysis-recovery.md)
 - [관리자 성능·RAG·근거 품질 평가](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/admin-performance.md)
