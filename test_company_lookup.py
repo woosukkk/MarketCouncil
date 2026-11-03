@@ -12,6 +12,18 @@ class CompanyLookupTests(unittest.TestCase):
             self.assertEqual(find_companies("삼성 전자"), [rows[0]])
             self.assertEqual(len(find_companies("삼성")), 2)
 
+    def test_known_korean_alias_and_latin_name_match_ticker_before_partial_name(self) -> None:
+        rows = ({"name": "현대자동차", "ticker": "005380.KS", "exchange": "KOSPI"},
+                {"name": "현대차증권", "ticker": "001500.KS", "exchange": "KOSPI"},
+                {"name": "NAVER", "ticker": "035420.KS", "exchange": "KOSPI"})
+        with patch("tools.company_lookup.korean_listings", return_value=rows), patch("tools.company_lookup.yf.Search") as search:
+            self.assertEqual(find_companies("현대차"), [rows[0]])
+            self.assertEqual(find_companies("현대자동차"), [rows[0]])
+            self.assertEqual(find_companies("naver"), [rows[2]])
+            search.assert_not_called()
+        with patch("tools.company_lookup.korean_listings", return_value=rows[1:2]):
+            self.assertEqual(find_companies("현대차"), [])
+
     def test_only_equities_and_unique_symbols(self) -> None:
         equity = {"quoteType": "EQUITY", "symbol": "AAPL", "longname": "Apple Inc.", "exchDisp": "NASDAQ"}
         with patch("tools.company_lookup.yf.Search") as search:

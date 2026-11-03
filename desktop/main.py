@@ -196,7 +196,7 @@ class Desktop:
                 from desktop.cloud import prepare_official
                 self.messages.put(("stage","공식 게시 준비 · 운영자 권한과 오늘 게시 여부를 확인합니다."))
                 self.session=prepare_official(self.session)
-            os.environ.update(OPENAI_API_KEY=key,DART_API_KEY=dart,SEARXNG_URL=search,MARKETCOUNCIL_TICKER=ticker,CHROMA_MODE="local",RESULTS_AUTO_UPLOAD="false")
+            os.environ.update(OPENAI_API_KEY=key,DART_API_KEY=dart,SEARXNG_URL=search,MARKETCOUNCIL_COMPANY=company,MARKETCOUNCIL_TICKER=ticker,CHROMA_MODE="local",RESULTS_AUTO_UPLOAD="false")
             self.messages.put(("stage","분석 준비 · 로컬 저장 공간과 검색 서비스를 준비합니다."))
             DATA.mkdir(parents=True,exist_ok=True);os.chdir(DATA)
             os.environ["HF_HOME"]=str(DATA/"models")
@@ -317,6 +317,9 @@ def main() -> None:
             os.environ["OPENAI_API_KEY"]="self-check-not-a-real-key"
             os.environ["CHROMA_MODE"]="local"
             from tools.financial_data import TICKER_MAP
+            from tools.company_lookup import resolve_ticker
+            for name,ticker in (("SK하이닉스","000660.KS"),("현대차","005380.KS"),("NAVER","035420.KS"),("Apple","AAPL"),("Microsoft","MSFT")):
+                assert resolve_ticker(name) == ticker
             from app.recoverable_debate_workflow import RecoverableDebateWorkflow
             from rag.retriever import ReportRetriever
             from playwright.__main__ import main
@@ -358,7 +361,7 @@ def main() -> None:
             assert ui.run_button.winfo_exists()
             root.destroy()
             assert PUBLIC_KEY.startswith("sb_publishable_")
-            output_path.write_text("desktop imports OK; synthetic stage/token/pricing checks OK",encoding="utf-8")
+            output_path.write_text("desktop imports OK; multi-company preset checks OK; synthetic stage/token/pricing checks OK",encoding="utf-8")
         except Exception:
             import traceback
             output_path.write_text(traceback.format_exc(),encoding="utf-8")

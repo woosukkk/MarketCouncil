@@ -241,7 +241,7 @@ def run() -> int:
             def analyze() -> str:
                 nonlocal stage
                 stage = "services"
-                os.environ.update(OPENAI_API_KEY=config["openai_key"], DART_API_KEY=config.get("dart_key", ""), SEARXNG_URL=config["search"], MARKETCOUNCIL_TICKER="005930.KS", CHROMA_MODE="local", RESULTS_AUTO_UPLOAD="false")
+                os.environ.update(OPENAI_API_KEY=config["openai_key"], DART_API_KEY=config.get("dart_key", ""), SEARXNG_URL=config["search"], MARKETCOUNCIL_COMPANY="삼성전자", MARKETCOUNCIL_TICKER="005930.KS", CHROMA_MODE="local", RESULTS_AUTO_UPLOAD="false")
                 prepare_runtime(config["search"])
                 from app.local_services import daily_local_services
                 services.enter_context(daily_local_services(record_cleanup_error))

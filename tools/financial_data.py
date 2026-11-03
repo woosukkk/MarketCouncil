@@ -7,11 +7,7 @@ from datetime import datetime
 import pandas as pd
 
 
-TICKER_MAP = {
-    "삼성전자": "005930.KS",
-    "SK하이닉스": "000660.KS",
-    "현대자동차": "005380.KS"
-}
+from tools.company_lookup import TICKER_MAP, normalize_name, preset_ticker, resolve_ticker
 
 
 def format_number(value) -> str:
@@ -234,12 +230,16 @@ def get_latest_price(
     return None, None
 
 def get_financial_data(company_name: str) -> dict:
-    ticker_symbol = os.getenv("MARKETCOUNCIL_TICKER") or TICKER_MAP.get(company_name)
-    if ticker_symbol and not re.fullmatch(r"[A-Z0-9][A-Z0-9.^=-]{0,29}", ticker_symbol):
-        raise ValueError("올바른 종목코드를 입력하세요.")
-
-    if not ticker_symbol:
-        raise ValueError("등록되지 않은 기업입니다.")
+    selected_ticker = os.getenv("MARKETCOUNCIL_TICKER")
+    selected_company = os.getenv("MARKETCOUNCIL_COMPANY")
+    if selected_ticker:
+        if selected_company and normalize_name(selected_company) != normalize_name(company_name):
+            raise ValueError("선택한 기업과 종목코드의 연결이 다릅니다. 기업을 다시 조회하고 선택하세요.")
+        # Legacy environment overrides lack an owner name; reject a known mismatch.
+        expected = preset_ticker(company_name)
+        if not selected_company and expected and selected_ticker != expected:
+            raise ValueError("이전 기업의 종목코드가 남아 있습니다. 기업을 다시 조회하고 선택하세요.")
+    ticker_symbol = resolve_ticker(company_name, selected_ticker)
 
     company = yf.Ticker(ticker_symbol)
     current_price, price_date = get_latest_price(company)
