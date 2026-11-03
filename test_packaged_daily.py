@@ -168,13 +168,14 @@ class InstallerCommandTests(unittest.TestCase):
         installer = daily.ROOT / "tools" / "install_daily_official.ps1"
         # Every scheduler cmdlet is replaced before the real script is evaluated.
         mocks = r'''
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 function New-ScheduledTaskAction { param($Execute,$Argument,$WorkingDirectory) [pscustomobject]@{Execute=$Execute;Argument=$Argument;WorkingDirectory=$WorkingDirectory} }
 function New-ScheduledTaskTrigger { param([switch]$AtLogOn,[switch]$Daily,$User,$At) [pscustomobject]@{Delay=""} }
 function New-ScheduledTaskPrincipal { param($UserId,$LogonType,$RunLevel) @{} }
 function New-ScheduledTaskSettingsSet { param([switch]$StartWhenAvailable,$MultipleInstances,$ExecutionTimeLimit,[switch]$AllowStartIfOnBatteries,[switch]$DontStopIfGoingOnBatteries) @{} }
 function Register-ScheduledTask { param($TaskName,$Action,$Trigger,$Principal,$Settings,$Description,[switch]$Force) $script:CapturedAction=$Action }
 '''
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(prefix="marketcouncil-한글-") as folder:
             executable = Path(folder) / "Market Council.exe"
             executable.touch()
             for frozen in (False, True):
@@ -182,7 +183,7 @@ function Register-ScheduledTask { param($TaskName,$Action,$Trigger,$Principal,$S
                     invocation = ". '" + str(installer).replace("'", "''") + "'"
                     if frozen:
                         invocation += " -ExecutablePath '" + str(executable).replace("'", "''") + "'"
-                    result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", mocks + "\n" + invocation + "\n$script:CapturedAction | ConvertTo-Json -Compress"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", mocks + "\n" + invocation + "\n$script:CapturedAction | ConvertTo-Json -Compress"], capture_output=True, text=True, encoding="utf-8", timeout=30, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
                     action = json.loads(result.stdout)
                     if frozen:
                         self.assertEqual(Path(action["Execute"]).resolve(), executable.resolve())
