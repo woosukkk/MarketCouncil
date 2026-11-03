@@ -78,6 +78,8 @@ test('actual public, account and admin components render English through shared 
  const server=await createServer({root:fileURLToPath(new URL('../',import.meta.url)),envFile:false,configFile:false,logLevel:'silent',server:{middlewareMode:true,hmr:false}});
  try{
   const {LanguageContext,LanguageSwitch}=await server.ssrLoadModule('/src/Language.jsx');
+  const defaultText=renderToStaticMarkup(createElement(LanguageContext.Consumer,null,value=>createElement('span',null,value.t(' · {0}쪽',{0:4}))));
+  assert.match(defaultText,/ · 4쪽/);
   const {default:Landing}=await server.ssrLoadModule('/src/Landing.jsx');
   const {default:GettingStarted}=await server.ssrLoadModule('/src/GettingStarted.jsx');
   const {Login,MyPage}=await server.ssrLoadModule('/src/Account.jsx');

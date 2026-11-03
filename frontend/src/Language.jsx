@@ -1,7 +1,7 @@
 import React,{createContext,useCallback,useContext,useEffect,useState} from 'react';
 import {initialLanguage,isLanguage,rememberLanguage,translate,withLanguage} from './language.js';
 
-export const LanguageContext=createContext({locale:'ko',t:translate,setLocale:()=>{}});
+export const LanguageContext=createContext({locale:'ko',t:(text,values)=>translate(text,'ko',values),setLocale:()=>{}});
 export const useLanguage=()=>useContext(LanguageContext);
 
 export function LanguageProvider({children}){
