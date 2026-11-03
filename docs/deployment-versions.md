@@ -75,3 +75,13 @@ Railway의 과거 배포는 이번에 정확한 배포 커밋/시각 기록을 �
 - Vercel 배포: `dpl_4gUQPuxjojoucv4GNzryYcF1arV2`, READY와 운영 별칭 연결 확인.
 - 소개·리서치·다운로드 오른쪽 위 언어 전환, 선호 저장과 영문 UI를 배포했다. 분석 본문·인용은 원문을 유지하며 Windows 0.6.0 다운로드는 그대로 사용한다.
 - 최종 웹 테스트 55개와 빌드가 통과한 커밋의 깨끗한 스냅샷을 배포했다. 공개 세 경로와 실제 JS 번들 응답, 운영 브라우저 전환·기존 로그인 상태 유지를 확인했다. 상세 범위와 제한은 [한영 전환 검증](web-language-2026-11-03.md) 및 이슈 #27에 기록했다.
+
+
+## 2026-11-03 다기업 Windows 다운로드 배포
+
+| 버전 | 실제 빌드 커밋 | 배포 주소 |
+| --- | --- | --- |
+| desktop-v0.7.0 | 8a15dcd8e1d26d91ec9bfd1ac303dc4bc9836c38 | https://github.com/woosukkk/MarketCouncil/releases/tag/desktop-v0.7.0 |
+| web-v0.13.1 | 8a15dcd8e1d26d91ec9bfd1ac303dc4bc9836c38 | https://frontend-60iybme2q-woosukk.vercel.app |
+
+공개 다운로드를 0.7.0으로 전환했다. 기존 0.6.0 자산은 유지한다. 깨끗한 커밋 스냅샷에서 Python 126개·웹 57개와 빌드를 통과했고, 실제 ZIP/EXE·공개 digest/체크섬과 운영 주소·번들을 확인했다. Vercel 배포는 dpl_C3biXzbTdHE1obQDJE4P4MBB9aFG다. 다기업 조회·재무 공급과 저장 분리는 확인했으며 새 유료 AI 토론 품질·별도 PC 전체 실행은 검증하지 않았다. 자세한 결과는 [0.7.0 배포 검증](release-verification-2026-11-03-v070.md) 및 이슈 #28을 참고한다.
