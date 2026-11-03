@@ -1,9 +1,12 @@
+import {useLanguage} from './Language.jsx';
+import {withLanguage} from './language.js';
 import React,{useEffect,useState} from 'react';
 import {supabase} from './account.js';
 import {dateLabel,researchRows,koreaToday,publicOfficialSelections} from './data.js';
 const labels={private:'비공개',public:'커뮤니티 공개',shared:'링크 공유'};
 
 export default function Discussions({session,onOpen,onChange,refreshVersion,personal=false}){
+  const {t,locale}=useLanguage();
  const [query,setQuery]=useState(''),[company,setCompany]=useState(''),[order,setOrder]=useState('newest');
  const [editor,setEditor]=useState(false),[official,setOfficial]=useState([]);
  useEffect(()=>{let active=true;setEditor(false);if(session&&supabase)supabase.rpc('is_official_editor').then(({data})=>{if(active)setEditor(data===true)}).catch(()=>{if(active)setEditor(false)});return()=>{active=false}},[session?.user.id]);
@@ -19,7 +22,7 @@ export default function Discussions({session,onOpen,onChange,refreshVersion,pers
   return()=>{active=false};
  },[personal,session?.user.id,refreshVersion]);
  async function visibility(row,mode){
-  if(!window.confirm(mode==='public'?'이 토론의 내용과 인용 근거를 커뮤니티에 공개할까요?':mode==='shared'?'링크를 가진 사람은 로그인 없이 읽을 수 있습니다. 공식 지정은 해제됩니다. 공유 링크를 만들까요?':'토론을 비공개로 바꾸고 기존 공유 링크와 공식 지정을 해제할까요?'))return;
+  if(!window.confirm(mode==='public'?t('이 토론의 내용과 인용 근거를 커뮤니티에 공개할까요?'):mode==='shared'?t('링크를 가진 사람은 로그인 없이 읽을 수 있습니다. 공식 지정은 해제됩니다. 공유 링크를 만들까요?'):t('토론을 비공개로 바꾸고 기존 공유 링크와 공식 지정을 해제할까요?')))return;
   setBusy(true);setError('');
   try{
    const {data,error}=await supabase.from('discussions').update({visibility:mode,share_token:mode==='shared'?crypto.randomUUID():null}).eq('id',row.id).eq('user_id',session.user.id).select('id,visibility,share_token').single();
@@ -27,7 +30,7 @@ export default function Discussions({session,onOpen,onChange,refreshVersion,pers
   }catch{setError('공개 범위를 바꾸지 못했습니다.');}finally{setBusy(false)}
  }
  async function chooseOfficial(row){
-  if(!window.confirm('이 토론을 오늘의 공식 공개 토론으로 지정할까요? 오늘 기존 지정이 있으면 바뀝니다. 이전 토론은 공개 상태로 남으며 별도로 비공개로 바꿀 수 있습니다.'))return;
+  if(!window.confirm(t('이 토론을 오늘의 공식 공개 토론으로 지정할까요? 오늘 기존 지정이 있으면 바뀝니다. 이전 토론은 공개 상태로 남으며 별도로 비공개로 바꿀 수 있습니다.')))return;
   setBusy(true);setError('');
   try{const {error}=await supabase.rpc('select_daily_official',{discussion:row.id,expected_day:koreaToday(),replace_existing:true});if(error)throw error;setRows(prev=>(prev||[]).map(x=>x.id===row.id?{...x,visibility:'public',share_token:null}:x));onChange?.();}
   catch(error){setError(error?.message?.includes('official_date_changed')?'한국 날짜가 바뀌었습니다. 오늘의 공식 토론 지정을 다시 눌러 주세요.':'공식 토론을 지정하지 못했습니다.');}finally{setBusy(false)}
@@ -38,7 +41,7 @@ export default function Discussions({session,onOpen,onChange,refreshVersion,pers
   catch{setError('토론을 열 수 없습니다. 공개 범위가 바뀌었을 수 있습니다.');}finally{setBusy(false)}
  }
  async function remove(row){
-  if(!window.confirm('이 토론을 영구 삭제할까요? 공유 링크와 공식 지정도 함께 사라집니다. PC의 원본 파일은 유지됩니다.'))return;
+  if(!window.confirm(t('이 토론을 영구 삭제할까요? 공유 링크와 공식 지정도 함께 사라집니다. PC의 원본 파일은 유지됩니다.')))return;
   setBusy(true);setError('');
   try{const {error}=await supabase.from('discussions').delete().eq('id',row.id).eq('user_id',session.user.id);if(error)throw error;setRows(prev=>(prev||[]).filter(x=>x.id!==row.id));onChange?.();}
   catch{setError('토론을 삭제하지 못했습니다.');}finally{setBusy(false)}
@@ -47,5 +50,5 @@ export default function Discussions({session,onOpen,onChange,refreshVersion,pers
  const todayId=publicOfficial.find(x=>x.publication_date===koreaToday())?.discussion_id;
  const visible=researchRows(rows||[],query,company,order);
  if(!personal&&todayId){const i=visible.findIndex(x=>x.id===todayId);if(i>0)visible.unshift(...visible.splice(i,1));}
- return <section className="account-page"><span className="eyebrow">{personal?'MY DISCUSSIONS':'COMMUNITY'}</span><h2>{personal?'내가 실행한 토론':'공유된 토론'}</h2><p>{personal?'PC 프로그램에서 업로드한 결과입니다. 처음에는 본인만 볼 수 있습니다.':'작성자가 직접 공개한 토론을 읽고 근거를 비교하세요.'}</p><div className="research-filters"><label>검색<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="기업·날짜·핵심 내용"/></label><label>기업<select value={company} onChange={e=>setCompany(e.target.value)}><option value="">전체 기업</option>{[...new Set((rows||[]).map(x=>x.company_name))].sort().map(x=><option key={x}>{x}</option>)}</select></label><label>정렬<select value={order} onChange={e=>setOrder(e.target.value)}><option value="newest">최신순</option><option value="oldest">오래된순</option><option value="company">기업명순</option></select></label></div>{!personal&&rows!==null&&!todayId&&<p className="muted">오늘의 공식 토론은 아직 게시되지 않았습니다.</p>}{error&&<p role="alert">{error}</p>}{rows===null&&!error?<p role="status">토론을 불러오는 중입니다…</p>:rows?.length===0?<p>아직 {personal?'업로드한':'공개된'} 토론이 없습니다.</p>:<div className="personal-list">{visible.length===0&&<p>조건에 맞는 토론이 없습니다.</p>}{visible.map(row=><article key={row.id}><div><h3>{row.company_name}</h3>{!personal&&row.id===todayId&&<strong className="official-badge">오늘의 공식 토론</strong>}{row.summary&&<p>{row.summary}</p>}{Array.isArray(row.issues)&&row.issues.length>0&&<p className="muted">핵심 쟁점 · {row.issues.filter(x=>x&&typeof x.title==='string').slice(0,3).map(x=>x.title).filter(Boolean).join(' · ')}</p>}{!personal&&publicOfficial.some(x=>x.discussion_id===row.id)&&<strong className="official-badge">공식 토론 · {publicOfficial.find(x=>x.discussion_id===row.id).publication_date}</strong>}<span>{dateLabel(row.analysis_date)} · {labels[row.visibility]}</span></div><div><button disabled={busy} onClick={()=>open(row)}>토론 읽기 ↗</button>{personal&&<><button disabled={busy} onClick={()=>remove(row)}>토론 삭제</button>{editor&&<button disabled={busy} onClick={()=>chooseOfficial(row)}>오늘의 공식 토론 지정</button>}<button disabled={busy} onClick={()=>visibility(row,'public')}>커뮤니티 게시</button><button disabled={busy} onClick={()=>visibility(row,'shared')}>링크 공유</button>{row.visibility!=='private'&&<button disabled={busy} onClick={()=>visibility(row,'private')}>비공개로 전환</button>}</>}</div>{personal&&row.share_token&&<label className="share-link">공유 링크<input readOnly value={location.origin+'/app?share='+row.share_token} onFocus={e=>e.target.select()}/><small>이 링크를 복사해 공유하세요. 새 링크를 만들거나 비공개로 바꾸면 이전 링크는 해제됩니다.</small></label>}</article>)}</div>}</section>;
+ return <section className="account-page"><span className="eyebrow">{personal?'MY DISCUSSIONS':'COMMUNITY'}</span><h2>{personal?t('내가 실행한 토론'):t('공유된 토론')}</h2><p>{personal?t('PC 프로그램에서 업로드한 결과입니다. 처음에는 본인만 볼 수 있습니다.'):t('작성자가 직접 공개한 토론을 읽고 근거를 비교하세요.')}</p><div className="research-filters"><label>{t("검색")}<input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t("기업·날짜·핵심 내용")}/></label><label>{t("기업")}<select value={company} onChange={e=>setCompany(e.target.value)}><option value="">{t("전체 기업")}</option>{[...new Set((rows||[]).map(x=>x.company_name))].sort().map(x=><option key={x}>{x}</option>)}</select></label><label>{t("정렬")}<select value={order} onChange={e=>setOrder(e.target.value)}><option value="newest">{t("최신순")}</option><option value="oldest">{t("오래된순")}</option><option value="company">{t("기업명순")}</option></select></label></div>{!personal&&rows!==null&&!todayId&&<p className="muted">{t("오늘의 공식 토론은 아직 게시되지 않았습니다.")}</p>}{error&&<p role="alert">{t(error)}</p>}{rows===null&&!error?<p role="status">{t("토론을 불러오는 중입니다…")}</p>:rows?.length===0?<p>{locale==='en'?(personal?'No uploaded discussions yet.':'No public discussions yet.'):<>{t("아직 ")}{personal?t('업로드한'):t('공개된')}{t(" 토론이 없습니다.")}</>}</p>:<div className="personal-list">{visible.length===0&&<p>{t("조건에 맞는 토론이 없습니다.")}</p>}{visible.map(row=><article key={row.id}><div><h3>{row.company_name}</h3>{!personal&&row.id===todayId&&<strong className="official-badge">{t("오늘의 공식 토론")}</strong>}{row.summary&&<p>{row.summary}</p>}{Array.isArray(row.issues)&&row.issues.length>0&&<p className="muted">{t("핵심 쟁점 · ")}{row.issues.filter(x=>x&&typeof x.title==='string').slice(0,3).map(x=>x.title).filter(Boolean).join(' · ')}</p>}{!personal&&publicOfficial.some(x=>x.discussion_id===row.id)&&<strong className="official-badge">{t("공식 토론 · ")}{publicOfficial.find(x=>x.discussion_id===row.id).publication_date}</strong>}<span>{t(dateLabel(row.analysis_date))} · {t(labels[row.visibility])}</span></div><div><button disabled={busy} onClick={()=>open(row)}>{t("토론 읽기 ↗")}</button>{personal&&<><button disabled={busy} onClick={()=>remove(row)}>{t("토론 삭제")}</button>{editor&&<button disabled={busy} onClick={()=>chooseOfficial(row)}>{t("오늘의 공식 토론 지정")}</button>}<button disabled={busy} onClick={()=>visibility(row,'public')}>{t("커뮤니티 게시")}</button><button disabled={busy} onClick={()=>visibility(row,'shared')}>{t("링크 공유")}</button>{row.visibility!=='private'&&<button disabled={busy} onClick={()=>visibility(row,'private')}>{t("비공개로 전환")}</button>}</>}</div>{personal&&row.share_token&&<label className="share-link">{t("공유 링크")}<input readOnly value={location.origin+withLanguage('/app?share='+row.share_token,locale)} onFocus={e=>e.target.select()}/><small>{t("이 링크를 복사해 공유하세요. 새 링크를 만들거나 비공개로 바꾸면 이전 링크는 해제됩니다.")}</small></label>}</article>)}</div>}</section>;
 }

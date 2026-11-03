@@ -1,3 +1,4 @@
+import {useLanguage} from './Language.jsx';
 import React, {useEffect, useState} from 'react';
 import {supabase} from './account.js';
 import Discussions from './Discussions.jsx';
@@ -16,6 +17,7 @@ export function useAccount() {
 }
 
 export function Login({onBack}) {
+  const {t}=useLanguage();
   const [email,setEmail]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
   const [githubReady,setGithubReady]=useState(false);
   useEffect(()=>{let active=true;if(supabase)fetch(import.meta.env.VITE_SUPABASE_URL+'/auth/v1/settings',{headers:{apikey:import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}}).then(r=>r.ok?r.json():null).then(data=>{if(active)setGithubReady(data?.external?.github===true)}).catch(()=>{});return()=>{active=false}},[]);
@@ -34,25 +36,26 @@ export function Login({onBack}) {
     finally {setBusy(false);}
   }
   return <section className="account-page">
-    <button className="back" onClick={onBack}>← 리서치로 돌아가기</button>
+    <button className="back" onClick={onBack}>{t("← 리서치로 돌아가기")}</button>
     <span className="eyebrow">YOUR RESEARCH SPACE</span>
-    <h1>내 관심을, 내 공간에.</h1>
-    <p>이메일 또는 GitHub로 로그인하고 관심기업과 분석을 보관하세요.</p>
+    <h1>{t("내 관심을, 내 공간에.")}</h1>
+    <p>{t("이메일 또는 GitHub로 로그인하고 관심기업과 분석을 보관하세요.")}</p>
     <form className="account-form" onSubmit={submit}>
-      <label>이메일<input type="email" autoComplete="email" required maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"/></label>
-      <button className="primary" disabled={busy||!supabase}>{busy?'처리 중…':'이메일로 시작하기'}</button>
+      <label>{t("이메일")}<input type="email" autoComplete="email" required maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"/></label>
+      <button className="primary" disabled={busy||!supabase}>{busy?t('처리 중…'):t('이메일로 시작하기')}</button>
     </form>
-    <p className="muted">비밀번호 없이 메일의 링크로 로그인합니다. 메일이 보이지 않으면 스팸함을 확인하세요. GitHub로도 로그인할 수 있습니다.</p>
-    <div className="login-divider"><span>또는</span></div>
-    <button className="github-login" disabled={busy||!githubReady} onClick={github}>{busy?'처리 중…':githubReady?'GitHub로 계속하기':'GitHub 로그인 연결 준비 중'}</button>
-    <p className="muted">처음 로그인하면 계정이 만들어집니다. 분석 결과는 직접 공개하기 전까지 본인만 볼 수 있습니다.</p>
-    {message&&<p role="status" className="account-notice">{message}</p>}
-    {error&&<p role="alert">{error}</p>}
-    {!supabase&&<p role="alert">로그인 연결을 준비하고 있습니다.</p>}
+    <p className="muted">{t("비밀번호 없이 메일의 링크로 로그인합니다. 메일이 보이지 않으면 스팸함을 확인하세요. GitHub로도 로그인할 수 있습니다.")}</p>
+    <div className="login-divider"><span>{t("또는")}</span></div>
+    <button className="github-login" disabled={busy||!githubReady} onClick={github}>{busy?t('처리 중…'):githubReady?t('GitHub로 계속하기'):t('GitHub 로그인 연결 준비 중')}</button>
+    <p className="muted">{t("처음 로그인하면 계정이 만들어집니다. 분석 결과는 직접 공개하기 전까지 본인만 볼 수 있습니다.")}</p>
+    {message&&<p role="status" className="account-notice">{t(message)}</p>}
+    {error&&<p role="alert">{t(error)}</p>}
+    {!supabase&&<p role="alert">{t("로그인 연결을 준비하고 있습니다.")}</p>}
   </section>;
 }
 
 export function SaveActions({session,record,onLogin}) {
+  const {t}=useLanguage();
   const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
   useEffect(()=>{setMessage('')},[record.id,session?.user.id]);
   async function save(kind){
@@ -67,14 +70,15 @@ export function SaveActions({session,record,onLogin}) {
     }catch{setMessage('저장하지 못했습니다. 잠시 후 다시 시도해 주세요.');}
     finally{setBusy(false);}
   }
-  return <div className="save-actions"><button disabled={busy} onClick={()=>save('company')}>＋ 관심기업</button><button disabled={busy} onClick={()=>save('analysis')}>☆ 분석 저장</button><span role="status">{message}</span></div>;
+  return <div className="save-actions"><button disabled={busy} onClick={()=>save('company')}>{t("＋ 관심기업")}</button><button disabled={busy} onClick={()=>save('analysis')}>{t("☆ 분석 저장")}</button><span role="status">{t(message)}</span></div>;
 }
 
 export function MyPage({session,sessions,onOpen,onLogin,onChange,refreshVersion}) {
+  const {t}=useLanguage();
   const [query,setQuery]=useState(''),[companyFilter,setCompanyFilter]=useState(''),[sort,setSort]=useState('newest');
 
   const [companies,setCompanies]=useState([]),[saved,setSaved]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[busy,setBusy]=useState(false),[name,setName]=useState(''),[ticker,setTicker]=useState('');
-  const filters=<div className="research-filters"><label>목록 검색<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="기업명·날짜"/></label><label>기업 필터<select value={companyFilter} onChange={e=>setCompanyFilter(e.target.value)}><option value="">전체 기업</option>{[...new Set([...companies,...saved].map(x=>x.company_name))].sort().map(x=><option key={x}>{x}</option>)}</select></label><label>목록 정렬<select value={sort} onChange={e=>setSort(e.target.value)}><option value="newest">최신순</option><option value="oldest">오래된순</option><option value="company">기업명순</option></select></label></div>;
+  const filters=<div className="research-filters"><label>{t("목록 검색")}<input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t("기업명·날짜")}/></label><label>{t("기업 필터")}<select value={companyFilter} onChange={e=>setCompanyFilter(e.target.value)}><option value="">{t("전체 기업")}</option>{[...new Set([...companies,...saved].map(x=>x.company_name))].sort().map(x=><option key={x}>{x}</option>)}</select></label><label>{t("목록 정렬")}<select value={sort} onChange={e=>setSort(e.target.value)}><option value="newest">{t("최신순")}</option><option value="oldest">{t("오래된순")}</option><option value="company">{t("기업명순")}</option></select></label></div>;
 
   useEffect(()=>{
     let active=true;setCompanies([]);setSaved([]);setError('');setLoading(true);
@@ -112,6 +116,6 @@ export function MyPage({session,sessions,onOpen,onLogin,onChange,refreshVersion}
       setUploadMessage(result.duplicate?'이미 보관한 결과입니다.':'내 계정에 비공개로 보관했습니다. 아래 목록에서 확인하세요.');setRevision(v=>v+1);onChange?.();
     }catch(error){setUploadMessage(error.message)}finally{setUploading(false);input.value=''}
   }
-  if(!session)return <section className="account-page"><h1>마이페이지</h1><GettingStarted session={session} onLogin={onLogin}/><p>로그인하면 관심기업과 저장한 분석을 볼 수 있습니다.</p><button className="primary" onClick={onLogin}>로그인하기</button></section>;
-  return <section className="account-page"><span className="eyebrow">MY RESEARCH</span><h1>나의 리서치</h1><p>{session.user.email||session.user.user_metadata?.user_name||'내 계정'}</p><GettingStarted session={session} onLogin={onLogin}/><section className="result-import"><h2>PC 분석 결과 가져오기</h2><p>PC에 저장된 분석 JSON 파일을 선택하면 비공개로 보관합니다. 원문 문서와 검색 문맥은 제외합니다.</p><label>분석 JSON 파일<input type="file" accept=".json,application/json" disabled={uploading} onChange={importResult}/></label><p className="muted">Windows의 사용자 폴더 → AppData → Local → MarketCouncil → results에서 결과 파일을 찾을 수 있습니다.</p>{uploadMessage&&<p role="status">{uploadMessage}</p>}</section>{error&&<p role="alert">{error}</p>}{loading?<p role="status">개인 목록을 불러오는 중입니다…</p>:<><Discussions key={revision} session={session} onOpen={onOpen} onChange={onChange} refreshVersion={refreshVersion} personal/>{filters}<h2>관심기업 <small>{companies.length}</small></h2><form className="company-form" onSubmit={add}><label>기업명<input required maxLength={120} value={name} onChange={e=>setName(e.target.value)} placeholder="예: SK하이닉스"/></label><label>종목코드 (선택)<input maxLength={30} value={ticker} onChange={e=>setTicker(e.target.value)} placeholder="예: 000660.KS"/></label><button className="primary" disabled={busy}>추가</button></form><p className="muted">관심기업 등록은 목록 관리 기능입니다. 새 분석을 실행하지 않습니다.</p><div className="personal-list">{companies.length===0?<p>관심기업을 추가해 보세요.</p>:researchRows(companies,query,companyFilter,sort).map(c=><article key={c.company_key}><div><h3>{c.company_name}</h3><span>{c.ticker||'종목코드 미등록'}</span></div><button onClick={()=>{setCompanyFilter(c.company_name);setQuery('')}}>관련 분석 보기</button><button disabled={busy} onClick={()=>remove('watchlist','company_key',c.company_key)}>목록에서 제거</button></article>)}</div>{companyFilter&&<section><h2>{companyFilter} 공개 분석</h2><div className="personal-list">{(sessions||[]).filter(x=>x.company_name===companyFilter).map(record=><article key={record.id}><div><h3>{record.company_name}</h3><span>{dateLabel(record.created_at)}</span></div><button onClick={()=>onOpen(record)}>분석 읽기 ↗</button></article>)}</div>{!(sessions||[]).some(x=>x.company_name===companyFilter)&&<p>현재 공개 분석이 없습니다.</p>}</section>}<h2>저장한 분석 <small>{saved.length}</small></h2><div className="personal-list">{saved.length===0?<p>분석 상세에서 ‘분석 저장’을 눌러 담아 보세요.</p>:researchRows(saved,query,companyFilter,sort).map(s=>{const record=(sessions||[]).find(x=>resultKey(x.id)===s.result_key);return <article key={s.result_key}><div><h3>{s.company_name}</h3><span>{dateLabel(s.analysis_date)}</span></div><div>{record?<button onClick={()=>onOpen(record)}>분석 읽기 ↗</button>:<span className="muted">현재 공개 목록에 없는 분석</span>}<button disabled={busy} onClick={()=>remove('saved_analyses','result_key',s.result_key)}>저장 해제</button></div></article>})}</div></>}</section>;
+  if(!session)return <section className="account-page"><h1>{t("마이페이지")}</h1><GettingStarted session={session} onLogin={onLogin}/><p>{t("로그인하면 관심기업과 저장한 분석을 볼 수 있습니다.")}</p><button className="primary" onClick={onLogin}>{t("로그인하기")}</button></section>;
+  return <section className="account-page"><span className="eyebrow">MY RESEARCH</span><h1>{t("나의 리서치")}</h1><p>{session.user.email||session.user.user_metadata?.user_name||t('내 계정')}</p><GettingStarted session={session} onLogin={onLogin}/><section className="result-import"><h2>{t("PC 분석 결과 가져오기")}</h2><p>{t("PC에 저장된 분석 JSON 파일을 선택하면 비공개로 보관합니다. 원문 문서와 검색 문맥은 제외합니다.")}</p><label>{t("분석 JSON 파일")}<input type="file" accept=".json,application/json" disabled={uploading} onChange={importResult}/></label><p className="muted">{t("Windows의 사용자 폴더 → AppData → Local → MarketCouncil → results에서 결과 파일을 찾을 수 있습니다.")}</p>{uploadMessage&&<p role="status">{t(uploadMessage)}</p>}</section>{error&&<p role="alert">{t(error)}</p>}{loading?<p role="status">{t("개인 목록을 불러오는 중입니다…")}</p>:<><Discussions key={revision} session={session} onOpen={onOpen} onChange={onChange} refreshVersion={refreshVersion} personal/>{filters}<h2>{t("관심기업 ")}<small>{companies.length}</small></h2><form className="company-form" onSubmit={add}><label>{t("기업명")}<input required maxLength={120} value={name} onChange={e=>setName(e.target.value)} placeholder={t("예: SK하이닉스")}/></label><label>{t("종목코드 (선택)")}<input maxLength={30} value={ticker} onChange={e=>setTicker(e.target.value)} placeholder={t("예: 000660.KS")}/></label><button className="primary" disabled={busy}>{t("추가")}</button></form><p className="muted">{t("관심기업 등록은 목록 관리 기능입니다. 새 분석을 실행하지 않습니다.")}</p><div className="personal-list">{companies.length===0?<p>{t("관심기업을 추가해 보세요.")}</p>:researchRows(companies,query,companyFilter,sort).map(c=><article key={c.company_key}><div><h3>{c.company_name}</h3><span>{c.ticker||t('종목코드 미등록')}</span></div><button onClick={()=>{setCompanyFilter(c.company_name);setQuery('')}}>{t("관련 분석 보기")}</button><button disabled={busy} onClick={()=>remove('watchlist','company_key',c.company_key)}>{t("목록에서 제거")}</button></article>)}</div>{companyFilter&&<section><h2>{companyFilter}{t(" 공개 분석")}</h2><div className="personal-list">{(sessions||[]).filter(x=>x.company_name===companyFilter).map(record=><article key={record.id}><div><h3>{record.company_name}</h3><span>{t(dateLabel(record.created_at))}</span></div><button onClick={()=>onOpen(record)}>{t("분석 읽기 ↗")}</button></article>)}</div>{!(sessions||[]).some(x=>x.company_name===companyFilter)&&<p>{t("현재 공개 분석이 없습니다.")}</p>}</section>}<h2>{t("저장한 분석 ")}<small>{saved.length}</small></h2><div className="personal-list">{saved.length===0?<p>{t("분석 상세에서 ‘분석 저장’을 눌러 담아 보세요.")}</p>:researchRows(saved,query,companyFilter,sort).map(s=>{const record=(sessions||[]).find(x=>resultKey(x.id)===s.result_key);return <article key={s.result_key}><div><h3>{s.company_name}</h3><span>{t(dateLabel(s.analysis_date))}</span></div><div>{record?<button onClick={()=>onOpen(record)}>{t("분석 읽기 ↗")}</button>:<span className="muted">{t("현재 공개 목록에 없는 분석")}</span>}<button disabled={busy} onClick={()=>remove('saved_analyses','result_key',s.result_key)}>{t("저장 해제")}</button></div></article>})}</div></>}</section>;
 }

@@ -13,3 +13,21 @@
 @media(max-width:760px){.start-steps{grid-template-columns:1fr}.getting-started{padding:20px}}
 
 .login-divider{max-width:440px;text-align:center;margin:24px 0;color:#838895}.github-login{background:#202329;color:white;padding:14px 24px;border:0;border-radius:10px;font:inherit;font-weight:600;cursor:pointer}.github-login:disabled{opacity:.5;cursor:default}
+
+/* Keep the same language control available on public, account and admin screens. */
+.language-switch{display:inline-flex;align-items:center;gap:2px;padding:3px;background:#f1f4fa;border-radius:9px;white-space:nowrap;flex-shrink:0}
+.language-switch button{font:inherit;font-size:11px;line-height:1.4;border:0;border-radius:6px;background:transparent;color:#626c7c;cursor:pointer;padding:7px 9px}
+.language-switch button[aria-pressed=true]{background:#fff;color:var(--accent,#2455e6);box-shadow:0 1px 5px #18284a12;font-weight:600}
+.language-switch button:focus-visible{outline:2px solid var(--accent,#2455e6);outline-offset:2px}
+.download-language{display:flex;justify-content:flex-end;margin-bottom:12px}
+.account-nav .language-switch button{padding:6px 8px;background:transparent;font-size:11px}
+.account-nav .language-switch button[aria-pressed=true]{background:#fff}
+.shell .topbar{height:auto;min-height:68px;gap:12px;padding-block:12px;flex-wrap:wrap}
+.language-note{font-size:12px;line-height:1.65;color:#687183;margin:12px 0 20px}
+html[lang=en] .landing-hero h1{letter-spacing:-1.8px;line-height:1.18;font-size:clamp(34px,4vw,57px)}
+html[lang=en] .landing-nav nav{gap:22px}
+html[lang=en] .landing-hero>p{line-height:1.8}
+@media(max-width:760px){.shell .topbar{min-height:49px}.account-nav{gap:6px}.language-switch button{padding:7px 8px}html[lang=en] .landing-hero h1{font-size:39px}}
+@media(max-width:480px){.landing-nav{padding-inline:18px}.landing-nav .nav-start{display:none}.landing-nav nav,html[lang=en] .landing-nav nav{gap:8px}.topbar>span{font-size:11px}.account-nav button{font-size:11px}.language-switch{margin-left:auto}}
+
+@media(max-width:480px){.shell .sidebar{display:flex;align-items:center;gap:8px}.shell .home-link{position:static;margin-left:auto;align-self:center;font-size:10px}}
