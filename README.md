@@ -2,274 +2,245 @@
 
 # MarketCouncil
 
-### 근거를 수집하고, 경쟁 가설을 토론시키고, 판단의 변화를 추적하는 투자 분석 시스템
+### 같은 근거, 다른 관점. 결론보다 판단의 과정을 읽는 투자 리서치.
 
-MarketCouncil은 하나의 LLM에게 종목 추천을 요청하는 대신 금융 데이터, 공식 공시, 리서치 문서, 최신 웹 자료와 영상 주장을 공통 근거로 구성하고 **Bull과 Bear가 같은 사실을 두고 경쟁하도록 만드는 프로젝트**입니다.
+**Bull · Bear · Moderator가 근거를 대조하는 AI 토론과, 그 기록을 읽고 보관하는 서비스입니다.**
 
-> 현재 개발 초점: **투자 토론의 의제 선정, 근거 연결, 반복 방지와 종료 조건 고도화**
+[서비스 둘러보기](https://frontend-six-pi-h5i7tztups.vercel.app/) · [리서치 라이브러리](https://frontend-six-pi-h5i7tztups.vercel.app/app) · [Windows 다운로드](https://frontend-six-pi-h5i7tztups.vercel.app/download) · [구현 소스](https://github.com/woosukkk/MarketCouncil/tree/debate_focus)
+
+`Python 3.11` · `React 19 / Vite` · `LangGraph` · `ChromaDB / BGE-M3` · `Supabase` · `Vercel`
 
 </div>
 
----
+[![MarketCouncil 실제 소개 페이지 — 투자 토론 예시와 서비스 진입 화면](docs/images/readme/landing.jpg)](https://frontend-six-pi-h5i7tztups.vercel.app/)
 
-## 만들고 싶은 것
+> 2026-11-03 운영 사이트를 직접 캡처했습니다. 화면 속 날짜·숫자는 저장된 분석 시점의 기록입니다. [캡처 정보](docs/images/readme/README.md)
 
-투자 판단에서 중요한 것은 미래를 정확히 맞히는 척하는 것이 아니라 다음 질문을 반복해서 검증하는 일이라고 생각합니다.
+[화면](#실제-서비스-화면) · [기능](#무엇을-할-수-있나요) · [구조](#시스템-구조) · [실행](#실행하기) · [검증](#검증과-측정-범위)
 
-- 지금 확인된 사실은 무엇인가?
-- 시장은 이미 무엇을 기대하고 있는가?
-- 상승 가설과 하락 가설은 어디에서 충돌하는가?
-- 어떤 근거가 가설을 강화하거나 약화하는가?
-- 이전 판단과 비교해 무엇이 달라졌는가?
+## 왜 만들었나요?
 
-MarketCouncil의 목표는 여러 분석 결과를 단순히 나열하는 것이 아닙니다. **출처가 있는 주장만 토론에 올리고, 반대 근거와 데이터 공백을 함께 보여주며, 최종 판단은 사용자가 내릴 수 있는 분석 환경**을 만드는 것입니다.
+하나의 모델이 만든 그럴듯한 결론만으로는 **어떤 근거를 믿었는지, 반대 근거가 무엇인지, 무엇이 아직 확인되지 않았는지** 파악하기 어렵습니다.
 
-자동매매, 수익 보장, 정답처럼 보이는 단일 목표주가는 현재 목표가 아닙니다.
+MarketCouncil은 금융 데이터·공시·리서치 문서·웹 자료를 공통 근거로 모은 뒤, Bull과 Bear가 같은 쟁점에 다른 가설로 답하도록 구성했습니다. Moderator는 승자를 선언하기보다 근거의 추가·입장 변화·미해결 질문을 기록합니다. 사용자는 토론에서 원문 인용까지 따라가며 판단의 과정을 확인합니다.
 
-## 현재 상태
+**현재 공개한 형태는 웹 열람 서비스 + Windows 로컬 분석 프로그램입니다.** 새 분석은 사용자 PC와 본인 OpenAI 키로 실행하고, 웹에서는 저장된 결과를 읽고 계정에 보관·공유합니다.
 
-| 영역 | 상태 | 현재 구현 |
-| --- | :---: | --- |
-| 단일 LLM 분석 | 완료 | Bull·Bear 역할별 분석 프롬프트 |
-| 금융 데이터 | 완료 | 가격·재무 이력과 원본 금융 사실 수집 |
-| 품질·가치 지표 | 완료 | 정규화 FCF, FCF 수익률, 현금 전환율, 변동성, 부채비율, 희석률 |
-| 공식 자료 | 완료 | Open DART·SEC EDGAR·수동 문서 검토 흐름 |
-| 로컬 RAG | 완료 | BAAI/bge-m3, ChromaDB, PDF·문서 청킹 및 검색 |
-| 최신 웹 근거 | 완료 | SearXNG 검색과 Crawl4AI 본문 추출 |
-| 근거 원장 | 완료 | source ID·quote ID·원문 인용 연결과 중복 제거 |
-| 시장 국면 비교 | 완료 | 과거 상승 구간과 최근 하락 구간의 가격·사건 비교 |
-| 다회차 토론 | **진행 중** | 의제 선정, Bull/Bear 반론, Moderator 검토, 2~3라운드 제한 |
-| 토론 안전장치 | **진행 중** | 새 주장·근거·인정이 없거나 열린 쟁점이 없으면 종료 |
-| 영상 의제 탐색 | **진행 중** | 김단테 채널의 최신 Shorts 3개에서 주제 후보 추출 |
-| 판단 이력 평가 | 예정 | 이전 가설과 실제 결과 비교, 변화 추적, 확률 보정 |
-| 자동매매 | 범위 밖 | 주문 실행과 포트폴리오 운용은 지원하지 않음 |
+## 실제 서비스 화면
 
-## 지금 집중하는 문제: 토론
+<table>
+  <tr>
+    <td width="50%"><strong>리서치 라이브러리</strong><br/>날짜별 공식 토론과 저장된 분석을 탐색합니다.</td>
+    <td width="50%"><strong>토론 상세</strong><br/>의제·라운드·남은 질문을 따라 읽습니다.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/readme/library.jpg" alt="공식 토론과 검색창이 있는 실제 리서치 라이브러리" width="100%" /></td>
+    <td><img src="docs/images/readme/debate.jpg" alt="삼성전자 공식 토론의 의제와 라운드 수를 보여주는 실제 상세 화면" width="100%" /></td>
+  </tr>
+</table>
 
-에이전트 수를 늘리는 것보다 중요한 것은 **실제로 검증할 가치가 있는 충돌을 찾고, 근거가 늘어나지 않는 토론을 멈추는 것**입니다.
+<details>
+<summary><strong>주장에서 인용 원문까지: 근거 확인 화면 보기</strong></summary>
 
-현재 토론 과정은 다음 원칙을 따릅니다.
+인용을 펼치면 발췌문·출처 날짜·페이지와 원문 링크를 확인할 수 있습니다. 원문 연결과 인용 대조는 **투자 주장의 사실성이나 미래 전망의 정확도를 보증하는 판정과 구분**합니다.
 
-1. Moderator가 Bull·Bear 최초 분석과 공통 근거에서 실제 충돌하는 의제를 최대 3개 선정합니다.
-2. 같은 사건에서 파생된 주장은 하나의 쟁점으로 합칩니다.
-3. 각 의제를 양측이 답할 수 있는 검증 질문으로 바꿉니다.
-4. Bull과 Bear는 공통 evidence catalog의 source ID와 quote ID만 사용합니다.
-5. Moderator는 쟁점을 `OPEN`, `CONTESTED`, `RESOLVED`, `STALEMATE`, `UNKNOWN`으로 갱신합니다.
-6. 최소 2라운드를 진행하되 최대 3라운드를 넘지 않습니다.
-7. 열린 쟁점이나 새로운 주장·근거·인정 사항이 없으면 조기 종료합니다.
+![실제 토론에서 펼친 인용 근거와 원문 링크](docs/images/readme/evidence.jpg)
 
-최신성 보강을 위해 지정된 [김단테 YouTube Shorts 채널](https://www.youtube.com/@%EA%B9%80%EB%8B%A8%ED%85%8C/shorts)의 최신 영상 3개도 확인합니다. 영상 발언은 사실로 확정하지 않고 `영상 발화자 가설`로 분류한 뒤, 공시·재무·뉴스로 검증할 질문만 토론 의제 후보에 전달합니다.
+</details>
 
-## 전체 아키텍처
+<details>
+<summary><strong>Bull/Bear 주장과 진행자 검토가 있는 토론 전체 화면 보기</strong></summary>
+
+![의제 질문, Bull과 Bear의 주장·조건·추가 확인 사항, 진행자 검토가 이어지는 실제 토론 화면](docs/images/readme/debate-full.jpg)
+
+</details>
+
+## 무엇을 할 수 있나요?
+
+| 영역 | 구현한 기능 |
+| --- | --- |
+| 근거 기반 AI 토론 | 공통 근거에서 의제를 최대 3개 선정하고, Bull·Bear 발언과 Moderator 검토를 2~3라운드로 진행합니다. 새 정보와 열린 쟁점이 없으면 종료합니다. |
+| 근거 추적 | source ID·quote ID로 주장과 인용을 연결합니다. 인용문·원문 링크·수치 및 시점 검토 항목을 결과에 보존합니다. |
+| 리서치 웹 | 라이브러리 검색, 의제·라운드별 탐색, 최종 정리, 사용한 근거와 분석 원문을 제공합니다. |
+| 사용자 서비스 | 이메일·GitHub 로그인, 관심기업, 분석 북마크, 내 토론 보관, 링크 공유와 커뮤니티 게시를 지원합니다. 업로드한 개인 토론은 기본 비공개입니다. |
+| Windows 분석 | 기업명으로 종목 후보를 찾고 본인 키로 분석합니다. JSON을 로컬에 저장한 뒤 원하는 결과만 업로드할 수 있습니다. |
+| 운영·평가 | 운영자의 하루 1개 공식 지정, 로컬 예약 실행·단계 복구, 관리자 성능 기록과 RAG 검색/답변 근거 품질 평가를 제공합니다. |
+
+삼성전자 공식 토론을 운영 사례로 사용합니다. 기업명 조회가 가능하더라도 기업·자료원별 데이터 제공 범위가 같지는 않으며, 관심기업 추가만으로 새 분석이 실행되지는 않습니다.
+
+## 시스템 구조
+
+**분석 계산과 원문 보관은 로컬에, 열람·인증·공유는 클라우드에 배치했습니다.** 웹 서버에 임베딩 모델을 상시 올려두는 대신 사용자가 분석할 때 PC 자원을 사용합니다.
 
 ```mermaid
-flowchart TD
-    A[기업명 입력] --> B[금융 데이터 및 품질 지표]
-    B --> C[공식 공시 수집<br/>Open DART · SEC EDGAR]
-    B --> D[로컬 RAG<br/>BAAI/bge-m3 · ChromaDB]
-    B --> E[최신 웹 자료<br/>SearXNG · Crawl4AI]
-    B --> F[최신 Shorts 3개<br/>영상 주제 후보]
-
-    C --> G[공통 근거 카탈로그]
-    D --> G
-    E --> G
-    G --> H[중복 제거 · 출처 분류 · 원문 연결]
-    H --> I[시장 국면 비교]
-    H --> J[Bull 상승 가설]
-    H --> K[Bear 하락 가설]
-    I --> J
-    I --> K
-
-    F --> L[Moderator 의제 선정]
-    J --> L
-    K --> L
-    H --> L
-
-    L --> M[2~3라운드 근거 기반 토론]
-    M --> N{새 정보와 열린 쟁점이 있는가?}
-    N -- 예 --> M
-    N -- 아니오 --> O[합의점 · 미해결 쟁점 · 추가 근거]
-    O --> P[JSON · Markdown 저장]
-    P --> Q[Streamlit 토론 뷰어]
+flowchart TB
+    subgraph LOCAL["사용자 PC · Python / Windows"]
+        INPUT["기업명 → 종목 후보 선택"] --> COLLECT["금융·공시·웹 근거 수집"]
+        RAG["로컬 문서 검색<br/>BGE-M3 + ChromaDB"] --> EVIDENCE["공통 근거 카탈로그<br/>출처·인용·기준일 연결"]
+        COLLECT --> EVIDENCE
+        EVIDENCE --> BULL["Bull · 상승 가설"]
+        EVIDENCE --> BEAR["Bear · 하락 가설"]
+        BULL --> GRAPH["LangGraph 토론<br/>Moderator · 종료 조건"]
+        BEAR --> GRAPH
+        GRAPH --> RESULT["결과 JSON / Markdown"]
+        CHECKPOINT["완료 단계 체크포인트<br/>자동 공식 분석의 당일 복구"] -.-> GRAPH
+        GRAPH -.-> METRICS["로컬 단계·토큰·비용 추정 기록"]
+    end
+    subgraph CLOUD["클라우드 · 결과 열람과 사용자 서비스"]
+        WEB["React + Vite<br/>Vercel"] <--> AUTH["Supabase Auth<br/>이메일 / GitHub"]
+        WEB <--> DB["Supabase Postgres + RLS<br/>내 토론·공유·공식 지정·개인 목록"]
+        WEB --> ARCHIVE["Supabase Storage<br/>기존 공개 결과 아카이브"]
+    end
+    RESULT -->|"사용자가 선택해 업로드"| DB
+    METRICS -->|"관리자가 보고서 가져오기"| WEB
+    READER["웹 사용자"] --> WEB
 ```
 
-## 분석 원칙
+PDF 원문과 벡터 DB를 사용자마다 클라우드에 복제하지 않습니다. 결과 업로드는 선택된 분석 필드와 인용 근거를 전송하며, 공개·공유 여부는 결과의 소유자가 선택합니다. 운영자만 날짜별 공식 토론을 지정할 수 있습니다.
 
-- 확인된 사실, 시장 기대, 분석 가설을 구분합니다.
-- 수집기는 근거만 반환하며 투자 추천을 하지 않습니다.
-- Bull과 Bear는 서로 다른 결론을 만들더라도 같은 공통 근거를 사용합니다.
-- 좋은 기업인지와 현재 가격이 매력적인지를 별도로 판단합니다.
-- 단년도 실적보다 가능한 경우 3~5년 정규화 수치와 추세를 우선합니다.
-- 순이익과 영업현금흐름·잉여현금흐름을 교차검증합니다.
-- 성장 과정의 부채, CAPEX와 주식 희석을 함께 확인합니다.
-- 장기 기업 품질과 향후 1~4주의 촉매를 분리합니다.
-- 데이터가 없으면 추정하지 않고 `확인 불가` 또는 `추가 데이터 필요`로 남깁니다.
-- 결론은 조건부로 표현하고 가설 강화·약화·폐기 조건을 명시합니다.
+## 토론과 RAG는 어떻게 동작하나요?
 
-## 주요 구성 요소
+1. **수집과 분석을 분리합니다.** 금융 사실·파생 지표, 공식 공시, 로컬 리서치 문서, 웹 자료를 수집합니다. 이용 가능한 영상 주장은 보조 가설로 취급합니다.
+2. **같은 근거를 제공합니다.** 중복을 정리한 evidence catalog를 Bull과 Bear가 함께 사용합니다. 서로 다른 해석을 사실의 차이로 포장하지 않도록 합니다.
+3. **검증 질문으로 토론합니다.** Moderator가 핵심 충돌을 의제로 만들고, 양측은 주장·근거·성립 조건·추가 확인 사항을 제시합니다.
+4. **쟁점 상태를 갱신합니다.** `OPEN`, `CONTESTED`, `RESOLVED`, `STALEMATE`, `UNKNOWN` 상태와 새 근거·인정 사항을 기록합니다. 최종 정리는 합의와 데이터 공백을 함께 남깁니다.
 
-```text
-MarketCouncil/
-├─ agents/                  # Bull, Bear, Moderator, Debate, Sentiment 역할과 프롬프트
-├─ app/                     # CLI 진입점과 LangGraph 워크플로
-├─ tools/                   # 금융·공시·웹·영상·근거·렌더링 도구
-├─ rag/                     # 문서 검토, 청킹, 임베딩, ChromaDB 검색
-├─ infra/searxng/           # 로컬 SearXNG Docker 구성
-├─ tests/                   # 품질 지표, 토론 종료, Shorts 수집 테스트
-├─ streamlit_app.py         # 저장된 토론 결과 뷰어
-├─ run_marketcouncil.bat    # 분석 실행
-└─ view_debate.bat          # 토론 결과 조회
-```
+### 할루시네이션을 줄이기 위한 장치
 
-### 역할
+| 장치 | 확인하는 것 | 보장하지 않는 것 |
+| --- | --- | --- |
+| 기업·기준일 필터 | 기준일을 지정한 검색에서 기업 혼입과 미래·날짜 미상 자료 유입을 제한 | 수집된 원문의 사실성 |
+| source ID · quote ID 대조 | 제공한 자료의 인용인지, 저장한 원문 인용과 연결되는지 | 인용이 주장을 의미상 뒷받침하는지 |
+| 수치·단위·기간 검토 | 인용에 없는 수치, 표기 문제와 시점 불일치를 재검토 대상으로 표시 | 숫자가 보인다는 이유만으로 인과·전망을 정답으로 판정 |
+| 역할·종료 조건 | 사실·기대·가설을 구분하고 반복 토론을 제한 | 같은 모델이 공유하는 편향의 완전한 제거 |
+| 검색/답변 평가 분리 | 검색 정답과 답변 의미 검수를 서로 다른 보고서로 관리 | 사람 정답이 없는 경우의 AI 정확도 |
 
-| 역할 | 책임 |
+이 장치들은 오류를 찾아내고 검토할 수 있게 만드는 구조입니다. 여러 에이전트가 동의했다고 사실로 확정하지 않습니다.
+
+## 운영에서 다룬 문제
+
+| 문제 | 적용한 방식 |
 | --- | --- |
-| Collector | 금융 데이터, 공시, 문서, 웹 원문과 메타데이터 수집 |
-| Bull | 제공된 근거 안에서 가장 강한 상승 가설 구성 |
-| Bear | 제공된 근거 안에서 가장 강한 하락 가설 구성 |
-| Moderator | 핵심 충돌 선정, 라운드 검토, 쟁점 상태와 종료 여부 관리 |
-| Sentiment | 뉴스와 웹 자료의 시장 심리 보조 분석 |
-| Regime Analysis | 과거 상승 구간과 최근 하락 구간의 가격·사건 비교 |
-| Debate Navigator | 저장된 토론에서 핵심 쟁점과 라운드별 변화 탐색 |
-
-## 금융 데이터와 파생지표
-
-원본 숫자와 계산 결과를 분리합니다.
-
-- `financial_facts`: 현재 가격, 기준일, 시가총액, 최근 최대 5개 연도의 재무 이력
-- `derived_metrics`: 정규화 FCF, FCF 수익률, FCF/순이익 현금 전환율, 매출 성장률 변동성, 영업이익률 변동성, 양의 FCF 기간 비율, 부채/자기자본, 발행 주식 수 증감률
-- `missing_inputs`: 계산에 필요한 데이터가 부족할 때 누락 항목 기록
+| 장시간 분석이 중단되면 처음부터 다시 실행 | 자동 공식 분석은 입력·날짜·모델·코드 서명을 확인한 완료 단계만 재사용합니다. 같은 날 분석 시도는 복구를 포함해 최대 2회입니다. |
+| 분석 저장 성공과 공개 게시 성공이 혼동됨 | 로컬 저장 → 비공개 업로드 → 공식 지정 단계를 분리합니다. 게시만 실패하면 저장한 결과로 재시도합니다. |
+| 사용자별 자료 복제로 인한 저장 공간 증가 | 원문·임베딩은 로컬에 두고 결과와 선택 인용만 전송합니다. 관심기업·북마크는 참조와 메타데이터를 저장합니다. |
+| 비용과 실패 원인을 알기 어려움 | 단계별 시간·관측 API 토큰·누락 사용량·추정 비용을 기록합니다. 사용량을 모르는 실패를 0원으로 만들지 않습니다. |
+| 개인 토론의 의도하지 않은 공개 | 기본 비공개와 사용자 소유권 RLS, 명시적 공유/게시, 운영자 공식 지정 경로를 구분합니다. |
 
 ## 기술 스택
 
-- **Language:** Python
-- **LLM:** OpenAI API
-- **Workflow:** LangGraph
-- **Financial data:** yfinance
-- **Regulatory filings:** Open DART, SEC EDGAR
-- **RAG:** Sentence Transformers, BAAI/bge-m3, ChromaDB, pypdf
-- **Web evidence:** SearXNG, Crawl4AI
-- **Video transcript:** youtube-transcript-api
-- **Viewer:** Streamlit, Altair
-- **Local infrastructure:** Docker Compose
+| 계층 | 사용 기술과 역할 |
+| --- | --- |
+| 웹 | React 19, Vite, JavaScript — 리서치 열람·사용자 화면 |
+| 인증·결과 보관 | Supabase Auth, Postgres/RLS, Storage |
+| 웹 배포 | Vercel — 프런트엔드 배포 |
+| 분석 | Python 3.11, OpenAI Responses API (`gpt-5-mini`), LangGraph |
+| 검색·문서 | Sentence Transformers, BAAI/bge-m3, ChromaDB, pypdf |
+| 외부 자료 | yfinance, Open DART, SEC EDGAR, SearXNG, Crawl4AI, youtube-transcript-api |
+| 로컬 실행 | Tkinter, PyInstaller, Docker Compose, Windows 작업 스케줄러 |
+| 검증 | Python unittest, Node test runner, 정답 기반 검색/근거 평가 도구 |
 
-## 설치
+Streamlit은 소스에서 저장 결과를 확인하는 별도 로컬 뷰어로 남아 있습니다. 공개 웹의 프런트엔드는 React입니다.
 
-### 요구 사항
+## 실행하기
 
-- Python 3.11 이상
-- Docker Desktop
-- OpenAI API key
-- 한국 기업 공시 수집을 위한 Open DART API key
+### 웹에서 결과 열람
 
-### 1. 저장소 준비
+[리서치 라이브러리](https://frontend-six-pi-h5i7tztups.vercel.app/app)에서 공개된 분석을 읽을 수 있습니다. 개인 보관·관심기업·북마크는 로그인 후 이용합니다.
+
+### Windows 프로그램으로 분석
+
+1. [다운로드 페이지](https://frontend-six-pi-h5i7tztups.vercel.app/download)에서 **Windows 0.6.0** ZIP을 받아 별도 폴더에 풉니다.
+2. `_internal` 폴더를 유지하고 `MarketCouncil.exe`를 실행합니다.
+3. Docker Desktop을 준비하고, 본인 OpenAI 키와 기업명을 입력한 뒤 종목 후보를 선택합니다. Open DART 키는 한국 공시 수집에 선택적으로 사용합니다.
+4. 분석 결과를 로컬에 저장합니다. 웹 마이페이지에서 JSON을 가져와 비공개로 보관한 뒤 공유·게시를 선택할 수 있습니다.
+
+OpenAI 사용료는 키 소유자에게 발생합니다. 처음 사용하는 브라우저·문서 임베딩 모델은 필요할 때 내려받습니다. 다른 폴더의 새 EXE로 자동 게시를 이용하려면 설정을 다시 저장해 예약 경로를 갱신합니다.
+
+### 소스에서 실행
+
+현재 구현·실행 안내의 기준 브랜치는 [`debate_focus`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus)입니다. 기본 브랜치의 소개 문서와 구분해 아래 명령으로 받습니다. Python 3.11과 Docker Desktop이 필요합니다.
 
 ```powershell
-git clone https://github.com/woosukkk/MarketCouncil.git
+git clone --branch debate_focus --single-branch https://github.com/woosukkk/MarketCouncil.git
 cd MarketCouncil
 python -m venv venv
 venv\Scripts\python.exe -m pip install -r requirements.txt
+venv\Scripts\python.exe -m playwright install chromium
+Copy-Item .env.example .env
+# .env에 본인 키와 필요한 설정을 입력한 뒤 실행
+venv\Scripts\python.exe -m desktop.main
 ```
 
-### 2. 환경 변수
+로컬 분석의 주요 설정은 `OPENAI_API_KEY`, 선택적 `DART_API_KEY`, `SEC_USER_AGENT`, `SEARXNG_URL`입니다. `.env`·키·토큰·체크포인트를 커밋하지 않습니다.
 
-`.env.example`을 `.env`로 복사하고 값을 입력합니다.
-
-```env
-OPENAI_API_KEY=your_openai_api_key
-DART_API_KEY=your_open_dart_api_key
-SEC_USER_AGENT=MarketCouncil/1.0 your-email@example.com
-SEARXNG_URL=http://127.0.0.1:8080
-```
-
-`.env` 파일은 저장소에 커밋하지 마세요.
-
-## 실행
-
-### 분석 실행
+<details>
+<summary>웹 프런트엔드 개발 및 기존 CLI·뷰어</summary>
 
 ```powershell
-.\run_marketcouncil.bat
+cd frontend
+npm ci
+npm run dev
 ```
 
-배치 파일은 가상환경의 Python을 사용하고 Docker Desktop과 SearXNG의 준비 상태를 확인합니다. 실행 후 분석할 기업명을 입력합니다.
+계정 기능은 `frontend/.env.local`에 본인 프로젝트의 공개 연결 값 `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`를 설정하고 Supabase 스키마·Auth를 준비해야 합니다. 서버 secret 키는 프런트엔드에 넣지 않습니다. 공개 결과 아카이브 주소는 선택적으로 `VITE_RESULTS_BASE_URL`로 지정합니다.
 
-현재 기본 금융 데이터 매핑에 등록된 기업은 다음과 같습니다.
+기존 로컬 CLI는 `run_marketcouncil.bat`, 저장 결과용 Streamlit 뷰어는 `view_debate.bat`입니다. 웹 개발 설정만으로 새 AI 분석이 실행되지는 않습니다.
 
-- 삼성전자
-- SK하이닉스
-- 현대자동차
+</details>
 
-서비스 상태만 확인하려면 다음 명령을 사용합니다.
+## 검증과 측정 범위
+
+| 구분 | 확인한 범위 |
+| --- | --- |
+| Windows 0.6.0 · Web 0.12.1 배포 검증 (2026-10-29) | Python 129개·웹 48개 검사 통과, ZIP 무결성·실제 EXE 초기화와 합성 계측·공개 다운로드·운영 웹 번들 확인 |
+| 분석 관측 | 전체·단계별 시간, 관측 입력/출력/캐시/추론 토큰, API 단계별 요청·오류와 날짜별 단가의 토큰 비용 추정 |
+| RAG 검색 | 실제 문서를 대조한 12문항 파일럿과 Recall@k·Precision@k·MRR·검색 지연·기업/시점 혼입 지표. 단일 기업 중심의 제한된 표본 |
+| 답변 근거 품질 | 주장·인용 로컬 검토 큐, 사람 정답과 별도 예측 비교, 미검수/모델/사람·실제/합성 출처 구분. 사람 정답이 없으면 의미 판정은 미평가 |
+
+검사 수는 해당 배포의 검증 기록이며 저장소 전체 고유 테스트 수나 AI 정확도가 아닙니다. 관측 비용은 SDK 내부 재시도·도구 요금·세금·계정 청구서를 포함하지 않습니다.
+
+<details>
+<summary>모의 API를 사용하는 핵심 회귀 검사 예시</summary>
 
 ```powershell
-.\run_marketcouncil.bat --check
+$env:OPENAI_API_KEY='offline-test-key'
+$env:PYTHON_DOTENV_DISABLED='1'
+venv\Scripts\python.exe -m unittest tests.test_run_observability tests.test_quality_benchmark test_analysis_recovery test_packaged_daily
+cd frontend
+npm test
 ```
 
-### 토론 결과 보기
+실제 분석과 공식 게시를 재실행하는 명령은 아닙니다. 정답 데이터셋·사람 검토 결과가 없는 상태에서 임의의 정확도를 만들지 않습니다.
 
-분석 완료 후 Streamlit 뷰어를 실행합니다.
+</details>
 
-```powershell
-.\view_debate.bat
-```
+## 코드와 문서 찾아보기
 
-뷰어에서는 시장 국면, 의제별 Bull/Bear 주장, 라운드별 변화, 원문 근거와 검증 상태를 확인할 수 있습니다.
+| 경로 | 역할 |
+| --- | --- |
+| [`frontend/`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus/frontend) | 공개 웹·마이페이지·커뮤니티·관리자 화면 |
+| [`desktop/`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus/desktop) | Windows UI·계정 연결·공식 분석·일일 실행 |
+| [`agents/`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus/agents), [`app/`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus/app) | 역할별 프롬프트·분석 및 복구 워크플로 |
+| [`rag/`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus/rag), [`tools/`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus/tools) | 문서 검색·근거 처리·수집·계측·평가 |
+| [`supabase/`](https://github.com/woosukkk/MarketCouncil/tree/debate_focus/supabase) | 토론·목록·운영자·RLS·게시 검증 SQL |
 
-## 출력
+- [배포 검증과 버전 기록](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/deployment-versions.md)
+- [로컬 단계 복구와 오류 진단](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/analysis-recovery.md)
+- [관리자 성능·RAG·근거 품질 평가](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/admin-performance.md)
+- [실제 분석·품질 검증 기록](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/live-analysis-verification-2026-10-15.md)
+- [Windows 배포와 사용 흐름](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/desktop-distribution.md)
 
-분석 결과는 로컬 `results/` 아래에 저장됩니다.
+## 남은 과제
 
-- 토론 전체 상태와 근거를 담은 JSON
-- 사람이 읽을 수 있는 Markdown 토론 기록
-- 시장 국면 분석 JSON
+- [ ] 기업·자료원·기준일을 확장한 정답 데이터셋과 독립적인 사람 근거 검수
+- [ ] 충분한 메모리를 확보한 RAG 실모델 재측정 및 조건을 고정한 반복 비교
+- [ ] 별도 PC의 설치부터 분석·보관까지 전체 사용자 흐름 검증
+- [ ] 이전 가설·강화/폐기 조건과 실제 결과 비교, 시점 고정 백테스트·확률 보정
+- [ ] 같은 모델의 상관된 오류를 검증한 뒤 필요할 때 모델 다양화 검토
 
-생성 결과와 로컬 벡터 DB는 저장소의 소스 코드와 분리해 관리합니다.
+현재 토론자의 기본 모델은 동일하므로 역할 분리만으로 오류가 독립적이 되지는 않습니다. 자동매매·수익률 보장·검증되지 않은 AI 정확도는 제공하지 않습니다.
 
-## 현재 한계
+---
 
-- 최신 Shorts 수집은 YouTube 페이지 구조와 자막 제공 여부에 영향을 받습니다.
-- 같은 모델과 공통 문맥을 사용하는 Bull/Bear는 완전히 독립적인 오류를 만들지 못할 수 있습니다.
-- 웹 검색 결과와 LLM 출력은 실행 시점 및 외부 서비스 상태에 따라 달라질 수 있습니다.
-- 모든 분석 문장에 대한 자동 인용 검증과 수치 단위 검사는 아직 완성 단계가 아닙니다.
-- 시점 고정 백테스트, Brier score 기반 확률 보정과 비용 대비 성능 평가는 아직 구현되지 않았습니다.
-- 지원 기업과 데이터 소스의 범위가 제한적입니다.
-
-## 로드맵
-
-1. 토론 의제 중요도와 근거 품질 평가 개선
-2. 반복 토론·확인 편향·근거 누락 회귀 테스트 구축
-3. 분석 기준일 이후 자료를 차단한 시점 고정 평가
-4. 이전 가설, 강화·폐기 조건과 실제 결과 비교
-5. 검색 Recall@k, 인용 정확도, 모순 누락률, 비용과 지연시간 측정
-6. 확률과 예측구간 보정
-7. 검증 결과가 필요성을 보일 때만 모델 다양화와 추가 에이전트 도입
-
-## 참고 연구
-
-MarketCouncil은 아래 연구의 아이디어를 그대로 복제하지 않고 현재 단계에 필요한 부분만 선별해 참고합니다.
-
-| 연구 | 참고한 부분 | 현재 적용 범위 |
-| --- | --- | --- |
-| [TradingAgents: Multi-Agents LLM Financial Trading Framework](https://arxiv.org/abs/2412.20138) | 금융 역할 분리와 Bull/Bear 토론 | 경쟁 가설과 다회차 토론에 부분 적용. Trader·Risk Team·자동매매는 미적용 |
-| [FinRobot: AI Agent for Equity Research and Valuation with LLMs](https://arxiv.org/abs/2411.08804) | 데이터 수집, 개념 해석, 투자 논지 분리 | 수집·분석·보고 책임 분리에 개념 적용 |
-| [BGE-M3](https://arxiv.org/abs/2402.03216) | 다국어 임베딩과 검색 | 로컬 RAG 임베딩 모델로 사용. 전체 hybrid retrieval은 향후 범위 |
-| [Corrective Retrieval Augmented Generation](https://arxiv.org/abs/2401.15884) | 검색 품질에 따른 보강·정제 | 검색 실패 시 웹 보강과 데이터 부족 처리 원칙에 참고 |
-| [RAGChecker](https://arxiv.org/abs/2408.08067) | 검색과 생성 성능의 분리 평가 | 회귀 평가 로드맵에 반영 |
-| [Improving Factuality and Reasoning through Multiagent Debate](https://proceedings.mlr.press/v235/du24e.html) | 여러 라운드의 주장·반론 | Moderator 기반 다회차 토론에 부분 적용 |
-| [Should we be going MAD?](https://proceedings.mlr.press/v235/smit24a.html) | 토론이 항상 다른 전략보다 우수하지 않다는 평가 | 토론 횟수 제한과 조기 종료 원칙에 반영 |
-| [ReConcile](https://aclanthology.org/2024.acl-long.381/) | 토론에서 모델 다양성의 중요성 | 현재 한계와 향후 모델 다양화 조건에 반영 |
-| [FinMem](https://arxiv.org/abs/2311.13743) | 금융 판단을 위한 계층형 메모리 | 이전 가설과 판단 변화 추적 로드맵에 참고 |
-| [FinCon](https://arxiv.org/abs/2407.06567) | 선택적 경험·신념 업데이트 | 필요한 판단 변화만 저장하는 향후 구조에 참고 |
-
-## 프로젝트 원칙
-
-> 더 많은 에이전트보다 더 나은 근거가 먼저다.  
-> 더 강한 확신보다 반증 가능한 가설이 먼저다.  
-> 미래 예측보다 이전 판단이 왜 바뀌었는지 추적하는 것이 먼저다.
-
-## 면책
-
-이 프로젝트는 학습 및 연구 목적의 투자 분석 보조 시스템입니다. 출력은 투자 조언, 매수·매도 권유 또는 수익 보장이 아닙니다. 데이터 오류, 지연, 누락과 모델의 잘못된 해석이 발생할 수 있으며 모든 투자 판단과 책임은 사용자에게 있습니다.
-
+**더 많은 에이전트보다 더 나은 근거를, 더 강한 확신보다 반증 가능한 가설을 우선합니다.**
