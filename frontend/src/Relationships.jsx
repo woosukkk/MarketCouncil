@@ -11,7 +11,7 @@ export default function Relationships({onResearch}){
  const visible=relationsFor(selected),active=new Set(visible.flatMap(row=>[row.from,row.to]));
  const kinds={supplier:t('공급망 기록'),integration:t('제품 통합'),development:t('공동 개발')};
  return <section className="account-page relationship-page">
-  <span className="eyebrow">CONNECTED RESEARCH</span><h1>{t('기업 관계와 영향 경로')}</h1>
+  <span className="eyebrow">{t('로컬 검토용')} · CONNECTED RESEARCH</span><h1>{t('기업 관계와 영향 경로')}</h1>
   <p>{t('공식 출처에서 확인한 연결을 따라 긍정·부정 조건과 추가로 확인할 데이터를 살펴봅니다.')}</p>
   <p className="muted">{t('자료 확인 기준일')} · {relationsAsOf} · {t('발표 당시의 사실이며 현재 계약 존속·공급량·주가 상관관계를 확인한 것은 아닙니다.')}</p>
   <div className="relation-toolbar"><button className="company-reset" aria-pressed={!selected} onClick={()=>setSelected('')}>{t('전체 기업')}</button><span>{t('기업을 누르면 직접 연결된 관계를 표시합니다.')}</span></div>
@@ -24,7 +24,16 @@ export default function Relationships({onResearch}){
    <div className="relation-heading"><span className="eyebrow">{kinds[row.type]}</span><span>{row.period}{row.historical?' · '+t('과거 기준 자료'):''}</span></div>
    <h2>{label(nodes[row.from])} ↔ {label(nodes[row.to])}</h2>
    <h3>{t('확인된 발표·기록')}</h3><p>{row.fact[language]}</p>
-   <a href={row.url} target="_blank" rel="noreferrer">{row.source} ↗</a>
+   <details className="relation-evidence">
+    <summary>{t('원문 근거')} · {row.evidence.length}</summary>
+    {row.evidence.map(item=><div key={item.url} className="relation-evidence-item">
+     <a href={item.url} target="_blank" rel="noreferrer">{item.source} ↗</a>
+     <small>{item.locator}</small>
+     <blockquote lang="en">{item.excerpt}</blockquote>
+     <p>{item.data[language]}</p>
+     <p className="muted">{item.limit[language]}</p>
+    </div>)}
+   </details>
    <div className="relation-scenarios"><div><h3>{t('긍정 조건 · 가설')}</h3><p>{row.upside[language]}</p></div><div><h3>{t('위험 조건 · 가설')}</h3><p>{row.downside[language]}</p></div></div>
    <h3>{t('추가 확인 데이터')}</h3><p>{row.needed[language]}</p>
    <div className="relation-actions">{[row.from,row.to].filter(id=>!nodes[id].reference).map(id=><button key={id} onClick={()=>onResearch(id)}>{label(nodes[id])} · {t('공개 분석 보기')} →</button>)}</div>

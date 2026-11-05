@@ -579,4 +579,7 @@ export const english=Object.freeze({
 
   "아직 외부 평가 기록이 없습니다.": "No external evaluation reports have been imported yet.",
   "가져온 시각": "Imported at",
+
+  "로컬 검토용": "Local review",
+  "원문 근거": "Original evidence",
 });
