@@ -158,7 +158,7 @@ Open the [research library](https://frontend-six-pi-h5i7tztups.vercel.app/app?la
 
 ### Analyze with the Windows app
 
-1. Download the **Windows 0.8.0** ZIP from the [download page](https://frontend-six-pi-h5i7tztups.vercel.app/download?lang=en) and extract it into a separate folder.
+1. Download the **Windows 0.8.1** ZIP from the [download page](https://frontend-six-pi-h5i7tztups.vercel.app/download?lang=en) and extract it into a separate folder.
 2. Keep `_internal` alongside `MarketCouncil.exe` and run the executable.
 3. Prepare Docker Desktop, enter your own OpenAI key and a company name, then select a ticker candidate. Enter your DART key for Korean filings or a contact identifier for SEC requests, then prepare and check company evidence.
 4. Save the result locally. Import its JSON through My research on the website to store it privately, then choose sharing or publication if desired.
