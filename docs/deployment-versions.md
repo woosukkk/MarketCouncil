@@ -85,3 +85,13 @@ Railway의 과거 배포는 이번에 정확한 배포 커밋/시각 기록을 �
 | web-v0.13.1 | 8a15dcd8e1d26d91ec9bfd1ac303dc4bc9836c38 | https://frontend-60iybme2q-woosukk.vercel.app |
 
 공개 다운로드를 0.7.0으로 전환했다. 기존 0.6.0 자산은 유지한다. 깨끗한 커밋 스냅샷에서 Python 126개·웹 57개와 빌드를 통과했고, 실제 ZIP/EXE·공개 digest/체크섬과 운영 주소·번들을 확인했다. Vercel 배포는 dpl_C3biXzbTdHE1obQDJE4P4MBB9aFG다. 다기업 조회·재무 공급과 저장 분리는 확인했으며 새 유료 AI 토론 품질·별도 PC 전체 실행은 검증하지 않았다. 자세한 결과는 [0.7.0 배포 검증](release-verification-2026-11-03-v070.md) 및 이슈 #28을 참고한다.
+
+
+## 2026-11-05 기업별 근거 준비·공식 선정 배포
+
+| 버전 | 실제 빌드 커밋 | 배포 주소 |
+| --- | --- | --- |
+| desktop-v0.8.0 | 40d0a3d5fe1e2a3c7a755297f98f4fa73d6353ae | https://github.com/woosukkk/MarketCouncil/releases/tag/desktop-v0.8.0 |
+| web-v0.14.0 | 40d0a3d5fe1e2a3c7a755297f98f4fa73d6353ae | https://frontend-c6qo0d7tk-woosukk.vercel.app |
+
+6기업 선택·관리자 근거 현황과 Windows 원문 준비/gate/공식 선택을 적용했다. 사용자 요청으로 전체 테스트는 보류하고 프로덕션 빌드·패키지 초기화·공개 화면을 확인했다. 미국 2기업은 SEC 공시 접근 제한이 남아 있어 최소 자료 미달로 차단한다. 상세 범위와 보류 항목은 [0.8.0 배포 기록](release-verification-2026-11-05-v080.md) 및 #29에 기록했다.
