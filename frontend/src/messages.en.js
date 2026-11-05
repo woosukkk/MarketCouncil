@@ -582,4 +582,12 @@ export const english=Object.freeze({
 
   "로컬 검토용": "Local review",
   "원문 근거": "Original evidence",
+  "최근 30일": "Last 30 days",
+  "지난 분석": "Past research",
+  "분석 {0}건": "{0} analyses",
+  "{0}년 {1}분기": "Q{1} {0}",
+  "{0}년 상반기": "H1 {0}",
+  "{0}년 하반기": "H2 {0}",
+  "{0}년": "{0}",
+  "30일 이상 지난 기록은 여기에 기간별로 모입니다.": "Research that is at least 30 days old is grouped here by period.",
 });

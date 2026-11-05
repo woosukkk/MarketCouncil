@@ -1,0 +1,7 @@
+.library-periods { margin: 22px 0 30px; }
+.library-periods h3 { margin: 0 0 12px; font-size: 16px; }
+.library-period { margin: 10px 0; border-radius: 10px; background: #f3f5f8; }
+.library-period summary { padding: 14px 16px; cursor: pointer; }
+.library-period summary strong { margin-inline-start: 6px; }
+.library-period summary small { margin-inline-start: 12px; color: #505963; }
+.library-period > .session-grid { padding: 0 14px 14px; }
