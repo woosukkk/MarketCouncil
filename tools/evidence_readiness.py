@@ -57,7 +57,7 @@ def _official_url(profile: dict[str, Any], value: object, provider: str | None =
         else:
             if provider is not None and provider != "official_ir":
                 raise ValueError("invalid_source")
-            allowed = [source for source in profile["ir_sources"] if source["host"] == host]
+            allowed = [source for source in (*profile["ir_sources"], *profile.get("filing_sources", ())) if source["host"] == host]
             if not any(path.casefold().startswith(prefix.casefold()) for source in allowed for prefix in source["path_prefixes"]):
                 raise ValueError("invalid_source")
             if any(source.get("is_document") is not True and path.rstrip("/").casefold() == urlsplit(source["url"]).path.rstrip("/").casefold() for source in allowed):
@@ -127,6 +127,12 @@ def evaluate_readiness(manifest: dict[str, Any], as_of_date: object = None) -> d
                 continue
             accepted.append({"document_id": identifier, "document_type": kind, "published_at": published.isoformat(),
                              "report_date": period.isoformat(), "content_hash": digest, "source_url": url})
+            basis = item.get('date_basis')
+            if basis is not None:
+                if basis != 'first_retrieved' or item.get('filing_origin') != 'issuer_filing':
+                    accepted.pop()
+                    continue
+                accepted[-1]['date_basis'] = basis
             seen.add(digest)
             identifiers.add(identifier)
             urls.add(url)
@@ -159,7 +165,8 @@ def validate_readiness_report(report: object, company: str, ticker: str) -> dict
         raise ValueError("근거 문서 목록을 확인하세요.")
     hashes, identifiers, urls = set(), set(), set()
     for item in documents:
-        if not isinstance(item, dict) or set(item) != {"document_id", "document_type", "published_at", "report_date", "content_hash", "source_url"}:
+        core = {"document_id", "document_type", "published_at", "report_date", "content_hash", "source_url"}
+        if not isinstance(item, dict) or not core.issubset(item) or set(item) - core - {'date_basis'} or ('date_basis' in item and item['date_basis'] != 'first_retrieved'):
             raise ValueError("근거 문서 형식을 확인하세요.")
         kind, digest, identifier = item.get("document_type"), item.get("content_hash"), item.get("document_id")
         if kind not in DOCUMENT_TYPES or not isinstance(digest, str) or not _HASH.fullmatch(digest) or digest in hashes or not isinstance(identifier, str) or not _ID.fullmatch(identifier) or identifier in identifiers:

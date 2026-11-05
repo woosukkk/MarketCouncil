@@ -40,7 +40,7 @@ function officialUrl(profile,value){
   if(profile.market!=='us'||!filing||Number(filing[1])!==Number(profile.sec_cik))fail();
   normalized='https://'+host+rawPath;
  }else{
-  const sources=profile.ir_sources.filter(source=>source.host===host);
+  const sources=[...profile.ir_sources,...(profile.filing_sources||[])].filter(source=>source.host===host);
   if(!sources.some(source=>source.path_prefixes.some(prefix=>path.toLowerCase().startsWith(prefix.toLowerCase()))))fail();
   if(sources.some(source=>source.is_document!==true&&path.replace(/\/+$/,'').toLowerCase()===decodeURIComponent(new URL(source.url).pathname).replace(/\/+$/,'').toLowerCase()))fail();
   normalized='https://'+host+rawPath;
@@ -65,7 +65,7 @@ function structure(report,company,ticker,{todayOnly=false}={}){
  if(!Array.isArray(report.documents)||report.documents.length>200)fail();
  const hashes=new Set(),ids=new Set(),urls=new Set();
  const documents=report.documents.map(row=>{
-  if(!keys(row,documentFields)||!types.includes(row.document_type)||typeof row.content_hash!=='string'||row.content_hash.length!==64||!hash.test(row.content_hash)||hashes.has(row.content_hash)||typeof row.document_id!=='string'||row.document_id.length<1||row.document_id.length>160||/[^A-Za-z0-9_.:-]/.test(row.document_id)||!/^[A-Za-z0-9]/.test(row.document_id)||ids.has(row.document_id))fail();
+  if((!keys(row,documentFields,['date_basis'])||(Object.hasOwn(row,'date_basis')&&row.date_basis!=='first_retrieved'))||!types.includes(row.document_type)||typeof row.content_hash!=='string'||row.content_hash.length!==64||!hash.test(row.content_hash)||hashes.has(row.content_hash)||typeof row.document_id!=='string'||row.document_id.length<1||row.document_id.length>160||/[^A-Za-z0-9_.:-]/.test(row.document_id)||!/^[A-Za-z0-9]/.test(row.document_id)||ids.has(row.document_id))fail();
   const published=day(row.published_at),period=day(row.report_date);
   if(period>published||published>cutoff||cutoff-published>550)fail();
   officialUrl(profile,row.source_url);
@@ -75,7 +75,7 @@ function structure(report,company,ticker,{todayOnly=false}={}){
    if(day(receipt.slice(0,4)+'-'+receipt.slice(4,6)+'-'+receipt.slice(6,8))!==published)fail();
   }
   hashes.add(row.content_hash);ids.add(row.document_id);urls.add(row.source_url);
-  return Object.fromEntries(documentFields.map(key=>[key,row[key]]));
+  return {...Object.fromEntries(documentFields.map(key=>[key,row[key]])),...(row.date_basis?{date_basis:row.date_basis}:{})};
  });
  const counts=Object.fromEntries(types.map(type=>[type,documents.filter(row=>row.document_type===type).length]));
  if(!keys(report.counts,types)||types.some(type=>!Number.isSafeInteger(report.counts[type])||report.counts[type]!==counts[type]))fail();

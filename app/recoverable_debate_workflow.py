@@ -57,6 +57,7 @@ class RecoverableDebateWorkflow(DebateWorkflow):
             'tools/evidence_readiness.py',
             'tools/company_evidence_collector.py',
             'tools/official_ir_collector.py',
+            'tools/issuer_filings_collector.py',
         ]
         if getattr(sys, "frozen", False):
             from desktop.preferences import VERSION

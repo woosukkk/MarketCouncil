@@ -108,7 +108,7 @@ export function EvidenceReadinessSummary({report}){
    </tr>)}</tbody></table></div>
    <p className="muted">{t('최근 연간 보고서가 더 최신 재무 기간이면 분기 자료를 대체할 수 있습니다. 수집 작업 완료가 모든 기업의 준비 완료를 뜻하지는 않습니다.')}</p>
    {report.collection_failures.length>0&&<section><h3>{t('확인이 필요한 수집 단계')}</h3><ul>{report.collection_failures.map((row,index)=><li key={row.ticker+'-'+index}>{row.ticker} · {t(collectionFailures[row.code])}</li>)}</ul></section>}
-   {report.companies.map(row=><details key={row.ticker}><summary>{row.company_name} · {t('근거 출처와 시점')}</summary><p><small>{t('근거 묶음 해시 ')}{row.corpus_hash.slice(0,16)}</small></p>{row.documents.length===0?<p>{t('검증된 본문이 없습니다.')}</p>:<ul>{row.documents.map(doc=><li key={doc.document_id}><a href={doc.source_url} target="_blank" rel="noreferrer">{t(readinessTypes[doc.document_type])}</a> · {t('발표일 ')}{doc.published_at} · {t('보고 기간 ')}{doc.report_date}<br/><small>{t('본문 식별 해시 ')}{doc.content_hash.slice(0,16)}</small></li>)}</ul>}</details>)}
+   {report.companies.map(row=><details key={row.ticker}><summary>{row.company_name} · {t('근거 출처와 시점')}</summary><p><small>{t('근거 묶음 해시 ')}{row.corpus_hash.slice(0,16)}</small></p>{row.documents.length===0?<p>{t('검증된 본문이 없습니다.')}</p>:<ul>{row.documents.map(doc=><li key={doc.document_id}><a href={doc.source_url} target="_blank" rel="noreferrer">{t(readinessTypes[doc.document_type])}</a> · {t(doc.date_basis==='first_retrieved'?'최초 공개 확인일 ':'발표일 ')}{doc.published_at} · {t('보고 기간 ')}{doc.report_date}<br/><small>{t('본문 식별 해시 ')}{doc.content_hash.slice(0,16)}</small></li>)}</ul>}</details>)}
   </>}
  </section>;
 }

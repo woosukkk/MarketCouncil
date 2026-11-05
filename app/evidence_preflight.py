@@ -58,12 +58,19 @@ def prepare_company(company: str, ticker: str, *, refresh: bool = True,
         _collection_settings()
         from tools.official_ir_collector import OfficialIRCollector
         manifest = collector.collect(profile['company_name'], profile['ticker'], limit=3)
+        if profile['market'] == 'us' and manifest.get('latest_primary_failed'):
+            from tools.issuer_filings_collector import IssuerFilingsCollector
+            fallback = IssuerFilingsCollector(base).collect(profile['company_name'], profile['ticker'])
+            manifest.update(documents=fallback['documents'], requested_ids=fallback['requested_ids'],
+                            latest_required_ids=fallback['latest_required_ids'], primary_provider=fallback['primary_provider'],
+                            latest_primary_failed=fallback['latest_primary_failed'],
+                            failures=[*manifest.get('failures', []), *fallback['failures']])
         ir = OfficialIRCollector(base).collect(profile['company_name'], profile['ticker'],
                                              issuer_id=str(manifest.get('issuer_id', '')), limit=2)
         seen = set()
         documents = []
         for document in [*manifest['documents'], *ir['documents'],
-                         *(doc for doc in previous['documents'] if doc.get('provider') == 'official_ir')]:
+                         *(doc for doc in previous['documents'] if doc.get('provider') == 'official_ir' and doc.get('document_type') == 'earnings')]:
             key = document['source_url']
             if key not in seen:
                 documents.append(document)
@@ -86,7 +93,7 @@ def prepare_company(company: str, ticker: str, *, refresh: bool = True,
         manifest = previous
     evaluated = dict(manifest)
     if manifest.get('latest_primary_failed'):
-        evaluated['documents'] = [doc for doc in manifest['documents'] if doc.get('provider') == 'official_ir']
+        evaluated['documents'] = [doc for doc in manifest['documents'] if doc.get('document_type') == 'earnings']
     if manifest.get('latest_earnings_failed'):
         evaluated['documents'] = [doc for doc in evaluated['documents'] if doc.get('document_type') != 'earnings']
     return manifest, evaluate_readiness(evaluated)

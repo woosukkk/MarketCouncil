@@ -58,6 +58,18 @@ def extract_official_text(path: Path) -> str:
                 text = "\n\n".join(parts)
         except (zipfile.BadZipFile, RuntimeError) as error:
             raise ValueError("invalid_archive") from error
+    elif suffix == ".docx":
+        import xml.etree.ElementTree as ET
+        with zipfile.ZipFile(path) as archive:
+            members = archive.infolist()
+            if len(members) > MAX_ZIP_MEMBERS or sum(member.file_size for member in members) > MAX_ZIP_BYTES:
+                raise ValueError("archive_limit_exceeded")
+            raw = archive.read("word/document.xml")
+            if b"<!DOCTYPE" in raw or b"<!ENTITY" in raw:
+                raise ValueError("unsafe_document_xml")
+            tree = ET.fromstring(raw)
+            ns = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+            text = "\n".join("".join(node.text or "" for node in paragraph.iter(ns+'t')) for paragraph in tree.iter(ns+'p'))
     elif suffix == ".pdf":
         from pypdf import PdfReader
         reader = PdfReader(path)
@@ -159,7 +171,7 @@ class CompanyEvidenceCollector:
             if not re.fullmatch(r"\d{10}-\d{2}-\d{6}", accession) or source.hostname not in {"www.sec.gov", "sec.gov"} or not source.path.startswith(prefix) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,200}", source.path[len(prefix):]):
                 raise ValueError("unverified_filing_url")
         elif provider == "official_ir":
-            sources = profile.get("ir_sources", ())
+            sources = (*profile.get("ir_sources", ()), *profile.get("filing_sources", ()))
             if not any(source.hostname == item["host"] and any(source.path.casefold().startswith(prefix.casefold()) for prefix in item["path_prefixes"]) for item in sources):
                 raise ValueError("unverified_ir_url")
         else:
@@ -187,7 +199,7 @@ class CompanyEvidenceCollector:
     def _selection(result: dict[str, Any], provider: str, limit: int = 10) -> tuple[list[str], list[str]]:
         if not isinstance(result, dict):
             raise ValueError("invalid_current_filing_selection")
-        pattern = r"\d{14}" if provider == "open_dart" else r"\d{10}-\d{2}-\d{6}"
+        pattern = r"ISSUER-[a-f0-9]{24}" if provider == "official_ir" else r"\d{14}" if provider == "open_dart" else r"\d{10}-\d{2}-\d{6}"
         requested, required = result.get("requested_ids"), result.get("latest_required_ids")
         for identifiers in (requested, required):
             if (not isinstance(identifiers, list) or len(identifiers) > limit
@@ -202,15 +214,20 @@ class CompanyEvidenceCollector:
     def _latest_failed(cls, manifest: dict[str, Any], documents: list[dict[str, Any]], profile: dict[str, Any]) -> bool:
         """A body must pass the same acceptance rules as the gate, not merely exist on disk."""
         from tools.evidence_readiness import evaluate_readiness
+        provider = manifest.get('primary_provider', profile['provider'])
+        if provider != profile['provider'] and not (profile['market'] == 'us' and provider == 'official_ir'):
+            return True
         try:
-            requested, required = cls._selection(manifest, profile["provider"])
+            requested, required = cls._selection(manifest, provider)
         except ValueError:
             return True
         if not requested or not required:
             return True
         accepted = set()
         for document in documents:
-            if document.get("provider") != profile["provider"]:
+            if document.get("provider") != provider or document.get('document_type') not in ('annual','interim'):
+                continue
+            if provider == 'official_ir' and document.get('filing_origin') != 'issuer_filing':
                 continue
             single = evaluate_readiness({"company_name": profile["company_name"], "ticker": profile["ticker"], "documents": [document]})
             accepted.update(row["document_id"] for row in single["documents"])
@@ -304,7 +321,7 @@ class CompanyEvidenceCollector:
         if not isinstance(documents, list) or len(documents) > 100:
             raise ValueError("invalid_document_list")
         documents = [self._hydrate(document, root, profile, str(manifest.get("issuer_id", ""))) for document in documents]
-        cache = {key: manifest[key] for key in ("company_name", "ticker", "provider", "issuer_id", "collected_at", "failures", "requested_ids", "latest_required_ids", "latest_primary_failed", "latest_earnings_failed") if key in manifest}
+        cache = {key: manifest[key] for key in ("company_name", "ticker", "provider", "issuer_id", "collected_at", "failures", "requested_ids", "latest_required_ids", "latest_primary_failed", "latest_earnings_failed", "primary_provider") if key in manifest}
         cache["documents"] = [{key: value for key, value in doc.items() if key != "content"} for doc in documents]
         for document in cache["documents"]:
             for key in ("original_path", "text_path"):

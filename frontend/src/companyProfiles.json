@@ -187,6 +187,26 @@
         "is_document": true
       }
     ],
+    "issuer_tax_id": "94-2404110",
+    "filing_index": "https://investor.apple.com/investor-relations/sec-filings/default.aspx",
+    "filing_sources": [
+      {
+        "url": "https://investor.apple.com/investor-relations/sec-filings/default.aspx",
+        "host": "investor.apple.com",
+        "path_prefixes": [
+          "/investor-relations/",
+          "/sec-filings/",
+          "/feed/SECFiling.svc/"
+        ]
+      },
+      {
+        "url": "https://d18rn0p25nwr6d.cloudfront.net/CIK-0000320193/",
+        "host": "d18rn0p25nwr6d.cloudfront.net",
+        "path_prefixes": [
+          "/CIK-0000320193/"
+        ]
+      }
+    ],
     "issuer_id": "0000320193",
     "provider": "sec_edgar",
     "official_ir_hosts": [
@@ -213,6 +233,24 @@
         "path_prefixes": [
           "/en-us/investor/",
           "/investor/"
+        ]
+      }
+    ],
+    "issuer_tax_id": "91-1144442",
+    "filing_index": "https://www.microsoft.com/en-us/investor/sec-filings",
+    "filing_sources": [
+      {
+        "url": "https://www.microsoft.com/en-us/investor/sec-filings",
+        "host": "www.microsoft.com",
+        "path_prefixes": [
+          "/en-us/investor/"
+        ]
+      },
+      {
+        "url": "https://cdn-dynmedia-1.microsoft.com/is/content/microsoftcorp/",
+        "host": "cdn-dynmedia-1.microsoft.com",
+        "path_prefixes": [
+          "/is/content/microsoftcorp/"
         ]
       }
     ],

@@ -527,4 +527,5 @@ export const english=Object.freeze({
   "내 PC에서 분석 준비하기 →": "Prepare an analysis on my PC →",
   "아직 이 기업의 공개 분석이 없습니다.": "No research has been published for this company yet.",
 
+  "최초 공개 확인일": "First verified availability",
 });

@@ -40,6 +40,16 @@ PROFILES = (
 )
 
 for _profile in PROFILES:
+    if _profile['ticker'] == 'AAPL':
+        _profile.update(issuer_tax_id='94-2404110', filing_index='https://investor.apple.com/investor-relations/sec-filings/default.aspx', filing_sources=(
+            {'url':'https://investor.apple.com/investor-relations/sec-filings/default.aspx','host':'investor.apple.com','path_prefixes':('/investor-relations/','/sec-filings/','/feed/SECFiling.svc/')},
+            {'url':'https://d18rn0p25nwr6d.cloudfront.net/CIK-0000320193/','host':'d18rn0p25nwr6d.cloudfront.net','path_prefixes':('/CIK-0000320193/',)}))
+    elif _profile['ticker'] == 'MSFT':
+        _profile.update(issuer_tax_id='91-1144442', filing_index='https://www.microsoft.com/en-us/investor/sec-filings', filing_sources=(
+            {'url':'https://www.microsoft.com/en-us/investor/sec-filings','host':'www.microsoft.com','path_prefixes':('/en-us/investor/',)},
+            {'url':'https://cdn-dynmedia-1.microsoft.com/is/content/microsoftcorp/','host':'cdn-dynmedia-1.microsoft.com','path_prefixes':('/is/content/microsoftcorp/',)}))
+
+for _profile in PROFILES:
     _profile["issuer_id"] = _profile["sec_cik"]
     _profile["provider"] = "open_dart" if _profile["market"] == "kr" else "sec_edgar"
     _profile["official_ir_hosts"] = tuple(source["host"] for source in _profile["ir_sources"])
