@@ -14,7 +14,7 @@ from unittest.mock import Mock, patch
 from desktop import daily_official as daily
 from desktop import main as desktop
 from desktop.preferences import VERSION
-from test_desktop_evidence_gate import ready_report, ready_result
+from tests.test_desktop_evidence_gate import ready_report, ready_result
 
 
 class PackagedDailyTests(unittest.TestCase):

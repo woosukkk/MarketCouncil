@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {safeUrl,issueStatus,evidenceCount,filterSessions, usedSources, resultsUrl} from './data.js';
+import {safeUrl,issueStatus,evidenceCount,filterSessions, usedSources, resultsUrl} from '../src/data.js';
 test('evidence links reject executable and local URLs',()=>{
   for(const u of ['javascript:alert(1)','data:text/html,test','file:///C:/secret','/private']) assert.equal(safeUrl(u),null);
   assert.equal(safeUrl('https://example.com/report#page=3'),'https://example.com/report#page=3');
@@ -21,13 +21,13 @@ test('sources group repeated citations without merging different documents',()=>
 });
 
  test('saved analysis identity survives content version updates', async () => {
-  const {resultKey}=await import('./data.js');
+  const {resultKey}=await import('../src/data.js');
   assert.equal(resultKey('0123456789abcdef-1111111111111111'),resultKey('0123456789abcdef-2222222222222222'));
   assert.equal(resultKey('0123456789abcdef'),'0123456789abcdef');
 });
 
 test('research filters search summaries and sort without changing source rows',async()=>{
- const {researchRows}=await import('./data.js');
+ const {researchRows}=await import('../src/data.js');
  const rows=[{company_name:'삼성전자',analysis_date:'2026-01-01',summary:'반도체 수요'},{company_name:'삼성전자',analysis_date:'2026-02-01'},{company_name:'다른기업',analysis_date:'invalid'}];
  assert.equal(researchRows(rows,' 반도체 ')[0],rows[0]);
  assert.deepEqual(researchRows(rows,'','삼성전자').map(x=>x.analysis_date),['2026-02-01','2026-01-01']);
@@ -35,7 +35,7 @@ test('research filters search summaries and sort without changing source rows',a
 });
 
 test('library includes only public official discussions and sorts with archive',async()=>{
- const {mergeLibrary}=await import('./data.js');
+ const {mergeLibrary}=await import('../src/data.js');
  const archive=[{id:'old',company_name:'삼성전자',created_at:'2026-10-08'}];
  const dates=[{discussion_id:'official',publication_date:'2026-10-13'},{discussion_id:'private',publication_date:'2026-10-12'}];
  const rows=[{id:'official',company_name:'삼성전자',analysis_date:'2026-10-13',visibility:'public',issues:[{title:'a'}]},{id:'private',visibility:'private'},{id:'community',visibility:'public'}];
@@ -47,7 +47,7 @@ test('library includes only public official discussions and sorts with archive',
 
 
 test('repeated official discussion uses the latest publication date in any query order',async()=>{
- const {mergeLibrary}=await import('./data.js');
+ const {mergeLibrary}=await import('../src/data.js');
  const dates=[{discussion_id:'same',publication_date:'2026-10-16'},{discussion_id:'same',publication_date:'2026-10-12'}];
  const rows=[{id:'same',company_name:'삼성전자',analysis_date:'2026-10-10',visibility:'public'}];
  for(const selections of [dates,[...dates].reverse()]){
@@ -58,7 +58,7 @@ test('repeated official discussion uses the latest publication date in any query
 
 
 test('official badges require a matching public discussion',async()=>{
- const {publicOfficialSelections}=await import('./data.js');
+ const {publicOfficialSelections}=await import('../src/data.js');
  const selections=['public','private','shared','missing'].map(discussion_id=>({discussion_id,publication_date:'2026-10-16'}));
  const rows=[{id:'public',visibility:'public'},{id:'private',visibility:'private'},{id:'shared',visibility:'shared'}];
  assert.deepEqual(publicOfficialSelections(selections,rows),[selections[0]]);
@@ -67,7 +67,7 @@ test('official badges require a matching public discussion',async()=>{
 });
 
 test('same-day research from five companies remains separate when merged and filtered',async()=>{
- const {mergeLibrary,researchRows}=await import('./data.js');
+ const {mergeLibrary,researchRows}=await import('../src/data.js');
  const companies=[['SK하이닉스','000660.KS'],['현대차','005380.KS'],['NAVER','035420.KS'],['Apple Inc.','AAPL'],['Microsoft Corporation','MSFT']];
  const rows=companies.map(([company_name,ticker],index)=>({id:`official-${index}`,company_name,ticker,analysis_date:'2026-11-03T09:00:00',visibility:'public'}));
  const archive=rows.map(row=>({id:`archive-${row.id}`,company_name:row.company_name,ticker:row.ticker,created_at:row.analysis_date}));

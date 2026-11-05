@@ -1,9 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validateResult,readResult} from './resultValidation.js';
-import {prepareResult} from './resultUpload.js';
-const fixture=JSON.parse(readFileSync(new URL('../tests/result-validation-cases.json',import.meta.url),'utf8'));
+import {validateResult,readResult} from '../src/resultValidation.js';
+import {prepareResult} from '../src/resultUpload.js';
+const fixture=JSON.parse(readFileSync(new URL('./result-validation-cases.json',import.meta.url),'utf8'));
 for(const row of fixture.cases)test(`result shape: ${row.name}`,()=>{
  const value=row.result??{...structuredClone(fixture.base),...row.fields};
  if(row.valid){assert.equal(validateResult(value),value);assert.doesNotThrow(()=>prepareResult(JSON.stringify(value)));}

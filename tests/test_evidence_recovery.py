@@ -14,7 +14,7 @@ from app.comparison_workflow import ComparisonWorkflow
 from app.recoverable_debate_workflow import RecoverableDebateWorkflow
 from desktop.preferences import VERSION
 from tools.evidence_readiness import evaluate_readiness
-from test_evidence_preflight import AS_OF, primary_manifest, comparison
+from tests.test_evidence_preflight import AS_OF, primary_manifest, comparison
 
 
 class EvidenceRecoveryTests(unittest.TestCase):

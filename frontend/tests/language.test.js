@@ -5,8 +5,8 @@ import {fileURLToPath} from 'node:url';
 import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {parseSync} from 'rolldown/utils';
-import {english} from './messages.en.js';
-import {LANGUAGE_KEY,initialLanguage,rememberLanguage,translate,withLanguage} from './language.js';
+import {english} from '../src/messages.en.js';
+import {LANGUAGE_KEY,initialLanguage,rememberLanguage,translate,withLanguage} from '../src/language.js';
 
 test('explicit supported language overrides storage, otherwise Korean is the safe default',()=>{
  const storage={getItem:key=>{assert.equal(key,LANGUAGE_KEY);return 'en'}};
@@ -70,7 +70,7 @@ test('every fixed Korean UI label and surfaced validator message has an English 
   if(node.type==='JSXText')assert.equal(/[가-힣]/.test(node.value),false,'untranslated JSX: '+node.value);
   for(const [key,value] of Object.entries(node))if(!['loc','comments','range'].includes(key))visit(value);
  };
- for(const file of files){const source=await readFile(new URL(file,import.meta.url),'utf8');const result=parseSync(file,source);assert.deepEqual(result.errors,[],file);visit(result.program);}
+ for(const file of files){const source=await readFile(new URL('../src/'+file,import.meta.url),'utf8');const result=parseSync(file,source);assert.deepEqual(result.errors,[],file);visit(result.program);}
 });
 
 test('actual public, account and admin components render English through shared context',async()=>{

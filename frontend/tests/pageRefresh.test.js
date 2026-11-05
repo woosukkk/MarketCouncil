@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {watchPageRefresh} from './pageRefresh.js';
+import {watchPageRefresh} from '../src/pageRefresh.js';
 
 test('returning to the visible page refreshes data and cleanup removes listeners',()=>{
  const targetWindow=new EventTarget(),targetDocument=new EventTarget();

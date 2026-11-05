@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, Mock
 from desktop.cloud import prepare_official, publish_official, check_official_schema, CloudAPIError
-from test_desktop_evidence_gate import ready_result
+from tests.test_desktop_evidence_gate import ready_result
 
 SESSION={'user':{'id':'owner'},'access_token':'token'}
 DATA=ready_result()

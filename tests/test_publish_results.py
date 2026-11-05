@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('publisher', Path(__file__).with_name('publish_results.py'))
+spec = importlib.util.spec_from_file_location('publisher', Path(__file__).resolve().parents[1] / 'publish_results.py')
 publisher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publisher)
 

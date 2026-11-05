@@ -12,7 +12,7 @@ Analysis saves locally first. Upload is explicit and uses the authenticated user
 
 Apply supabase/discussions.sql once. Anonymous listing can read public discussions only. Shared discussions use a token-gated RPC; private rows cannot be read through it.
 
-Build with PyInstaller from MarketCouncil.spec or the documented command in build_desktop.ps1. No fresh paid analysis is executed during build or tests. Clean-machine execution and real mailbox sign-in should be tested before wider distribution.
+Build with PyInstaller from MarketCouncil.spec or the documented command in scripts/build_desktop.ps1. No fresh paid analysis is executed during build or tests. Clean-machine execution and real mailbox sign-in should be tested before wider distribution.
 
 ## Daily official discussion
 
@@ -27,7 +27,7 @@ Legacy local automatic public archive upload is disabled in .env.result-upload. 
 | Files | Change |
 | --- | --- |
 | desktop/main.py, desktop/cloud.py, desktop/__init__.py | Local Windows UI, in-memory login/API keys, private user-token upload |
-| build_desktop.ps1, .gitignore | Standalone build, runtime data collection, exclude build outputs |
+| scripts/build_desktop.ps1, .gitignore | Standalone build, runtime data collection, exclude build outputs |
 | tools/financial_data.py | Explicit validated company ticker |
 | rag/retriever.py, tools/bull_tools.py, tools/bear_tools.py | Company-scoped search and lazy model loading for empty libraries |
 | frontend/src/main.jsx, frontend/src/Account.jsx, frontend/src/Discussions.jsx | My discussions, community, sharing, official selection, program download |

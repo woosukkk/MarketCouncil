@@ -10,7 +10,7 @@ from tools.result_validation import validate_result
 
 class ResultValidationTests(unittest.TestCase):
     def test_shared_contract_cases(self) -> None:
-        fixture=json.loads((Path(__file__).parent / "frontend/tests/result-validation-cases.json").read_text(encoding="utf-8"))
+        fixture=json.loads((Path(__file__).resolve().parents[1] / "frontend/tests/result-validation-cases.json").read_text(encoding="utf-8"))
         for row in fixture["cases"]:
             with self.subTest(row["name"]):
                 value=row.get("result", {**copy.deepcopy(fixture["base"]), **row.get("fields", {})})

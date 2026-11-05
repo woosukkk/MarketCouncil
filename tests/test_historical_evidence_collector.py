@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from tools.evidence_catalog import EvidenceCatalog
 from tools.historical_evidence_collector import HistoricalEvidenceCollector
-from test_evidence_preflight import primary_manifest
+from tests.test_evidence_preflight import primary_manifest
 
 
 class HistoricalEvidenceTests(unittest.TestCase):

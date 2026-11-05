@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fixture from './evidenceReadiness.fixture.json' with {type:'json'};
-import {prepareResult,uploadResult} from './resultUpload.js';
+import {prepareResult,uploadResult} from '../src/resultUpload.js';
 
 const clone=value=>structuredClone(value);
 const error=/분석 결과 형식이 올바르지 않아 열 수 없습니다/;

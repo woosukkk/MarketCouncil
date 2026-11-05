@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {measurementReport,monitoringSummary,metricText,reportTab,costText} from './adminData.js';
+import {measurementReport,monitoringSummary,metricText,reportTab,costText} from '../src/adminData.js';
 
 const base={schema_version:1,kind:'monitoring',id:'11111111-1111-4111-8111-111111111111',recorded_at:'2026-10-10T00:00:00Z',label:'삼성전자',scope:'analysis',status:'success',metrics:{duration_ms:10,cpu_ms:5}};
 const clone=value=>structuredClone(value);

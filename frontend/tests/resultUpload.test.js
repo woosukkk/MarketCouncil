@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {prepareResult,uploadResult} from './resultUpload.js';
+import {prepareResult,uploadResult} from '../src/resultUpload.js';
 
 const result={company_name:'Example',created_at:'2026-10-10',rounds:[{bull_response:{issues:[{evidence:[{exact_quote:'Cited',source_url:'https://example.com',context_text:'Private full document',api_key:'secret'}]}]}}],api_key:'secret',source_documents:['raw']};
 test('result upload excludes raw context and credentials',()=>{

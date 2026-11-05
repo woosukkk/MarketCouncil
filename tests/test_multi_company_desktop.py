@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 
 import app
 from desktop.main import Desktop
-from test_desktop_evidence_gate import ready_report
+from tests.test_desktop_evidence_gate import ready_report
 # Preload real helpers so restoring sys.modules also preserves package module identities.
 from tools import analysis_debate_store, company_lookup, debate_transcript_renderer
 

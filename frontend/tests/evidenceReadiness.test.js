@@ -1,9 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fixture from './evidenceReadiness.fixture.json' with {type:'json'};
-import profiles from './companyProfiles.json' with {type:'json'};
-import {sanitizeReadinessReport,validateReadinessReport,validateReadinessBatch,readinessBatchStructure,canonicalReadinessJson} from './evidenceReadiness.js';
-import {measurementReport,prepareMeasurementReport,reportTab,monitoringSummary} from './adminData.js';
+import profiles from '../src/companyProfiles.json' with {type:'json'};
+import {sanitizeReadinessReport,validateReadinessReport,validateReadinessBatch,readinessBatchStructure,canonicalReadinessJson} from '../src/evidenceReadiness.js';
+import {measurementReport,prepareMeasurementReport,reportTab,monitoringSummary} from '../src/adminData.js';
 
 const clone=value=>structuredClone(value);
 const batch=companies=>({schema_version:1,kind:'monitoring',scope:'evidence_readiness',id:'11111111-1111-4111-8111-111111111111',recorded_at:'2026-11-03T01:00:00Z',label:'Company evidence readiness',version:'primary-v1',status:'success',metrics:{duration_ms:1250},settings:{case_count:6},companies:clone(companies||fixture.reports)});
@@ -142,7 +142,7 @@ test('readiness cannot be relabeled as an analysis performance measurement',asyn
 });
 
 test('actual admin evidence view renders zero readiness without invented accuracy',async()=>{
- const [{createServer},{createElement},{renderToStaticMarkup},{fileURLToPath},{translate}]=await Promise.all([import('vite'),import('react'),import('react-dom/server'),import('node:url'),import('./language.js')]);
+ const [{createServer},{createElement},{renderToStaticMarkup},{fileURLToPath},{translate}]=await Promise.all([import('vite'),import('react'),import('react-dom/server'),import('node:url'),import('../src/language.js')]);
  const server=await createServer({root:fileURLToPath(new URL('../',import.meta.url)),envFile:false,configFile:false,logLevel:'silent',server:{middlewareMode:true,hmr:false}});
  try{
   const {EvidenceReadinessSummary}=await server.ssrLoadModule('/src/Admin.jsx');

@@ -102,7 +102,7 @@ Streamlit 버전 변경 시 의제 카드 등의 CSS 선택자를 확인해야 �
 ## 로컬 실행
 
 ```powershell
-.\view_debate.bat
+.\scripts\view_debate.bat
 ```
 
 또는 브라우저 자동 실행 없이 서버만 시작한다.

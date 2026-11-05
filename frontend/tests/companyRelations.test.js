@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {companyRelations,relationNodes,relationsAsOf,relationsFor} from './companyRelations.js';
+import {companyRelations,relationNodes,relationsAsOf,relationsFor} from '../src/companyRelations.js';
 
 test('relations stay within known entities and keep facts separate from scenarios',()=>{
  const ids=new Set(relationNodes.map(node=>node.id));
@@ -30,4 +30,26 @@ test('relations stay within known entities and keep facts separate from scenario
  assert.equal(austin.period,'2025-08-06');
  assert.ok(austin.evidence[0].excerpt.includes('Austin'));
  assert.equal(new URL(austin.evidence[1].url).hash,'#page=19');
+});
+
+test('local relationship cards render their original evidence in both languages',async()=>{
+ const [{createServer},{fileURLToPath},{createElement},{renderToStaticMarkup},{translate}]=await Promise.all([
+  import('vite'),import('node:url'),import('react'),import('react-dom/server'),import('../src/language.js'),
+ ]);
+ const server=await createServer({root:fileURLToPath(new URL('../',import.meta.url)),envFile:false,configFile:false,logLevel:'silent',server:{middlewareMode:true,hmr:false}});
+ try{
+  const {default:Relationships}=await server.ssrLoadModule('/src/Relationships.jsx');
+  const {LanguageContext}=await server.ssrLoadModule('/src/Language.jsx');
+  for(const locale of ['ko','en']){
+   const html=renderToStaticMarkup(createElement(LanguageContext.Provider,{value:{locale,t:(value)=>translate(value,locale)}},createElement(Relationships,{onResearch:()=>{}})));
+   assert.equal((html.match(/class="relation-card"/g)||[]).length,6);
+   assert.equal((html.match(/class="relation-evidence-item"/g)||[]).length,7);
+   assert.match(html,/Austin, Texas/);
+   assert.match(html,/#page=20/);
+   assert.match(html,/2025-08-28/);
+   assert.match(html,/<details/);
+   assert.match(html,/level 2/);
+   if(locale==='en')assert.equal(/[가-힣]/.test(html),false);
+  }
+ }finally{await server.close();}
 });

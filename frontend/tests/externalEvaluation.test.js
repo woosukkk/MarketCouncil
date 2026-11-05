@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {externalEvaluation,externalMetrics} from './externalEvaluation.js';
+import {externalEvaluation,externalMetrics} from '../src/externalEvaluation.js';
 const fixture=()=>{
  const cases=[{case_id:'1'.repeat(16),faithfulness:1,context_precision:null,context_recall:.5,factual_correctness:null}];
  const metrics={case_count:1};for(const key of externalMetrics){metrics[key]=cases[0][key];metrics[key+'_count']=cases[0][key]===null?0:1;}

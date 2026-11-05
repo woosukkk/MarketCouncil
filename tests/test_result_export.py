@@ -78,7 +78,7 @@ class PublicSelectionTests(unittest.TestCase):
                 self.assertEqual({file.name for file in output.iterdir()},{"index.json","previous.json"})
 
     def test_valid_report_for_another_issuer_is_rejected_before_public_files_change(self) -> None:
-        from test_evidence_preflight import AS_OF, primary_manifest
+        from tests.test_evidence_preflight import AS_OF, primary_manifest
         from tools.evidence_readiness import evaluate_readiness
         apple=evaluate_readiness(primary_manifest(),AS_OF)
         other=evaluate_readiness(primary_manifest("Microsoft Corporation","MSFT"),AS_OF)
