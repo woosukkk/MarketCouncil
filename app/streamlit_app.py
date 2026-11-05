@@ -28,7 +28,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-st.html(Path(__file__).parent / "app" / "debate_ui.css")
+st.html(Path(__file__).parent / "debate_ui.css")
 
 STATUS_LABELS = {
     "OPEN": "논의 대기",

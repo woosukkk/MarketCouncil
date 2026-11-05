@@ -10,7 +10,7 @@ from streamlit.testing.v1 import AppTest
 from app.debate_view_data import ordered_agenda
 
 
-APP = Path(__file__).resolve().parents[1] / "streamlit_app.py"
+APP = Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py"
 
 
 class DebateWebTest(unittest.TestCase):

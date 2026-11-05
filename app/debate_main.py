@@ -54,11 +54,11 @@ def main() -> int:
         load_dotenv(Path(__file__).resolve().parent.parent / '.env.result-upload')
         if os.getenv('RESULTS_AUTO_UPLOAD', '').lower() == 'true':
             try:
-                from publish_results import publish_results
+                from tools.publish_results import publish_results
                 count = publish_results()
                 print(f"웹사이트 결과 업로드 완료: {count}개")
             except Exception:
-                print("분석은 저장됐지만 웹 업로드는 실패했습니다. python publish_results.py로 재시도하세요.")
+                print("분석은 저장됐지만 웹 업로드는 실패했습니다. python -m tools.publish_results로 재시도하세요.")
         return 0
     except Exception as error:
         print(f"\n오류가 발생했습니다: {error}")

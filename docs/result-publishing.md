@@ -43,7 +43,7 @@ Obtain the hash of one deliberately selected file in PowerShell:
 (Get-FileHash -Algorithm SHA256 -LiteralPath 'C:\MarketCouncil\results\analysis_debate\Example\analysis_debate_20261015_090000.json').Hash.ToLowerInvariant()
 ```
 
-3. To export the selected public snapshot locally, run `python -m frontend.export_results`. To publish it to the public bucket, run `python publish_results.py`. Both commands also accept `--manifest <path>` for an explicitly prepared manifest elsewhere. Existing no-argument callers use only the repository-root manifest.
+3. To export the selected public snapshot locally, run `python -m frontend.export_results`. To publish it to the public bucket, run `python -m tools.publish_results`. Both commands also accept `--manifest <path>` for an explicitly prepared manifest elsewhere. Existing no-argument callers use only the repository-root manifest.
 
 The manifest is the complete desired **legacy public index**, not a list of additions. Include every reviewed example that should remain listed before deliberately publishing. Removing an entry on a future successful publication removes it from the index, but does not delete previously public files or make their known URLs private. This change does not unpublish or delete any existing object.
 

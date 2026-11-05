@@ -55,7 +55,7 @@ class DeploymentTest(unittest.TestCase):
         with patch.dict(os.environ, {"MARKETCOUNCIL_MODE": "public", "ADMIN_TOKEN": "x" * 32}), patch(
             "app.web_analysis_runner.AnalysisRunner"
         ) as runner, patch("app.debate_view_data.list_debate_files", return_value=[]):
-            app = AppTest.from_file("streamlit_app.py", default_timeout=30).run()
+            app = AppTest.from_file("app/streamlit_app.py", default_timeout=30).run()
             app.radio(key="workspace_page").set_value("새 분석").run()
             self.assertFalse(app.exception)
             self.assertFalse(any(button.key == "start_analysis" for button in app.button))

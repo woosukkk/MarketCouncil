@@ -108,7 +108,7 @@ Streamlit 버전 변경 시 의제 카드 등의 CSS 선택자를 확인해야 �
 또는 브라우저 자동 실행 없이 서버만 시작한다.
 
 ```powershell
-.\venv\Scripts\python.exe -m streamlit run streamlit_app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true
+.\venv\Scripts\python.exe -m streamlit run app/streamlit_app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true
 ```
 
 접속: http://localhost:8501. 저장 결과가 없어도 왼쪽 새 분석 메뉴에서 첫 분석을 시작할 수 있다.

@@ -1,4 +1,4 @@
-import importlib.util
+from tools import publish_results as publisher
 import json
 import os
 import tempfile
@@ -6,9 +6,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('publisher', Path(__file__).resolve().parents[1] / 'publish_results.py')
-publisher = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(publisher)
 
 
 class PublishingTest(unittest.TestCase):

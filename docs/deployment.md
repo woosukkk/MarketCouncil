@@ -22,7 +22,7 @@ Caddy만 80/443 포트를 공개하고, Chroma Cloud에 문서 벡터를 저장�
 
 ## 환경 설정
 
-프로젝트 루트에서 `.env.production.example`을 `.env.production`으로 복사한다.
+프로젝트 루트에서 `config/.env.production.example`을 프로젝트 루트의 `.env.production`으로 복사한다.
 DOMAIN은 scheme/path 없는 실제 도메인이다. ADMIN_TOKEN과 SEARXNG_SECRET은 각각
 `python -c "import secrets; print(secrets.token_urlsafe(32))"`로 생성한다.
 나머지 API/Chroma 값을 입력하고 `chmod 600 .env.production`을 적용한다.

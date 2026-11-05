@@ -23,7 +23,7 @@ class Crawl4AIExtractor:
             )
         except ImportError as error:
             raise RuntimeError(
-                "Crawl4AI가 설치되지 않았습니다. requirements.txt를 설치하세요."
+                "Crawl4AI가 설치되지 않았습니다. requirements/base.txt를 설치하세요."
             ) from error
 
         browser_config = BrowserConfig(headless=True, verbose=False)
