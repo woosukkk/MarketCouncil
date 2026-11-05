@@ -156,7 +156,7 @@ Streamlit은 소스에서 저장 결과를 확인하는 별도 로컬 뷰어로 
 
 ### Windows 프로그램으로 분석
 
-1. [다운로드 페이지](https://frontend-six-pi-h5i7tztups.vercel.app/download)에서 **Windows 0.8.0** ZIP을 받아 별도 폴더에 풉니다.
+1. [다운로드 페이지](https://frontend-six-pi-h5i7tztups.vercel.app/download)에서 **Windows 0.8.1** ZIP을 받아 별도 폴더에 풉니다.
 2. `_internal` 폴더를 유지하고 `MarketCouncil.exe`를 실행합니다.
 3. Docker Desktop을 준비하고, 본인 OpenAI 키와 기업명을 입력한 뒤 종목 후보를 선택합니다. 국내 공시에는 본인 DART 키, 미국 공시에는 SEC 요청용 연락처를 입력하고 기업 근거 준비·충족도 확인을 실행합니다.
 4. 분석 결과를 로컬에 저장합니다. 웹 마이페이지에서 JSON을 가져와 비공개로 보관한 뒤 공유·게시를 선택할 수 있습니다.

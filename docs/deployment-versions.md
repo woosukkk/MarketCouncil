@@ -95,3 +95,13 @@ Railway의 과거 배포는 이번에 정확한 배포 커밋/시각 기록을 �
 | web-v0.14.0 | 40d0a3d5fe1e2a3c7a755297f98f4fa73d6353ae | https://frontend-c6qo0d7tk-woosukk.vercel.app |
 
 6기업 선택·관리자 근거 현황과 Windows 원문 준비/gate/공식 선택을 적용했다. 사용자 요청으로 전체 테스트는 보류하고 프로덕션 빌드·패키지 초기화·공개 화면을 확인했다. 미국 2기업은 SEC 공시 접근 제한이 남아 있어 최소 자료 미달로 차단한다. 상세 범위와 보류 항목은 [0.8.0 배포 기록](release-verification-2026-11-05-v080.md) 및 #29에 기록했다.
+
+
+## 2026-11-05 발행사 원문·기업 관계·공통 평가 화면
+
+| 버전 | 실제 빌드 커밋 | 배포 주소 |
+| --- | --- | --- |
+| desktop-v0.8.1 | ac19ff88d88578d13e66fbaa17eb248eaef160eb | https://github.com/woosukkk/MarketCouncil/releases/tag/desktop-v0.8.1 |
+| web-v0.15.0 | 3c9200fd2c1b927f673e9c436cc9e7cc0da36a76 | https://frontend-bdtixb4e5-woosukk.vercel.app |
+
+SEC 실패 시 발행사 원문으로 수집을 이어가고 웹에 출처 기반 관계 지도 및 관리자 공통 평가 기준을 적용했다. 실제 분석·새 테스트·벤치마크·EXE 실행은 사용자 요청으로 보류했다. 빌드/배포 반영과 패키지 무결성만 확인했다. 상세 범위와 남은 제한은 [배포 기록](release-verification-2026-11-05-v081.md)과 #31에 남긴다.
