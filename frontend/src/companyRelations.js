@@ -1,0 +1,45 @@
+// Dated editorial summaries of first-party announcements; no live supply estimates.
+export const relationsAsOf='2026-11-05';
+export const relationNodes=[
+ {id:'AAPL',name:'Apple',x:13,y:22},
+ {id:'005930.KS',name:'삼성전자',en:'Samsung Electronics',x:50,y:22},
+ {id:'MSFT',name:'Microsoft',x:87,y:22},
+ {id:'035420.KS',name:'NAVER',x:50,y:50},
+ {id:'000660.KS',name:'SK하이닉스',en:'SK hynix',x:13,y:78},
+ {id:'NVDA',name:'NVIDIA',x:50,y:78,reference:true},
+ {id:'005380.KS',name:'현대자동차',en:'Hyundai Motor',x:87,y:78},
+];
+const supplierSource='https://www.supplychainreports.apple/files/doc_downloads/2024/04/Apple-Supplier-List.pdf';
+export const companyRelations=[
+ {id:'apple-samsung',from:'005930.KS',to:'AAPL',type:'supplier',period:'FY2023',historical:true,url:supplierSource,source:'Apple supplier list · FY2023 · p.19',
+  fact:['Apple의 FY2023 공급업체 목록에 삼성전자가 포함돼 있습니다.','Apple lists Samsung Electronics among its FY2023 suppliers.'],
+  upside:['Apple의 수요 확대가 실제 발주 증가로 이어지면 관련 부품 매출에 긍정적일 수 있습니다.','Higher Apple demand could support component revenue if it translates into orders.'],
+  downside:['제품 구성 변화나 공급처 변경은 발주와 수익성에 부담이 될 수 있습니다.','Product mix changes or supplier substitution could pressure orders and margins.'],
+  needed:['최신 공급업체 목록, 공급 품목, 고객 매출 비중과 발주 추이','Latest supplier list, supplied components, customer revenue share and orders']},
+ {id:'apple-hynix',from:'000660.KS',to:'AAPL',type:'supplier',period:'FY2023',historical:true,url:supplierSource,source:'Apple supplier list · FY2023 · p.20',
+  fact:['Apple의 FY2023 공급업체 목록에 SK하이닉스가 포함돼 있습니다.','Apple lists SK hynix among its FY2023 suppliers.'],
+  upside:['기기당 메모리 용량과 발주가 함께 증가하면 수요 확대 경로가 될 수 있습니다.','Higher memory content and orders could create a demand channel.'],
+  downside:['메모리 가격 하락이나 공급처 다변화가 수요 증가 효과를 상쇄할 수 있습니다.','Lower memory prices or supplier diversification could offset demand gains.'],
+  needed:['최신 공급 관계, 제품별 메모리 채택, 가격과 고객 집중도','Current supplier relationship, memory adoption, pricing and customer concentration']},
+ {id:'samsung-microsoft',from:'005930.KS',to:'MSFT',type:'integration',period:'2025-08-27',url:'https://news.samsung.com/us/samsung-brings-microsoft-copilot-2025-tvs-monitors-unlocking-smarter-on-screen-experiences/',source:'Samsung US Newsroom',
+  fact:['삼성전자는 일부 2025년형 TV·모니터에 Microsoft Copilot 통합을 발표했습니다.','Samsung announced Microsoft Copilot integration for selected 2025 TVs and monitors.'],
+  upside:['실제 이용과 제품 차별화가 늘면 기기·AI 서비스 생태계에 도움이 될 수 있습니다.','Adoption and differentiation could support the device and AI service ecosystem.'],
+  downside:['이용률 저조나 지역·모델별 제약으로 상업적 효과가 제한될 수 있습니다.','Low usage or regional and model restrictions could limit commercial impact.'],
+  needed:['대상 모델·지역, 활성 이용자, 계약 조건과 수익 기여','Eligible models and regions, active users, commercial terms and revenue contribution']},
+ {id:'samsung-naver',from:'005930.KS',to:'035420.KS',type:'development',period:'2022-12-06',historical:true,url:'https://news.samsung.com/global/samsung-electronics-and-naver-team-up-to-develop-semiconductor-solutions-optimized-for-hyperscale-ai',source:'Samsung Global Newsroom',
+  fact:['삼성전자와 NAVER는 초대규모 AI용 반도체 솔루션 개발 협력을 발표했습니다.','Samsung Electronics and NAVER announced collaboration on semiconductor solutions for hyperscale AI.'],
+  upside:['실증 성과가 상용화되면 AI 처리 효율과 인프라 비용 개선의 경로가 될 수 있습니다.','Commercialized results could improve AI processing efficiency and infrastructure costs.'],
+  downside:['개발 지연이나 상용화 실패 시 기대한 효율 개선이 실현되지 않을 수 있습니다.','Development delays or failure to commercialize could prevent efficiency gains.'],
+  needed:['최근 개발 단계, 상용 적용, 독립적인 성능·전력 측정','Recent development status, commercial deployment and independent performance/power measurements']},
+ {id:'hynix-nvidia',from:'000660.KS',to:'NVDA',type:'development',period:'2026-06-08',url:'https://news.skhynix.com/en/multi-year-tech-partnership-with-nvidia/',source:'SK hynix Newsroom · release dateline',
+  fact:['SK하이닉스와 NVIDIA는 차세대 메모리 공동 개발·공급을 위한 다년 기술 협력을 발표했습니다.','SK hynix and NVIDIA announced a multiyear technology partnership for next-generation memory development and supply.'],
+  upside:['AI 인프라 투자가 실제 메모리 수요와 출하로 이어지면 성장 경로가 될 수 있습니다.','AI infrastructure investment could support growth if it converts to memory demand and shipments.'],
+  downside:['투자 지연, 수율 문제나 고객 집중은 출하와 수익성의 위험 요인입니다.','Investment delays, yield issues and customer concentration are risks to shipments and margins.'],
+  needed:['확정 출하, 수율, 계약 조건, 설비 투자와 고객 집중도','Confirmed shipments, yields, contract terms, capital spending and customer concentration']},
+ {id:'hyundai-nvidia',from:'005380.KS',to:'NVDA',type:'development',period:'2026-03-16',url:'https://nvidianews.nvidia.com/news/hyundai-motor-kia-autonomous-driving',source:'NVIDIA Newsroom',
+  fact:['NVIDIA는 현대자동차·기아와 차세대 자율주행 기술 협력 확대를 발표했습니다. 그룹 전체 계획이 개별 회사의 실적을 뜻하지는 않습니다.','NVIDIA announced expanded autonomous-driving collaboration with Hyundai Motor and Kia. Group plans do not establish company-level earnings.'],
+  upside:['양산 적용과 사용 확대가 확인되면 소프트웨어·차량 경쟁력에 도움이 될 수 있습니다.','Verified production deployment and adoption could support software and vehicle competitiveness.'],
+  downside:['개발비, 안전·규제 승인과 상용화 일정은 실현 가능성에 영향을 줍니다.','Development cost, safety and regulatory approvals, and deployment schedules affect feasibility.'],
+  needed:['현대자동차에 귀속되는 투자·계약, 대상 차종, 승인과 양산 일정','Hyundai-specific investment and contracts, eligible models, approvals and production timeline']},
+];
+export function relationsFor(ticker){return companyRelations.filter(row=>!ticker||row.from===ticker||row.to===ticker);}
