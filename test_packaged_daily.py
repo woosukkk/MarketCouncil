@@ -14,6 +14,7 @@ from unittest.mock import Mock, patch
 from desktop import daily_official as daily
 from desktop import main as desktop
 from desktop.preferences import VERSION
+from test_desktop_evidence_gate import ready_report, ready_result
 
 
 class PackagedDailyTests(unittest.TestCase):
@@ -100,14 +101,18 @@ class PackagedDailyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             data = Path(folder)
             (data / "browser-ready").touch()
-            owner = SimpleNamespace(company=SimpleNamespace(get=lambda: "Example"), key=SimpleNamespace(get=lambda: "test-key"), dart=SimpleNamespace(get=lambda: ""), search=SimpleNamespace(get=lambda: "http://127.0.0.1:8080"), busy=False, matched_name="Example", company_choice=SimpleNamespace(current=lambda: 0), company_candidates=[{"name": "Example", "ticker": "EXAMPLE"}], loaded_settings=None, messages=queue.Queue(), task=lambda callback: callback())
+            owner = SimpleNamespace(company=SimpleNamespace(get=lambda: "Apple Inc."), key=SimpleNamespace(get=lambda: "test-key"), dart=SimpleNamespace(get=lambda: ""), search=SimpleNamespace(get=lambda: "http://127.0.0.1:8080"), busy=False, matched_name="Apple Inc.", company_choice=SimpleNamespace(current=lambda: 0), company_candidates=[{"name": "Apple Inc.", "ticker": "AAPL"}], loaded_settings=None, messages=queue.Queue(), task=lambda callback: callback())
             workflow = Mock()
+            workflow.run.return_value=ready_result("Apple","AAPL")
+            preflight=SimpleNamespace(require_company_ready=Mock(return_value=({},ready_report("Apple","AAPL"))))
             store = Mock()
             store.save.return_value = str(data / "saved-result.json")
             try:
-                with patch.object(desktop, "DATA", data), patch.object(sys, "frozen", False, create=True), patch.dict(os.environ), patch.object(desktop.messagebox, "askyesno", return_value=True), patch.object(local_services, "ensure_local_services") as services, patch.object(local_services, "PROJECT_ROOT"), patch.object(local_services, "COMPOSE_FILE"), patch.object(local_services, "SEARXNG_URL"), patch.object(debate_workflow, "DebateWorkflow", return_value=workflow), patch.object(analysis_debate_store, "AnalysisDebateStore", return_value=store), patch.object(debate_transcript_renderer, "DebateTranscriptRenderer"), patch.object(run_metrics, "measure_analysis", side_effect=lambda company, callback, folder: callback()):
+                with patch.dict(sys.modules,{"app.evidence_preflight":preflight}), patch.object(desktop, "DATA", data), patch.object(sys, "frozen", False, create=True), patch.dict(os.environ), patch.object(desktop.messagebox, "askyesno", return_value=True), patch.object(local_services, "ensure_local_services") as services, patch.object(local_services, "PROJECT_ROOT"), patch.object(local_services, "COMPOSE_FILE"), patch.object(local_services, "SEARXNG_URL"), patch.object(debate_workflow, "DebateWorkflow", return_value=workflow), patch.object(analysis_debate_store, "AnalysisDebateStore", return_value=store), patch.object(debate_transcript_renderer, "DebateTranscriptRenderer"), patch.object(run_metrics, "measure_analysis", side_effect=lambda company, callback, folder: callback()):
                     desktop.Desktop.run(owner)
-                workflow.run.assert_called_once_with("Example")
+                workflow.run.assert_called_once_with("Apple Inc.")
+                preflight.require_company_ready.assert_called_once()
+                self.assertEqual(store.save.call_args.args[1]["readiness_report"]["status"],"ready")
                 services.assert_called_once_with()
                 self.assertEqual(owner.result_path, Path(store.save.return_value).resolve())
             finally:
@@ -144,10 +149,17 @@ class PackagedCheckpointTests(unittest.TestCase):
             metadata.write_text(json.dumps({"source_commit": "a" * 40, "version": VERSION}))
             workflow = RecoverableDebateWorkflow(root / "checkpoint.json", "company", "day")
             workflow.evidence_workflow.run("company")
-            RecoverableDebateWorkflow(root / "checkpoint.json", "company", "day")
+            original_path=workflow._active_checkpoint_path
+            original_bytes=original_path.read_bytes()
+            same=RecoverableDebateWorkflow(root / "checkpoint.json", "company", "day")
+            self.assertEqual(same._active_checkpoint_path,original_path)
             metadata.write_text(json.dumps({"source_commit": "b" * 40, "version": VERSION}))
-            with self.assertRaisesRegex(ValueError, "scope"):
-                RecoverableDebateWorkflow(root / "checkpoint.json", "company", "day")
+            changed=RecoverableDebateWorkflow(root / "checkpoint.json", "company", "day")
+            self.assertNotEqual(changed._active_checkpoint_path,original_path)
+            changed.evidence_workflow.run("company")
+            self.assertTrue(changed._active_checkpoint_path.is_file())
+            self.assertEqual(original_path.read_bytes(),original_bytes)
+            self.assertEqual(len(list(root.glob("checkpoint-*.json"))),2)
 
     def test_frozen_missing_or_invalid_build_identity_fails_closed(self) -> None:
         from app.recoverable_debate_workflow import RecoverableDebateWorkflow

@@ -170,12 +170,41 @@ def prepare_official(session: dict, discussion_id: str | None = None) -> dict:
     return session
 
 
+def official_history(session: dict) -> list[dict]:
+    rows = request("/rest/v1/daily_official_discussions?select=publication_date,discussions!inner(company_name,ticker,visibility,readiness_report:payload->readiness_report)"
+                   "&discussions.visibility=eq.public&order=publication_date.desc&limit=200",
+                   token=session["access_token"], method="GET")
+    history = []
+    for row in rows:
+        discussion = row.get("discussions")
+        if not isinstance(discussion, dict):
+            continue
+        report = discussion.get("readiness_report") or {}
+        history.append({"company_name": discussion.get("company_name"), "ticker": discussion.get("ticker"),
+                        "publication_date": row.get("publication_date"),
+                        "corpus_hash": report.get("corpus_hash"), "documents": report.get("documents", [])})
+    return history
+
+
+def check_official_result(data: dict, day: str | None = None) -> dict:
+    """Fail locally before transmitting an unsupported or insufficient result."""
+    from tools.company_profiles import get_profile
+    from tools.evidence_readiness import validate_readiness_report
+    validate_result(data)
+    company = data.get("company_name", "")
+    ticker = (data.get("financial_data") or {}).get("ticker", "")
+    get_profile(company, ticker)
+    report = validate_readiness_report(data.get("readiness_report"), company, ticker)
+    if report.get("status") != "ready" or report.get("as_of_date") != (day or official_day()):
+        raise ValueError("오늘 기준 근거가 충분한 결과만 공식 게시할 수 있습니다. 기업 근거를 다시 준비하고 확인하세요.")
+    return report
+
+
 def publish_official(data: dict, session: dict) -> str:
     import hashlib
     import uuid
-    if data.get("company_name") != "삼성전자" or data.get("financial_data", {}).get("ticker") != "005930.KS":
-        raise ValueError("삼성전자(005930.KS) 분석 결과만 공식 게시할 수 있습니다.")
     day = official_day()
+    check_official_result(data, day)
     identifier = str(uuid.uuid5(uuid.NAMESPACE_URL, session["user"]["id"] + hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()))
     session = prepare_official(session, identifier)
     upload_result(data, session, identifier)

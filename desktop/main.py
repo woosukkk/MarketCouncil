@@ -58,7 +58,9 @@ class Desktop:
         self.account=ttk.Label(account_panel,text="로그아웃 상태 · 로컬 분석은 로그인 없이도 가능합니다.");self.account.pack(anchor="w",pady=8)
         ttk.Button(account_panel,text="계정 연결 해제",command=self.disconnect).pack(anchor="w")
         self.key=self.field(analysis_panel,"본인 OpenAI API 키 (이번 실행 동안만 사용)",secret=True)
-        self.dart=self.field(analysis_panel,"DART API 키 (국내 공시 수집용, 선택)",secret=True)
+        self.dart=self.field(analysis_panel,"DART API 키 (국내 공시 원문 수집에 필요)",secret=True)
+        self.sec_user_agent=self.field(analysis_panel,"SEC 수집 연락처·User-Agent (미국 공시용, 입력 내용은 SEC 요청 헤더로 전송)")
+        self.sec_user_agent.insert(0,os.getenv("SEC_USER_AGENT", ""))
         self.search=self.field(analysis_panel,"SearXNG 검색 주소 (Docker Desktop 필요)");self.search.insert(0,"http://127.0.0.1:8080")
         row=ttk.Frame(analysis_panel);row.pack(fill="x",pady=8)
         self.company=self.field(row,"기업명");self.company.insert(0,"삼성전자")
@@ -67,7 +69,7 @@ class Desktop:
         for entry,value in [(self.company,preferences.get("company")),(self.search,preferences.get("search"))]:
             if value:entry.delete(0,"end");entry.insert(0,value)
         ttk.Button(analysis_panel,text="기업명·검색 주소 기억하기",command=self.remember).pack(anchor="w")
-        ttk.Button(setup_panel,text="운영자 · 매일 삼성전자 자동 게시 설정",command=self.setup_daily).pack(anchor="w",pady=8)
+        ttk.Button(setup_panel,text="운영자 · 매일 공식 게시 설정",command=self.setup_daily).pack(anchor="w",pady=8)
         ttk.Button(setup_panel,text="새 버전 확인",command=self.check_version).pack(anchor="w",pady=8)
         from desktop.preferences import VERSION
         self.version_status=ttk.Label(setup_panel,text=f"버전 {VERSION} · 일반 분석 키는 저장하지 않습니다. 자동 게시 설정은 Windows 계정에 암호화 저장합니다.",wraplength=780)
@@ -76,12 +78,13 @@ class Desktop:
         ttk.Label(row,text="기업명으로 종목을 찾습니다. 해외 기업은 영문 이름을 입력하세요.").pack(anchor="w")
         self.company_choice=ttk.Combobox(row,state="readonly");self.company_choice.pack(fill="x",pady=3)
         ttk.Button(row,text="기업 찾기",command=self.lookup_company).pack(anchor="w")
+        ttk.Button(row,text="기업 근거 준비·충족도 확인 (무료)",command=self.prepare_evidence).pack(anchor="w",pady=3)
         buttons=ttk.Frame(analysis_panel);buttons.pack(fill="x",pady=8)
         self.run_button=ttk.Button(buttons,text="내 PC에서 분석 실행",command=self.run);self.run_button.pack(side="left",padx=4)
         self.upload_button=ttk.Button(buttons,text="현재 결과를 내 계정에 업로드 (비공개)",command=self.upload);self.upload_button.pack(side="left",padx=4)
         ttk.Button(buttons,text="저장한 결과 선택",command=self.choose).pack(side="left",padx=4)
         ttk.Button(buttons,text="웹 마이페이지",command=lambda:webbrowser.open("https://frontend-six-pi-h5i7tztups.vercel.app/app?view=my")).pack(side="left",padx=4)
-        self.official_button=ttk.Button(panel,text="삼성전자 분석 후 오늘 공식 게시",command=lambda:self.run(official=True))
+        self.official_button=ttk.Button(panel,text="선택한 기업 분석 후 오늘 공식 게시",command=lambda:self.run(official=True))
         self.official_button.pack(anchor="w",pady=4)
         ttk.Label(panel,text="분석에는 본인 OpenAI 사용료가 발생합니다. PDF·검색 데이터는 PC에 남습니다.").pack(anchor="w")
         self.status=ttk.Label(panel,text="대기 중 · 기업을 선택하고 분석을 시작하세요.",wraplength=780)
@@ -172,24 +175,50 @@ class Desktop:
             self.messages.put(("companies",(name,candidates)))
         self.task(work)
 
+    def prepare_evidence(self) -> None:
+        if self.busy:return
+        if self.company.get().strip()!=self.matched_name:
+            self.lookup_company();return
+        selected=self.company_choice.current()
+        if selected<0 or selected>=len(self.company_candidates):
+            messagebox.showinfo("기업 선택","검색된 후보에서 근거를 준비할 기업을 선택하세요.");return
+        candidate=self.company_candidates[selected]
+        dart=self.dart.get().strip()
+        sec_entry=getattr(self,"sec_user_agent",None)
+        sec=sec_entry.get().strip() if sec_entry is not None else None
+        def work() -> None:
+            from app.evidence_preflight import prepare_company
+            os.environ["DART_API_KEY"]=dart
+            if sec:os.environ["SEC_USER_AGENT"]=sec
+            _,report=prepare_company(candidate["name"],candidate["ticker"],base_dir=DATA/"company-evidence")
+            counts=report.get("counts",{})
+            label="충분" if report.get("status")=="ready" else "부족 · "+", ".join(report.get("missing",[]))
+            self.messages.put(("stage",report["company_name"]+" 근거 "+label+" · AI 분석은 실행하지 않았습니다."))
+            self.messages.put("기업 근거 현황: "+report["company_name"]+" · "+json.dumps(counts,ensure_ascii=False)+" · 원문 확보와 벡터 색인은 별도이며 검색·답변 품질 점수가 아닙니다.\n")
+        self.task(work,"공식 원문을 준비하고 자료 충족도를 확인합니다. 유료 AI 호출은 없습니다.")
+
     def run(self, official: bool=False) -> None:
         company=self.company.get().strip();key=self.key.get().strip();dart=self.dart.get().strip();search=self.search.get().strip()
+        sec_entry=getattr(self,"sec_user_agent",None)
+        sec=sec_entry.get().strip() if sec_entry is not None else None
         if self.busy:return
-        if official:company="삼성전자"
         if not company or len(company)>120 or not key:
             messagebox.showerror("입력 확인","기업명과 본인 OpenAI 키를 입력하세요.");return
         if official and not self.session:
             messagebox.showinfo("공식 운영자 연결","이메일 계정 연결 탭에서 공식 운영자 계정을 연결하세요.");return
-        if not official and company!=self.matched_name:
+        if company!=self.matched_name:
             self.lookup_company();return
         selected=self.company_choice.current()
-        if not official and selected<0:
+        if selected<0 or selected>=len(self.company_candidates):
             messagebox.showinfo("기업 선택","검색된 후보에서 분석할 기업을 선택하세요.");return
-        if official:company="삼성전자";ticker="005930.KS"
-        else:
-            candidate=self.company_candidates[selected];company=candidate["name"];ticker=candidate["ticker"]
+        candidate=self.company_candidates[selected];company=candidate["name"];ticker=candidate["ticker"]
+        from tools.company_profiles import get_profile
+        try:profile=get_profile(company,ticker)
+        except ValueError:
+            messagebox.showerror("기업 근거 준비","현재 근거 준비를 지원하는 6개 기업의 종목을 선택하세요.");return
+        company=profile["company_name"];ticker=profile["ticker"]
         if self.loaded_settings and self.loaded_settings!=(key,dart,search):messagebox.showinfo("설정 변경","API 키나 검색 주소를 바꾸려면 프로그램을 다시 실행하세요.");return
-        prompt="삼성전자를 분석한 뒤 결과와 인용 근거를 오늘 공식 토론으로 공개합니다. OpenAI 사용료가 발생합니다. 진행할까요?" if official else "본인 PC에서 분석을 실행합니다. OpenAI 사용료가 발생하며 수 분 이상 걸릴 수 있습니다. 실행할까요?"
+        prompt=f"{company}의 근거 충족도를 확인하고 분석한 뒤 결과와 인용 근거를 오늘 공식 토론으로 공개합니다. OpenAI 사용료가 발생합니다. 진행할까요?" if official else "본인 PC에서 근거 충족도를 확인하고 분석을 실행합니다. 자료가 부족하면 분석을 시작하지 않습니다. OpenAI 사용료가 발생하며 수 분 이상 걸릴 수 있습니다. 실행할까요?"
         if not messagebox.askyesno("분석 실행",prompt):return
         def work() -> None:
             if official:
@@ -197,6 +226,10 @@ class Desktop:
                 self.messages.put(("stage","공식 게시 준비 · 운영자 권한과 오늘 게시 여부를 확인합니다."))
                 self.session=prepare_official(self.session)
             os.environ.update(OPENAI_API_KEY=key,DART_API_KEY=dart,SEARXNG_URL=search,MARKETCOUNCIL_COMPANY=company,MARKETCOUNCIL_TICKER=ticker,CHROMA_MODE="local",RESULTS_AUTO_UPLOAD="false")
+            if sec:os.environ["SEC_USER_AGENT"]=sec
+            from app.evidence_preflight import require_company_ready, prepared_corpus
+            self.messages.put(("stage","기업 근거 준비 · 충분한 공식 원문이 있는지 확인합니다."))
+            _,readiness_report=require_company_ready(company,ticker,base_dir=DATA/"company-evidence")
             self.messages.put(("stage","분석 준비 · 로컬 저장 공간과 검색 서비스를 준비합니다."))
             DATA.mkdir(parents=True,exist_ok=True);os.chdir(DATA)
             os.environ["HF_HOME"]=str(DATA/"models")
@@ -209,7 +242,7 @@ class Desktop:
             local_services.COMPOSE_FILE=infra/"docker-compose.yml"
             local_services.PROJECT_ROOT=DATA;local_services.SEARXNG_URL=search
             from contextlib import redirect_stdout,redirect_stderr
-            with redirect_stdout(Output(self.messages)),redirect_stderr(Output(self.messages)):
+            with prepared_corpus(readiness_report),redirect_stdout(Output(self.messages)),redirect_stderr(Output(self.messages)):
                 local_services.ensure_local_services()
                 os.environ["PLAYWRIGHT_BROWSERS_PATH"]=str(DATA/"browser")
                 if not (DATA/"browser-ready").exists():
@@ -226,6 +259,7 @@ class Desktop:
                 from tools.debate_transcript_renderer import DebateTranscriptRenderer
                 from tools.run_metrics import measure_analysis
                 result=measure_analysis(company,lambda:DebateWorkflow().run(company),DATA/"metrics")
+                result.setdefault("readiness_report",readiness_report)
                 self.messages.put(("stage","로컬 저장 · 분석 결과와 토론 기록을 저장합니다."))
                 self.result_path=Path(AnalysisDebateStore().save(company,result)).resolve()
                 DebateTranscriptRenderer().save(result)
@@ -233,12 +267,12 @@ class Desktop:
             self.result_id=str(uuid.uuid4());self.messages.put("분석 완료 · 로컬 저장: "+str(self.result_path)+"\n")
             if official:
                 from desktop.cloud import publish_official
-                self.messages.put(("stage","공식 게시 · 저장한 삼성전자 결과를 업로드합니다."))
+                self.messages.put(("stage","공식 게시 · 저장한 "+company+" 결과를 업로드합니다."))
                 try:day=publish_official(json.loads(self.result_path.read_text(encoding="utf-8")),self.session)
                 except Exception:
                     self.messages.put("공식 게시 실패 · 분석 JSON은 PC에 남아 있습니다. 다시 분석하지 말고 웹 마이페이지에서 가져와 공식 지정하세요.\n")
                     raise
-                self.messages.put(("stage",str(day)+" 삼성전자 공식 토론 게시 완료 · 웹 커뮤니티에서 확인하세요."))
+                self.messages.put(("stage",str(day)+" "+company+" 공식 토론 게시 완료 · 웹 커뮤니티에서 확인하세요."))
             else:self.messages.put("계정 업로드 버튼을 누르기 전에는 결과가 PC에만 저장됩니다.\n")
         self.task(work)
 

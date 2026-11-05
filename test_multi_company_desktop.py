@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 
 import app
 from desktop.main import Desktop
+from test_desktop_evidence_gate import ready_report
 # Preload real helpers so restoring sys.modules also preserves package module identities.
 from tools import analysis_debate_store, company_lookup, debate_transcript_renderer
 
@@ -65,6 +66,7 @@ class MultiCompanyDesktopTests(unittest.TestCase):
         workflow = SimpleNamespace(DebateWorkflow=Mock(return_value=SimpleNamespace(run=Mock(side_effect=analyze))))
         metrics = SimpleNamespace(measure_analysis=Mock(side_effect=lambda company, work, target: work()))
         services = SimpleNamespace(ensure_local_services=Mock())
+        preflight=SimpleNamespace(require_company_ready=Mock(side_effect=lambda company,ticker,**kwargs:({},ready_report(company,ticker))))
         original_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as folder:
             data = Path(folder).resolve() / "MarketCouncil"
@@ -77,6 +79,7 @@ class MultiCompanyDesktopTests(unittest.TestCase):
                      patch.object(app, "local_services", services, create=True), \
                      patch.dict(sys.modules, {"app.local_services": services,
                                               "app.debate_workflow": workflow,
+                                              "app.evidence_preflight": preflight,
                                               "tools.run_metrics": metrics}), \
                      patch.object(company_lookup, "find_companies") as lookup, \
                      patch.object(debate_transcript_renderer, "DebateTranscriptRenderer") as renderer, \
@@ -120,6 +123,7 @@ class MultiCompanyDesktopTests(unittest.TestCase):
                     for path, (_, company, ticker, _) in zip(paths, cases):
                         saved = json.loads(path.read_text(encoding="utf-8"))
                         self.assertEqual((saved["company_name"], saved["financial_data"]["ticker"]), (company, ticker))
+                    self.assertEqual(preflight.require_company_ready.call_count, len(cases))
                     self.assertEqual(services.ensure_local_services.call_count, len(cases))
                     self.assertEqual(renderer.return_value.save.call_count, len(cases))
                     self.assertEqual(metrics.measure_analysis.call_count, len(cases))

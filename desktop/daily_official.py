@@ -1,4 +1,4 @@
-"""Windows user-only daily Samsung publishing; credentials use DPAPI."""
+"""Windows user-only daily official publishing; credentials use DPAPI."""
 import argparse
 import ctypes
 import json
@@ -102,7 +102,7 @@ def save_state(state: dict) -> None:
     temporary.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
     temporary.replace(DATA / "state.json")
 
-def run_once(state: dict, day: str, prepare, analyze, publish, persist, resume: bool = False) -> str:
+def run_once(state: dict, day: str, prepare, analyze, publish, persist, resume: bool = False, *, target: dict | None = None) -> str:
     if state.get("day") == day and state.get("status") == "completed":
         return "skipped"
     prepare()
@@ -113,6 +113,7 @@ def run_once(state: dict, day: str, prepare, analyze, publish, persist, resume: 
     else:
         attempts=state.get("analysis_attempts",1)+1 if state.get("day")==day else 1
         state.clear(); state.update(day=day, status="attempting", analysis_attempts=attempts)
+        if target: state["target"] = dict(target)
         persist(state)
         try: path = analyze()
         except Exception:
@@ -121,6 +122,50 @@ def run_once(state: dict, day: str, prepare, analyze, publish, persist, resume: 
     publish(path)
     state["status"] = "completed"; persist(state)
     return "completed"
+
+def prepare_target(config: dict, state: dict, day: str, session: dict) -> dict:
+    """Choose before a paid attempt, and never switch an unfinished day's company."""
+    from app.evidence_preflight import prepare_company, require_company_ready
+    from desktop.cloud import check_official_result, official_history
+    from tools.company_profiles import PROFILES, get_profile
+    from tools.evidence_readiness import select_official_candidate, validate_readiness_report
+    same_day = state.get("day") == day
+    pinned = state.get("target") if same_day else None
+    if same_day and state.get("result_path"):
+        result = json.loads(Path(state["result_path"]).read_text(encoding="utf-8"))
+        report = check_official_result(result, day)
+        profile = get_profile(result["company_name"], result["financial_data"]["ticker"])
+        if pinned and ((pinned.get("company_name"), pinned.get("ticker")) != (profile["company_name"], profile["ticker"])
+                       or (pinned.get("readiness_report") or {}).get("corpus_hash") != report["corpus_hash"]):
+            raise ValueError("저장한 결과와 오늘 고정한 기업 또는 근거가 다릅니다. 자동 재분석하지 않습니다.")
+        return {"company_name": profile["company_name"], "ticker": profile["ticker"], "readiness_report": report}
+    # Old interrupted Samsung jobs must not silently resume as a different company.
+    if pinned or (same_day and state.get("status") in ("attempting", "analysis_failed")):
+        profile = get_profile(pinned["company_name"], pinned["ticker"]) if pinned else get_profile("삼성전자", "005930.KS")
+        _,report = require_company_ready(profile["company_name"], profile["ticker"], refresh=False, base_dir=DATA.parent/"company-evidence")
+        previous = pinned.get("readiness_report") if pinned else None
+        if previous and previous.get("corpus_hash") != report.get("corpus_hash"):
+            raise ValueError("복구할 분석의 근거가 변경됐습니다. 기존 체크포인트와 결과를 보존하고 자동 재분석을 중지합니다.")
+    elif config.get("official_mode", "samsung") == "samsung":
+        profile = get_profile("삼성전자", "005930.KS")
+        _,report = require_company_ready(profile["company_name"], profile["ticker"], base_dir=DATA.parent/"company-evidence")
+    elif config.get("official_mode") == "eligible":
+        history = official_history(session)
+        reports = []
+        for profile in PROFILES:
+            _,report = prepare_company(profile["company_name"], profile["ticker"], base_dir=DATA.parent/"company-evidence")
+            reports.append(report)
+        report = select_official_candidate(reports, history, day)
+        if report is None:
+            raise ValueError("오늘 기준 근거가 충분한 기업이 없어 유료 분석과 공식 게시를 시작하지 않습니다.")
+        profile = get_profile(report["company_name"], report["ticker"])
+    else:
+        raise ValueError("공식 게시 기업 선택 설정을 확인하세요.")
+    report = validate_readiness_report(report, profile["company_name"], profile["ticker"])
+    if report["status"] != "ready" or report["as_of_date"] != day:
+        raise ValueError("오늘 기준 근거가 충분한 기업만 분석할 수 있습니다.")
+    return {"company_name": profile["company_name"], "ticker": profile["ticker"], "readiness_report": report}
+
 
 def notify(message: str) -> None:
     # A completion alarm must not keep the scheduled task alive awaiting a click.
@@ -226,6 +271,8 @@ def run() -> int:
             state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {}
             from desktop.cloud import request, upload_result, official_selection, select_official, check_official_schema
             session = {}
+            day = today()
+            target = {}
             def prepare() -> None:
                 nonlocal stage
                 stage = "account"
@@ -233,15 +280,23 @@ def run() -> int:
                 config["refresh_token"] = session["refresh_token"]; save_credentials(config)
                 if request("/rest/v1/rpc/is_official_editor", {}, session["access_token"]) is not True:
                     raise RuntimeError("operator")
-                rows = official_selection(session, today())
+                if today()!=day: raise ValueError("한국 날짜가 바뀌어 새 분석을 시작하지 않습니다.")
+                rows = official_selection(session, day)
                 if rows:
-                    save_state({"day": today(), "status": "completed"})
+                    save_state({"day": day, "status": "completed"})
                     raise AlreadyPublished()
-                check_official_schema(session, today())
+                check_official_schema(session, day)
+                if not target and not (state.get("day")==day and state.get("status") in ("attempting","analysis_failed") and state.get("analysis_attempts",1)>=2):
+                    stage = "evidence"
+                    os.environ["DART_API_KEY"]=config.get("dart_key", "")
+                    if config.get("sec_user_agent"):os.environ["SEC_USER_AGENT"]=config["sec_user_agent"]
+                    target.update(prepare_target(config,state,day,session))
             def analyze() -> str:
                 nonlocal stage
+                if today()!=day: raise ValueError("한국 날짜가 바뀌어 새 분석을 시작하지 않습니다.")
                 stage = "services"
-                os.environ.update(OPENAI_API_KEY=config["openai_key"], DART_API_KEY=config.get("dart_key", ""), SEARXNG_URL=config["search"], MARKETCOUNCIL_COMPANY="삼성전자", MARKETCOUNCIL_TICKER="005930.KS", CHROMA_MODE="local", RESULTS_AUTO_UPLOAD="false")
+                company=target["company_name"];ticker=target["ticker"]
+                os.environ.update(OPENAI_API_KEY=config["openai_key"], DART_API_KEY=config.get("dart_key", ""), SEARXNG_URL=config["search"], MARKETCOUNCIL_COMPANY=company, MARKETCOUNCIL_TICKER=ticker, CHROMA_MODE="local", RESULTS_AUTO_UPLOAD="false")
                 prepare_runtime(config["search"])
                 from app.local_services import daily_local_services
                 services.enter_context(daily_local_services(record_cleanup_error))
@@ -252,8 +307,13 @@ def run() -> int:
                 from tools.debate_transcript_renderer import DebateTranscriptRenderer
                 from tools.run_metrics import measure_analysis
                 os.environ["RESULTS_RESPONSE_METRICS_DIR"]=str(DATA / "response-metrics")
-                result = measure_analysis("삼성전자", lambda: RecoverableDebateWorkflow(DATA / ("analysis-"+today()+".json"),"삼성전자",today()).run("삼성전자"), DATA.parent / "metrics")
-                path = Path(AnalysisDebateStore().save("삼성전자", result)).resolve()
+                import hashlib
+                corpus_hash=target["readiness_report"]["corpus_hash"]
+                identity=hashlib.sha256((company+"|"+ticker+"|"+corpus_hash).encode()).hexdigest()[:16]
+                checkpoint=DATA/("analysis-"+day+"-"+identity+".json")
+                result = measure_analysis(company, lambda: RecoverableDebateWorkflow(checkpoint,company,day,ticker=ticker,corpus_hash=corpus_hash).run(company), DATA.parent / "metrics")
+                result.setdefault("readiness_report",target["readiness_report"])
+                path = Path(AnalysisDebateStore().save(company, result)).resolve()
                 DebateTranscriptRenderer().save(result)
                 return str(path)
             def publish(path: str) -> None:
@@ -261,8 +321,10 @@ def run() -> int:
                 stage = "result"
                 import hashlib, uuid
                 result = json.loads(Path(path).read_text(encoding="utf-8"))
-                if result.get("company_name") != "삼성전자" or result.get("financial_data", {}).get("ticker") != "005930.KS":
-                    raise ValueError("unexpected company")
+                from desktop.cloud import check_official_result
+                check_official_result(result,state["day"])
+                if result.get("company_name") != target["company_name"] or result.get("financial_data", {}).get("ticker") != target["ticker"]:
+                    raise ValueError("저장한 결과와 오늘 고정한 기업이 다릅니다.")
                 # Refresh after a long analysis; persist rotated tokens before another task.
                 prepare()
                 if state["day"] != today(): raise RuntimeError("date changed")
@@ -270,9 +332,9 @@ def run() -> int:
                 stage = "publish"
                 upload_result(result, session, identifier)
                 select_official(session, identifier, state["day"])
-            outcome = run_once(state, today(), prepare, analyze, publish, save_state, resume=True)
+            outcome = run_once(state, day, prepare, analyze, publish, save_state, resume=True,target=target)
             close_services()
-            if outcome == "completed": notify("오늘 삼성전자 공식 토론 게시가 완료됐습니다. 웹 커뮤니티에서 확인하세요.")
+            if outcome == "completed": notify("오늘 "+target.get("company_name","선택 기업")+" 공식 토론 게시가 완료됐습니다. 웹 커뮤니티에서 확인하세요.")
             elif state.get("status") in ("attempting", "analysis_failed"):
                 notify("오늘 분석이 중단되거나 실패했습니다. 오늘 복구 시도 한도에 도달해 더 실행하지 않습니다. 로컬 결과와 실행 환경을 확인하세요.")
             return 0
@@ -301,10 +363,15 @@ def setup() -> None:
     from dotenv import dotenv_values
     from desktop.cloud import send_login, login_link, request
     defaults = {} if getattr(sys, "frozen", False) else dotenv_values(ROOT / ".env")
-    window = tk.Tk(); window.title("MarketCouncil 매일 삼성전자 자동 게시 설정"); window.geometry("640x560")
+    try: previous=credentials()
+    except (OSError,ValueError):previous={}
+    window = tk.Tk(); window.title("MarketCouncil 매일 공식 게시 설정"); window.geometry("640x720")
     ttk.Label(window, text="로그인 시 및 매일 오전 9시 확인 · 하루 1회 분석 후 공식 공개", wraplength=600).pack(pady=12)
+    ttk.Label(window,text="분석 대상 · 기존 저장 설정은 삼성전자 고정을 유지합니다.").pack(anchor="w",padx=20)
+    mode=ttk.Combobox(window,state="readonly",values=("삼성전자 고정 · 근거 충족 시만 실행","준비된 6개 기업 · 새 공시 우선, 오래 미게시한 기업 순"))
+    mode.pack(fill="x",padx=20,pady=4);mode.current(1)
     fields = {}
-    for name, label, default, secret in [("email", "공식 운영자 이메일", "" if getattr(sys, "frozen", False) else "tkftor8544@gmail.com", False), ("key", "OpenAI 키 · Windows 계정에 암호화 저장", defaults.get("OPENAI_API_KEY", ""), True), ("dart", "DART 키 (선택) · Windows 계정에 암호화 저장", defaults.get("DART_API_KEY", ""), True), ("search", "검색 서비스", defaults.get("SEARXNG_URL", "http://127.0.0.1:8080"), False), ("link", "메일의 로그인 버튼 링크 복사 후 붙여넣기", "", True)]:
+    for name, label, default, secret in [("email", "공식 운영자 이메일", "" if getattr(sys, "frozen", False) else "tkftor8544@gmail.com", False), ("key", "OpenAI 키 · Windows 계정에 암호화 저장", defaults.get("OPENAI_API_KEY", ""), True), ("dart", "DART 키 (국내 공시 원문용) · Windows 계정에 암호화 저장", defaults.get("DART_API_KEY", ""), True), ("sec", "SEC 수집 연락처·User-Agent (선택, SEC 요청 헤더로 전송)", previous.get("sec_user_agent") or defaults.get("SEC_USER_AGENT") or os.getenv("SEC_USER_AGENT", ""), False), ("search", "검색 서비스", defaults.get("SEARXNG_URL", "http://127.0.0.1:8080"), False), ("link", "메일의 로그인 버튼 링크 복사 후 붙여넣기", "", True)]:
         ttk.Label(window, text=label).pack(anchor="w", padx=20)
         entry = ttk.Entry(window, show="•" if secret else ""); entry.pack(fill="x", padx=20, pady=4); entry.insert(0, default or ""); fields[name] = entry
     def mail() -> None:
@@ -320,11 +387,11 @@ def setup() -> None:
             session = login_link(fields["link"].get())
             if session["user"].get("email", "").lower() != fields["email"].get().strip().lower(): raise ValueError("email")
             if request("/rest/v1/rpc/is_official_editor", {}, session["access_token"]) is not True: raise ValueError("operator")
-            save_credentials({"openai_key": key, "dart_key": fields["dart"].get().strip(), "search": fields["search"].get().strip(), "refresh_token": session["refresh_token"]})
+            save_credentials({"openai_key": key, "dart_key": fields["dart"].get().strip(), "search": fields["search"].get().strip(), "refresh_token": session["refresh_token"], "official_mode": "eligible" if mode.current()==1 else "samsung", "sec_user_agent": fields["sec"].get().strip()})
             completed = subprocess.run(install_command(), capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
             if completed.returncode: raise RuntimeError("scheduler")
             (DATA / "setup-complete").write_text("configured", encoding="utf-8")
-            messagebox.showinfo("설정 완료", "Windows 로그인과 매일 오전 9시에 자동 확인합니다. 오늘 실행을 시작합니다. 분석 결과와 근거는 공식 공개됩니다.")
+            messagebox.showinfo("설정 완료", "Windows 로그인과 매일 오전 9시에 자동 확인합니다. 선택한 모드에서 근거가 충분한 기업만 분석합니다. 오늘 실행을 시작하며 분석 결과와 근거는 공식 공개됩니다.")
             subprocess.Popen(launch_command(), cwd=runtime_root(), creationflags=subprocess.CREATE_NO_WINDOW)
             window.destroy()
         except Exception: messagebox.showerror("설정 실패", "키·검색 주소와 새 로그인 링크, 공식 운영자 권한을 확인하세요. 일정 등록에 실패한 경우 설정을 다시 저장하세요.")

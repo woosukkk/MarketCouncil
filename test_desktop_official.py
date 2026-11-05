@@ -1,9 +1,10 @@
 import unittest
 from unittest.mock import patch, Mock
 from desktop.cloud import prepare_official, publish_official, check_official_schema, CloudAPIError
+from test_desktop_evidence_gate import ready_result
 
 SESSION={'user':{'id':'owner'},'access_token':'token'}
-DATA={'company_name':'삼성전자','financial_data':{'ticker':'005930.KS'},'rounds':[]}
+DATA=ready_result()
 
 class OfficialTests(unittest.TestCase):
     def test_non_editor_and_existing_day_block(self):
@@ -36,7 +37,7 @@ class OfficialTests(unittest.TestCase):
 
     def test_official_request_fixes_day_and_never_silently_replaces(self):
         with patch('desktop.cloud.official_day',return_value='2026-10-16'),patch('desktop.cloud.request',side_effect=[True,[],CloudAPIError(400),'2026-10-16']) as api,patch('desktop.cloud.upload_result'):
-            publish_official(DATA,SESSION)
+            publish_official(ready_result(day='2026-10-16'),SESSION)
             self.assertEqual(api.call_args.args[1]['expected_day'],'2026-10-16')
             self.assertIs(api.call_args.args[1]['replace_existing'],False)
 
