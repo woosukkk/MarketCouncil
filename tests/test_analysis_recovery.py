@@ -118,9 +118,15 @@ class RecoveryTests(unittest.TestCase):
             def changed_prompt(path):
                 value = original_read(path)
                 return value + b" changed prompt" if path.name == "bull_prompt.py" else value
+            previous_path = workflow._active_checkpoint_path
+            previous_content = previous_path.read_bytes()
             with patch.object(Path, "read_bytes", changed_prompt):
-                with self.assertRaisesRegex(ValueError, "scope"):
-                    RecoverableDebateWorkflow(Path(folder)/'c.json','company','day')
+                changed = RecoverableDebateWorkflow(Path(folder)/'c.json','company','day')
+                self.assertNotEqual(changed._active_checkpoint_path, previous_path)
+                self.assertFalse(changed._active_checkpoint_path.exists())
+                changed.evidence_workflow.run('company')
+                self.assertTrue(changed._active_checkpoint_path.exists())
+            self.assertEqual(previous_path.read_bytes(), previous_content)
     def test_regime_prompt_excludes_chart_series(self):
         from agents.analysis_debate_agent import AnalysisDebateAgent
         text=AnalysisDebateAgent._build_input('company',{},'bull','bear',{},[],{'price_series':['private_series_marker'],'comparison':['keep comparison']},None)
