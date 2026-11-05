@@ -16,6 +16,12 @@ Bull and Bear debate from the same sources. The Moderator records open issues an
 
 [![MarketCouncil landing page](docs/images/readme/landing.en.jpg)](https://frontend-six-pi-h5i7tztups.vercel.app/?lang=en)
 
+## Why I built MarketCouncil
+
+Two people can read the same earnings release and reach different conclusions. One might see revenue growth as a sign of stronger demand, while the other asks how much came from pricing. A single AI summary can leave out the assumptions and counterevidence behind those interpretations.
+
+MarketCouncil started with the idea of giving both sides the same evidence and making their points of agreement and disagreement visible. I wanted readers to be able to check the original sources and decide what new information would change their judgment.
+
 ## What you can do
 
 - Browse published research on Samsung Electronics, SK hynix, Hyundai Motor, NAVER, Apple and Microsoft.
@@ -42,5 +48,23 @@ Bull and Bear debate from the same sources. The Moderator records open issues an
 4. **Store and share.** Analysis and source storage run on the user’s PC. Selected results can be stored in the cloud for private access or publication.
 
 Retrieval quality uses questions with reference evidence. Answer grounding uses citation checks and separate evaluation. Facts, hypotheses and evidence gaps stay distinct so readers can revisit the reasoning. [Architecture and principles](docs/how-it-works.md#architecture-and-principles)
+
+## A sample debate
+
+Imagine a company reports higher revenue in its earnings release.
+
+| Role | What it considers |
+| --- | --- |
+| Bull | If unit sales also rose, demand may have strengthened. |
+| Bear | Higher prices or currency effects can also explain revenue growth. |
+| Moderator | Both sides agree that revenue rose. To assess demand, compare unit sales, average selling prices, and currency effects. |
+
+In a published debate, you can expand a citation to see what supports the claim. [Read a published debate](https://frontend-six-pi-h5i7tztups.vercel.app/app?lang=en)
+
+## Design choices
+
+- **Compare evidence from the same point in time.** Both sides use the same company and cutoff date. This helps readers separate disagreements about interpretation from differences in the information available at the time.
+- **Record what would change the judgment.** Unresolved questions stay with the debate so readers can revisit them after a new filing or earnings release.
+- **Separate analysis from reading.** The PC handles retrieval and debate generation. Once selected results are stored on the website, readers can browse and share them while the analysis app is closed.
 
 The application source is maintained on the [`debate_focus` branch](https://github.com/woosukkk/MarketCouncil/tree/debate_focus).
