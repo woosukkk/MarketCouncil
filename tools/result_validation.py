@@ -80,4 +80,9 @@ def validate_result(value: Any) -> dict[str, Any]:
         or not _optional(value.get("moderator_summary"), _summary)
         or not _optional(value.get("navigation"), _navigation)):
         raise ValueError("분석 결과 형식이 올바르지 않아 열 수 없습니다. 원본 결과를 확인해 주세요.")
+    financial = value.get("financial_data") or {}
+    for report in (value.get("readiness_report"), financial.get("readiness_report")):
+        if report is not None:
+            from tools.evidence_readiness import validate_readiness_report
+            validate_readiness_report(report, value["company_name"], financial.get("ticker", ""))
     return value

@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SOURCE = ROOT.parent / "results" / "analysis_debate"
 PUBLIC_MANIFEST = ROOT.parent / "public-results.json"
-FIELDS = ("company_name", "created_at", "analysis_as_of", "financial_data", "agenda", "rounds", "issue_statuses", "moderator_summary", "navigation", "bull_analysis", "bear_analysis")
+FIELDS = ("company_name", "created_at", "analysis_as_of", "financial_data", "agenda", "rounds", "issue_statuses", "moderator_summary", "navigation", "bull_analysis", "bear_analysis", "readiness_report")
 
 
 EVIDENCE_FIELDS = ("evidence_id", "source_id", "exact_quote", "reason", "verified", "title", "source_type", "source_url", "published_at", "page_number", "source_page_url")
@@ -18,6 +18,13 @@ def compact_evidence(value: object) -> object:
     if isinstance(value, list):
         return [compact_evidence(item) for item in value]
     if isinstance(value, dict):
+        if "readiness_report" in value:
+            from tools.evidence_readiness import validate_readiness_report
+            report = value["readiness_report"]
+            if report is not None:
+                if not isinstance(report, dict):
+                    raise ValueError("Invalid evidence readiness report")
+                validate_readiness_report(report, report.get("company_name"), report.get("ticker"))
         return {
             key: [
                 {field: item[field] for field in EVIDENCE_FIELDS if field in item}
@@ -64,8 +71,8 @@ def export(manifest: Path | None = None) -> None:
     records = []
     payloads = {}
     for path, data in selected_results(manifest if manifest is not None else PUBLIC_MANIFEST):
-        if not isinstance(data, dict) or not isinstance(data.get("company_name"), str):
-            raise ValueError(f"Invalid analysis result: {path.name}")
+        from tools.result_validation import validate_result
+        validate_result(data)
         identifier = hashlib.sha256(str(path.relative_to(SOURCE.resolve())).encode()).hexdigest()[:16]
         payloads[identifier] = compact_evidence({key: data[key] for key in FIELDS if key in data})
         for side in ("bull", "bear"):

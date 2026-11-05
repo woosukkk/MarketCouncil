@@ -29,10 +29,27 @@ class DartCollector:
         company_name: str,
         ticker: str,
         limit: int = 10,
+        periodic_only: bool = False,
     ) -> dict[str, Any]:
         stock_code = ticker.strip().split(".", 1)[0].zfill(6)
-        corp_code = self._resolve_corp_code(company_name, stock_code)
-        filings = self._list_filings(corp_code, limit, days=365)
+        if periodic_only:
+            corp_code = self._resolve_corp_code(company_name, stock_code, strict_stock=True)
+            filings = self._list_filings(corp_code, max(limit, 12), days=550, periodic_only=True)
+            annual = [row for row in filings if "사업보고서" in str(row.get("report_nm", ""))]
+            interim = [row for row in filings if any(label in str(row.get("report_nm", "")) for label in ("분기보고서", "반기보고서"))]
+            chosen = [*annual[:1], *interim[:1]]
+            filings = (chosen + [row for row in filings if row not in chosen])[:limit]
+        else:
+            corp_code = self._resolve_corp_code(company_name, stock_code)
+            filings = self._list_filings(corp_code, limit, days=365)
+        requested_ids = list(dict.fromkeys(str(row.get("rcept_no", "")) for row in filings))
+        required = chosen if periodic_only else []
+        if periodic_only and annual and interim:
+            annual_period = re.search(r"\((\d{4})\.(\d{2})\)", str(annual[0].get("report_nm", "")))
+            interim_period = re.search(r"\((\d{4})\.(\d{2})\)", str(interim[0].get("report_nm", "")))
+            if annual_period and interim_period and tuple(map(int, interim_period.groups())) <= tuple(map(int, annual_period.groups())):
+                required = annual[:1]  # The newer annual period supersedes the previous year's interim.
+        latest_required_ids = list(dict.fromkeys(str(row.get("rcept_no", "")) for row in required))
         target_dir = self.base_dir / "dart" / self._safe_name(company_name)
         target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -58,6 +75,7 @@ class DartCollector:
                 original_path.write_bytes(content)
                 metadata = {
                     "provider": "open_dart",
+                    "identity_verified": periodic_only,
                     "company": company_name,
                     "ticker": stock_code,
                     "corp_code": corp_code,
@@ -84,12 +102,15 @@ class DartCollector:
 
         return {
             "provider": "open_dart",
+            "issuer_id": corp_code,
+            "requested_ids": requested_ids,
+            "latest_required_ids": latest_required_ids,
             "downloaded": downloaded,
             "skipped": skipped,
             "failed": failed,
         }
 
-    def _resolve_corp_code(self, company_name: str, stock_code: str) -> str:
+    def _resolve_corp_code(self, company_name: str, stock_code: str, strict_stock: bool = False) -> str:
         response = self._get(
             f"{self.BASE_URL}/corpCode.xml",
             params={"crtfc_key": self.api_key},
@@ -111,6 +132,8 @@ class DartCollector:
         for corp_code, corp_name, listed_code in entries:
             if listed_code.strip() == stock_code:
                 return corp_code.strip()
+        if strict_stock:
+            raise ValueError("Open DART에서 종목코드와 일치하는 기업을 찾지 못했습니다.")
         for corp_code, corp_name, _ in entries:
             if re.sub(r"\s+", "", corp_name).lower() == normalized_name:
                 return corp_code.strip()
@@ -149,6 +172,7 @@ class DartCollector:
         limit: int,
         days: int,
         end_date: date | None = None,
+        periodic_only: bool = False,
     ) -> list[dict[str, Any]]:
         end_date = end_date or date.today()
         start_date = end_date - timedelta(days=days)
@@ -163,6 +187,7 @@ class DartCollector:
                     "bgn_de": start_date.strftime("%Y%m%d"),
                     "end_de": end_date.strftime("%Y%m%d"),
                     "last_reprt_at": "Y",
+                    **({"pblntf_ty": "A"} if periodic_only else {}),
                     "page_count": 100,
                     "page_no": page_no,
                 },
@@ -181,6 +206,8 @@ class DartCollector:
             page = payload.get("list", [])
             if not isinstance(page, list) or not page:
                 break
+            if periodic_only and any(str(row.get("corp_code", "")) != corp_code for row in page):
+                raise RuntimeError("공시 목록의 기업 식별자가 일치하지 않습니다.")
             filings.extend(page)
             if page_no >= int(payload.get("total_page", page_no)):
                 break

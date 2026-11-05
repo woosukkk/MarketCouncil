@@ -1,5 +1,6 @@
 from tools.run_metrics import measure_stage
 import json
+import os
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -15,6 +16,8 @@ from tools.source_collector import SourceCollector
 class ComparisonState(TypedDict, total=False):
     company_name: str
     financial_data: dict
+    readiness_report: dict
+    primary_chunks: list[dict]
 
     bull_chunks: list[dict]
     bear_chunks: list[dict]
@@ -56,6 +59,8 @@ class ComparisonWorkflow:
 
         print("[1] 공통 금융 데이터 수집 완료")
 
+        if state.get("readiness_report"):
+            financial_data["readiness_report"] = state["readiness_report"]
         return {
             "financial_data": financial_data,
         }
@@ -104,7 +109,7 @@ class ComparisonWorkflow:
             top_k=8,
         )
         print("[2] 공식 공시 검색 완료")
-        return {"filing_chunks": filing_chunks}
+        return {"filing_chunks": self._deduplicate_chunks(state.get("primary_chunks", []) + filing_chunks)}
 
     @measure_stage("bear_report_search")
     def retrieve_bear_reports(
@@ -385,7 +390,13 @@ URL: {article.get("url", "")}"""
         company_name: str,
     ) -> ComparisonState:
         try:
-            return self.graph.invoke({"company_name": company_name})
+            from app.evidence_preflight import require_company_ready, primary_chunks, assert_prepared_corpus
+            from tools.company_lookup import resolve_ticker
+            ticker = resolve_ticker(company_name, os.getenv("MARKETCOUNCIL_TICKER"))
+            manifest, report = require_company_ready(company_name, ticker, refresh=False)
+            assert_prepared_corpus(report)
+            return self.graph.invoke({"company_name": company_name, "readiness_report": report,
+                                      "primary_chunks": primary_chunks(manifest, report)})
         finally:
             # Do not retain the embedding model during the subsequent LLM analysis.
             self.bull_tools.retriever.release_model()

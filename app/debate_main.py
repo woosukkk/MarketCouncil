@@ -11,13 +11,12 @@ from tools.regime_store import RegimeStore
 
 
 def main() -> int:
-    try:
-        ensure_local_services()
-    except RuntimeError as error:
-        print(f"\n오픈소스 서비스 준비 오류: {error}")
-        return 1
-
     if "--check" in sys.argv[1:]:
+        try:
+            ensure_local_services()
+        except RuntimeError as error:
+            print(f"\n오픈소스 서비스 준비 오류: {error}")
+            return 1
         print("Docker와 SearXNG가 준비되었습니다.")
         return 0
 
@@ -27,7 +26,18 @@ def main() -> int:
         return 1
 
     try:
-        debate = DebateWorkflow().run(company_name)
+        from app.evidence_preflight import require_company_ready, prepared_corpus
+        from tools.company_lookup import resolve_ticker
+        ticker = resolve_ticker(company_name, os.getenv("MARKETCOUNCIL_TICKER"))
+        _, prepared = require_company_ready(company_name, ticker)
+        company_name = prepared["company_name"]
+        os.environ.update(MARKETCOUNCIL_COMPANY=company_name, MARKETCOUNCIL_TICKER=ticker)
+        with prepared_corpus(prepared):
+            ensure_local_services()
+            debate = DebateWorkflow().run(company_name)
+        report = debate.get("financial_data", {}).get("readiness_report")
+        if report:
+            debate["readiness_report"] = report
         json_path = AnalysisDebateStore().save(company_name, debate)
         markdown_path = DebateTranscriptRenderer().save(debate)
         regime_path = RegimeStore().save(

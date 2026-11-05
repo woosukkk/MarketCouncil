@@ -23,6 +23,15 @@ class ResultExportTests(unittest.TestCase):
         self.assertEqual(compact_evidence({"evidence": ["legacy quote"]}), {"evidence": ["legacy quote"]})
 
 
+    def test_malformed_readiness_reports_raise_value_error_at_any_payload_depth(self) -> None:
+        for report in ([],["ready"],"private-invalid-report",0,1.5,False,{"status":"ready"}):
+            for data in ({"readiness_report":report},{"financial_data":{"ticker":"AAPL","readiness_report":report}}):
+                with self.subTest(report_type=type(report).__name__,nested="financial_data" in data):
+                    with self.assertRaises(ValueError) as error:compact_evidence(data)
+                    self.assertNotIn("private-invalid-report",str(error.exception))
+        self.assertEqual(compact_evidence({"readiness_report":None}),{"readiness_report":None})
+
+
 class PublicSelectionTests(unittest.TestCase):
     def manifest(self, root: Path, entries: list) -> Path:
         path = root / "public-results.json"
@@ -50,6 +59,48 @@ class PublicSelectionTests(unittest.TestCase):
             self.assertNotIn("api_key", payload)
             self.assertEqual(payload["company_name"], "Example")
             self.assertEqual(len(list(output.glob("*.json"))), 2)
+
+    def test_malformed_approved_report_preserves_public_index_and_existing_payloads(self) -> None:
+        for report in ([],"invalid-report",{"status":"ready"}):
+            with self.subTest(report_type=type(report).__name__),tempfile.TemporaryDirectory() as temp:
+                root=Path(temp);source=root/"archive";path,entry=self.result(source)
+                data=json.loads(path.read_text(encoding="utf-8"));data["readiness_report"]=report
+                path.write_text(json.dumps(data),encoding="utf-8")
+                entry["sha256"]=hashlib.sha256(path.read_bytes()).hexdigest()
+                manifest=self.manifest(root,[entry])
+                output=root/"frontend"/"public"/"data";output.mkdir(parents=True)
+                index=output/"index.json";index.write_text("previous public index",encoding="utf-8")
+                old=output/"previous.json";old.write_text("previous selected payload",encoding="utf-8")
+                with patch.object(exporter,"ROOT",root/"frontend"),patch.object(exporter,"SOURCE",source):
+                    with self.assertRaises(ValueError):exporter.export(manifest)
+                self.assertEqual(index.read_text(encoding="utf-8"),"previous public index")
+                self.assertEqual(old.read_text(encoding="utf-8"),"previous selected payload")
+                self.assertEqual({file.name for file in output.iterdir()},{"index.json","previous.json"})
+
+    def test_valid_report_for_another_issuer_is_rejected_before_public_files_change(self) -> None:
+        from test_evidence_preflight import AS_OF, primary_manifest
+        from tools.evidence_readiness import evaluate_readiness
+        apple=evaluate_readiness(primary_manifest(),AS_OF)
+        other=evaluate_readiness(primary_manifest("Microsoft Corporation","MSFT"),AS_OF)
+        for nested in (False,True):
+            with self.subTest(nested=nested),tempfile.TemporaryDirectory() as temp:
+                root=Path(temp);source=root/"archive";path,entry=self.result(source)
+                data={"company_name":"Apple Inc.","created_at":AS_OF,"financial_data":{"ticker":"AAPL"},"rounds":[]}
+                if nested:
+                    data["readiness_report"]=apple
+                    data["financial_data"]["readiness_report"]=other
+                else:data["readiness_report"]=other
+                path.write_text(json.dumps(data),encoding="utf-8")
+                entry["sha256"]=hashlib.sha256(path.read_bytes()).hexdigest()
+                manifest=self.manifest(root,[entry])
+                output=root/"frontend"/"public"/"data";output.mkdir(parents=True)
+                index=output/"index.json";index.write_text("previous public index",encoding="utf-8")
+                previous=output/"previous.json";previous.write_text("previous payload",encoding="utf-8")
+                with patch.object(exporter,"ROOT",root/"frontend"),patch.object(exporter,"SOURCE",source):
+                    with self.assertRaises(ValueError):exporter.export(manifest)
+                self.assertEqual(index.read_text(encoding="utf-8"),"previous public index")
+                self.assertEqual(previous.read_text(encoding="utf-8"),"previous payload")
+                self.assertEqual({file.name for file in output.iterdir()},{"index.json","previous.json"})
 
     def test_missing_or_empty_selection_preserves_existing_index(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

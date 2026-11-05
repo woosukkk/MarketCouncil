@@ -43,6 +43,8 @@ class ReportRetriever:
                 raise ValueError("as_of_date는 ISO 날짜 형식이어야 합니다.") from error
         if not self.collection.count():
             return []
+        if company_name and not self.collection.get(where={"company": company_name}, limit=1, include=[]).get("ids"):
+            return []
         if self.model is None:
             from sentence_transformers import SentenceTransformer
             self.model = SentenceTransformer(MODEL_NAME)

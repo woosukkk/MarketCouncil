@@ -31,9 +31,22 @@ class SecEdgarCollector:
         company_name: str,
         ticker: str,
         limit: int = 10,
+        periodic_only: bool = False,
     ) -> dict[str, Any]:
         cik = self._resolve_cik(ticker)
-        filings = self._list_filings(cik, limit)
+        filings = self._list_filings(cik, limit, periodic_only=True) if periodic_only else self._list_filings(cik, limit)
+        requested_ids = list(dict.fromkeys(str(row.get("accession_number", "")) for row in filings))
+        annual = next((row for row in filings if row.get("form") in {"10-K", "20-F", "40-F"}), None)
+        interim = next((row for row in filings if row.get("form") == "10-Q"), None)
+        required = [row for row in (annual, interim) if row is not None] if periodic_only else []
+        if periodic_only and annual and interim:
+            from datetime import date
+            try:
+                if date.fromisoformat(interim["report_date"]) <= date.fromisoformat(annual["report_date"]):
+                    required = [annual]  # A newly filed annual can replace the preceding interim.
+            except (KeyError, TypeError, ValueError):
+                pass  # Missing periods must fail body validation rather than waive a required filing.
+        latest_required_ids = list(dict.fromkeys(str(row.get("accession_number", "")) for row in required))
         target_dir = self.base_dir / "sec" / self._safe_name(company_name)
         target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -59,6 +72,7 @@ class SecEdgarCollector:
                 original_path.write_bytes(content)
                 metadata = {
                     "provider": "sec_edgar",
+                    "identity_verified": periodic_only,
                     "company": company_name,
                     "ticker": ticker.upper(),
                     "cik": cik,
@@ -83,6 +97,9 @@ class SecEdgarCollector:
 
         return {
             "provider": "sec_edgar",
+            "issuer_id": cik,
+            "requested_ids": requested_ids,
+            "latest_required_ids": latest_required_ids,
             "downloaded": downloaded,
             "skipped": skipped,
             "failed": failed,
@@ -96,8 +113,10 @@ class SecEdgarCollector:
                 return str(company["cik_str"]).zfill(10)
         raise ValueError("SEC EDGAR에서 티커에 해당하는 CIK를 찾지 못했습니다.")
 
-    def _list_filings(self, cik: str, limit: int) -> list[dict[str, str]]:
+    def _list_filings(self, cik: str, limit: int, periodic_only: bool = False) -> list[dict[str, str]]:
         payload = self._get(self.SUBMISSIONS_URL.format(cik=cik)).json()
+        if periodic_only and str(payload.get("cik", "")).zfill(10) != cik:
+            raise RuntimeError("SEC 공시 목록의 기업 식별자가 일치하지 않습니다.")
         recent = payload.get("filings", {}).get("recent", {})
         forms = recent.get("form", [])
         accessions = recent.get("accessionNumber", [])
@@ -105,6 +124,7 @@ class SecEdgarCollector:
         report_dates = recent.get("reportDate", [])
         primary_documents = recent.get("primaryDocument", [])
 
+        allowed = {"10-K", "10-Q", "20-F", "40-F"} if periodic_only else self.SUPPORTED_FORMS
         filings: list[dict[str, str]] = []
         for form, accession, filing_date, report_date, primary_document in zip(
             forms,
@@ -113,7 +133,7 @@ class SecEdgarCollector:
             report_dates,
             primary_documents,
         ):
-            if form not in self.SUPPORTED_FORMS or not primary_document:
+            if form not in allowed or not primary_document:
                 continue
             filings.append({
                 "form": form,
@@ -122,8 +142,13 @@ class SecEdgarCollector:
                 "report_date": report_date,
                 "primary_document": primary_document,
             })
-            if len(filings) >= limit:
+            if not periodic_only and len(filings) >= limit:
                 break
+        if periodic_only:
+            annual = [row for row in filings if row["form"] in {"10-K", "20-F", "40-F"}]
+            interim = [row for row in filings if row["form"] == "10-Q"]
+            chosen = [*annual[:1], *interim[:1]]
+            return (chosen + [row for row in filings if row not in chosen])[:limit]
         return filings
 
     def _get(self, url: str) -> requests.Response:

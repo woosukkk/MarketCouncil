@@ -60,34 +60,26 @@ class HistoricalEvidenceCollector:
             if self._date(document.get("published_date"))
             and start_date <= self._date(document.get("published_date")) <= today
         ]
+        # A search query's official intent is not issuer/source verification.
+        for document in verified_web:
+            kind = "unknown" if document.get("search_focus") == "official" else "news"
+            document.update(source_type=kind, search_focus=kind)
         return official_documents + verified_web
 
     def _dart_documents(self, company_name: str, ticker: str) -> list[dict[str, Any]]:
-        if self.dart is None or not ticker.endswith((".KS", ".KQ")):
-            return []
+        # Filing list metadata is not a filing body. Reuse only validated local originals.
         try:
-            filings = self.dart.list_history(company_name, ticker)
-        except (RuntimeError, ValueError):
+            from app.evidence_preflight import evidence_base, primary_chunks
+            from tools.company_evidence_collector import CompanyEvidenceCollector
+            from tools.evidence_readiness import evaluate_readiness
+            manifest = CompanyEvidenceCollector(evidence_base()).load(company_name, ticker)
+            report = evaluate_readiness(manifest)
+            return [{"title": chunk["metadata"]["title"], "url": chunk["source"],
+                     "published_date": chunk["metadata"]["published_at"],
+                     "content": chunk["text"], "search_focus": "official", "source_type": "official"}
+                    for chunk in primary_chunks(manifest, report)]
+        except (OSError, ValueError, KeyError):
             return []
-        return [
-            {
-                "title": str(filing.get("report_nm", "공시")),
-                "url": (
-                    "https://dart.fss.or.kr/dsaf001/main.do?rcpNo="
-                    f"{filing.get('rcept_no', '')}"
-                ),
-                "published_date": self._dart_date(filing.get("rcept_dt", "")),
-                "content": (
-                    f"{filing.get('report_nm', '공시')} · "
-                    f"제출인 {filing.get('flr_nm', '확인 불가')}"
-                ),
-                "search_focus": "official",
-            }
-            for filing in filings
-            if filing.get("rcept_no")
-            and self._dart_date(filing.get("rcept_dt", ""))
-            and self._is_material_filing(filing.get("report_nm", ""))
-        ]
 
     @staticmethod
     def _is_material_filing(value: Any) -> bool:
