@@ -72,7 +72,7 @@ Expand a citation to see its excerpt, publication date, page and original-source
 | Windows analysis | Looks up ticker candidates from a company name and runs analysis with the user's key. Saves JSON locally before the user chooses whether to upload it. |
 | Operations and evaluation | Editor-only daily official selection, local scheduled runs and stage recovery, plus admin performance, RAG retrieval and claim–evidence quality reports. |
 
-The initial personal-analysis expansion covers SK hynix, Hyundai Motor, NAVER, Apple and Microsoft. Samsung Electronics is the operational case for official discussions. Company lookup does not imply equal data coverage across companies or providers. Adding a company to a watchlist does not start an analysis.
+Select Samsung Electronics, SK hynix, Hyundai Motor, NAVER, Apple or Microsoft in Research by company to browse published results. New analyses run in the PC app. Missing filing or earnings originals block paid analysis. The local evidence check on November 5, 2026 met the minimum for four Korean companies; SEC access restrictions still block US filing preparation. Evidence availability is separate from actual debate quality. See the [evidence preparation guide](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/company-evidence-readiness.md).
 
 ## System architecture
 
@@ -156,9 +156,9 @@ Open the [research library](https://frontend-six-pi-h5i7tztups.vercel.app/app?la
 
 ### Analyze with the Windows app
 
-1. Download the **Windows 0.7.0** ZIP from the [download page](https://frontend-six-pi-h5i7tztups.vercel.app/download?lang=en) and extract it into a separate folder.
+1. Download the **Windows 0.8.0** ZIP from the [download page](https://frontend-six-pi-h5i7tztups.vercel.app/download?lang=en) and extract it into a separate folder.
 2. Keep `_internal` alongside `MarketCouncil.exe` and run the executable.
-3. Prepare Docker Desktop, enter your own OpenAI key and a company name, then select a ticker candidate. An Open DART key is optional for Korean filings.
+3. Prepare Docker Desktop, enter your own OpenAI key and a company name, then select a ticker candidate. Enter your DART key for Korean filings or a contact identifier for SEC requests, then prepare and check company evidence.
 4. Save the result locally. Import its JSON through My research on the website to store it privately, then choose sharing or publication if desired.
 
 OpenAI charges apply to the key owner. Browser resources and the document embedding model are downloaded when needed. If moving to a new executable folder, save automatic-publication settings again to update the scheduled path. The website's language switch does not change the Windows app's interface language.
@@ -178,7 +178,7 @@ Copy-Item .env.example .env
 venv\Scripts\python.exe -m desktop.main
 ```
 
-Main settings: `OPENAI_API_KEY`, optional `DART_API_KEY`, `SEC_USER_AGENT` and `SEARXNG_URL`. Do not commit `.env`, keys, tokens or checkpoints.
+Main settings: `OPENAI_API_KEY`, `DART_API_KEY` for Korean filings, `SEC_USER_AGENT` for US filings and `SEARXNG_URL`. Do not commit `.env`, keys, tokens or checkpoints.
 
 <details>
 <summary>Frontend development and legacy local tools</summary>

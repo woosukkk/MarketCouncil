@@ -70,7 +70,7 @@ MarketCouncil은 금융 데이터·공시·리서치 문서·웹 자료를 공�
 | Windows 분석 | 기업명으로 종목 후보를 찾고 본인 키로 분석합니다. JSON을 로컬에 저장한 뒤 원하는 결과만 업로드할 수 있습니다. |
 | 운영·평가 | 운영자의 하루 1개 공식 지정, 로컬 예약 실행·단계 복구, 관리자 성능 기록과 RAG 검색/답변 근거 품질 평가를 제공합니다. |
 
-개인 분석의 우선 확장 대상은 SK하이닉스·현대차·NAVER·Apple·Microsoft입니다. 삼성전자 공식 토론을 운영 사례로 사용합니다. 기업명 조회가 가능하더라도 기업·자료원별 데이터 제공 범위가 같지는 않으며, 관심기업 추가만으로 새 분석이 실행되지는 않습니다.
+기업별 리서치에서 삼성전자·SK하이닉스·현대차·NAVER·Apple·Microsoft를 선택하고 공개된 결과를 확인합니다. 새 분석은 PC 프로그램에서 실행합니다. 공시·실적 발표 원문이 부족하면 유료 분석을 시작하지 않습니다. 2026-11-05 로컬 자료 확인에서 국내 4기업은 최소 조건을 충족했으며, 미국 2기업은 SEC 접근 제한으로 공시 준비가 남았습니다. 자료 확보 상태와 실제 AI 토론 품질은 구분합니다. 자세한 기준은 [기업별 근거 준비 안내](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/company-evidence-readiness.md)에 있습니다.
 
 ## 시스템 구조
 
@@ -154,9 +154,9 @@ Streamlit은 소스에서 저장 결과를 확인하는 별도 로컬 뷰어로 
 
 ### Windows 프로그램으로 분석
 
-1. [다운로드 페이지](https://frontend-six-pi-h5i7tztups.vercel.app/download)에서 **Windows 0.7.0** ZIP을 받아 별도 폴더에 풉니다.
+1. [다운로드 페이지](https://frontend-six-pi-h5i7tztups.vercel.app/download)에서 **Windows 0.8.0** ZIP을 받아 별도 폴더에 풉니다.
 2. `_internal` 폴더를 유지하고 `MarketCouncil.exe`를 실행합니다.
-3. Docker Desktop을 준비하고, 본인 OpenAI 키와 기업명을 입력한 뒤 종목 후보를 선택합니다. Open DART 키는 한국 공시 수집에 선택적으로 사용합니다.
+3. Docker Desktop을 준비하고, 본인 OpenAI 키와 기업명을 입력한 뒤 종목 후보를 선택합니다. 국내 공시에는 본인 DART 키, 미국 공시에는 SEC 요청용 연락처를 입력하고 기업 근거 준비·충족도 확인을 실행합니다.
 4. 분석 결과를 로컬에 저장합니다. 웹 마이페이지에서 JSON을 가져와 비공개로 보관한 뒤 공유·게시를 선택할 수 있습니다.
 
 OpenAI 사용료는 키 소유자에게 발생합니다. 처음 사용하는 브라우저·문서 임베딩 모델은 필요할 때 내려받습니다. 다른 폴더의 새 EXE로 자동 게시를 이용하려면 설정을 다시 저장해 예약 경로를 갱신합니다.
@@ -176,7 +176,7 @@ Copy-Item .env.example .env
 venv\Scripts\python.exe -m desktop.main
 ```
 
-로컬 분석의 주요 설정은 `OPENAI_API_KEY`, 선택적 `DART_API_KEY`, `SEC_USER_AGENT`, `SEARXNG_URL`입니다. `.env`·키·토큰·체크포인트를 커밋하지 않습니다.
+로컬 분석의 주요 설정은 `OPENAI_API_KEY`, 국내 공시용 `DART_API_KEY`, 미국 공시용 `SEC_USER_AGENT`, `SEARXNG_URL`입니다. `.env`·키·토큰·체크포인트를 커밋하지 않습니다.
 
 <details>
 <summary>웹 프런트엔드 개발 및 기존 CLI·뷰어</summary>
