@@ -1,3 +1,5 @@
+import {readinessBatchStructure,validateReadinessBatch} from './evidenceReadiness.js';
+
 const numericKeys=['performance_score','fcp_ms','lcp_ms','tbt_ms','cls','speed_index_ms','duration_ms','cpu_ms','recall','precision','mrr','hit','median_ms','p95_ms','mixed_company','unknown_company','future_sources','request_count','error_count'];
 const apiPhases=new Set(['source_collection','bull_initial','bear_initial','regime_reasons','shorts_debate_topics','video_summary','debate_navigation','debate_agenda','debate_review','debate_summary','bull_debate_turn','bear_debate_turn','report_source_collection','bull_web_search','bear_web_search','unclassified']);
 const supportLabels=['supported','contradicted','insufficient_evidence'];
@@ -138,6 +140,7 @@ function quality(raw,settings){
  return {metrics,cases};
 }
 export function measurementReport(raw){
+ if(raw?.scope==='evidence_readiness'||raw?.companies!==undefined)return readinessBatchStructure(raw);
  if(!object(raw)||raw.schema_version!==1||!['monitoring','rag'].includes(raw.kind)||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(raw.id||'')||!Number.isFinite(Date.parse(raw.recorded_at))||!text(raw.label)||!['success','failed'].includes(raw.status))throw Error('지원하는 성능 기록 JSON을 선택하세요.');
  const metrics={};
  for(const key of numericKeys){const value=raw.metrics?.[key];if(value===undefined||value===null)continue;if(!number(value)||(['performance_score','recall','precision','mrr','hit'].includes(key)&&value>1))fail();metrics[key]=value;}
@@ -171,7 +174,10 @@ export function measurementReport(raw){
  return clean;
 }
 export const metricText=(n,percent=false)=>typeof n==='number'&&Number.isFinite(n)?percent?(n*100).toFixed(1)+'%':n.toLocaleString('ko-KR',{maximumFractionDigits:1}):'미측정';
-export const reportTab=report=>report.kind==='monitoring'?'monitoring':report.scope==='answer_quality'?'quality':'rag';
+export const reportTab=report=>report.kind==='monitoring'&&report.scope==='evidence_readiness'?'readiness':report.kind==='monitoring'?'monitoring':report.scope==='answer_quality'?'quality':'rag';
+export async function prepareMeasurementReport(raw){
+ return raw?.scope==='evidence_readiness'||raw?.companies!==undefined?measurementReport(await validateReadinessBatch(raw)):measurementReport(raw);
+}
 export function costText(llm){
  if(!llm||llm.estimated_cost_usd===null||llm.cost_status==='unavailable'||(llm.cost_status==='partial'&&llm.estimated_cost_usd===0))return '미측정';
  if(llm.estimated_cost_usd>0&&llm.estimated_cost_usd<0.000001)return '< $0.000001';

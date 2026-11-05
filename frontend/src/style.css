@@ -31,3 +31,12 @@ html[lang=en] .landing-hero>p{line-height:1.8}
 @media(max-width:480px){.landing-nav{padding-inline:18px}.landing-nav .nav-start{display:none}.landing-nav nav,html[lang=en] .landing-nav nav{gap:8px}.topbar>span{font-size:11px}.account-nav button{font-size:11px}.language-switch{margin-left:auto}}
 
 @media(max-width:480px){.shell .sidebar{display:flex;align-items:center;gap:8px}.shell .home-link{position:static;margin-left:auto;align-self:center;font-size:10px}}
+
+.company-research{margin:42px 0 52px}.company-research>p,.company-research-note p{font-size:13px;line-height:1.8;color:var(--muted,#687183)}
+.company-directory{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:24px 0 18px}
+.company-choice{display:flex;flex-direction:column;align-items:flex-start;gap:8px;border:0;border-radius:14px;padding:22px;text-align:left;background:#f1f3f8;color:var(--text,#222c3b);font:inherit;cursor:pointer;transition:background .18s,color .18s}
+.company-choice strong{font-size:17px;line-height:1.4}.company-choice>span:not(.company-market),.company-choice small{font-size:12px;color:#697487}.company-market{font-size:9px;letter-spacing:1.2px;color:#7a8494}
+.company-choice:hover{background:#e9edf6}.company-choice[aria-pressed=true]{background:#e7ecfa;box-shadow:inset 3px 0 #5871b6}.company-choice:focus-visible,.company-reset:focus-visible{outline:2px solid #5871b6;outline-offset:3px}
+.company-reset{background:transparent;border:0;color:#62718d;cursor:pointer;font:inherit;font-size:12px;padding:8px}.company-reset[aria-pressed=true]{color:#354f86;font-weight:600}
+.company-research-note{display:flex;justify-content:space-between;gap:20px;align-items:center}.company-research-note p{margin:0}.company-research-note a,.empty a{font-size:12px;color:#405b96;white-space:nowrap}
+@media(min-width:1600px){.company-directory{grid-template-columns:repeat(6,minmax(0,1fr))}}@media(max-width:640px){.company-directory{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.company-choice{padding:16px}.company-choice strong{font-size:14px}.company-research-note{align-items:flex-start;flex-direction:column;gap:10px}}

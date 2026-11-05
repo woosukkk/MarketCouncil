@@ -1,0 +1,385 @@
+{
+  "origin": "synthetic_test_only",
+  "reports": [
+    {
+      "schema_version": 1,
+      "policy_version": "primary-v1",
+      "company_name": "삼성전자",
+      "ticker": "005930.KS",
+      "as_of_date": "2026-11-03",
+      "status": "ready",
+      "missing": [],
+      "counts": {
+        "annual": 1,
+        "interim": 1,
+        "earnings": 1,
+        "report": 0
+      },
+      "corpus_hash": "d88339586451b08d81d63b1fd986a9cf924c6e00f9e8acfc3c3e192bf6648cb0",
+      "documents": [
+        {
+          "document_id": "DOC-166e59bbefa189cb40903d8e",
+          "document_type": "annual",
+          "published_at": "2026-03-20",
+          "report_date": "2025-12-31",
+          "content_hash": "a94ba53fea1e73642cf0603ea108f65d7a81e2f9f6f9cb81b31ab59e9cf7e501",
+          "source_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260320000001"
+        },
+        {
+          "document_id": "DOC-9fb25e06dccdacf059758b9d",
+          "document_type": "interim",
+          "published_at": "2026-10-29",
+          "report_date": "2026-09-30",
+          "content_hash": "db2d1a40babda97f508ce97bcdb7ec81fae41ae5676b72cbc7439c029bcb22d6",
+          "source_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000001"
+        },
+        {
+          "document_id": "DOC-ef2a68b70676e953ac3d552a",
+          "document_type": "earnings",
+          "published_at": "2026-10-29",
+          "report_date": "2026-09-30",
+          "content_hash": "6358f4b9993cc218c878fdaddd04e872a759b234b09379a7aa7d56bf99f622fd",
+          "source_url": "https://images.samsung.com/is/content/samsung/assets/global/ir/docs/2026_3Q_conference_eng.pdf"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "policy_version": "primary-v1",
+      "company_name": "SK하이닉스",
+      "ticker": "000660.KS",
+      "as_of_date": "2026-11-03",
+      "status": "ready",
+      "missing": [],
+      "counts": {
+        "annual": 1,
+        "interim": 1,
+        "earnings": 1,
+        "report": 0
+      },
+      "corpus_hash": "e47e7d29b6ca01742377b1b6eec9bed9d1954ca7e6f2a3f56f011161af1399b7",
+      "documents": [
+        {
+          "document_id": "DOC-166e59bbefa189cb40903d8e",
+          "document_type": "annual",
+          "published_at": "2026-03-20",
+          "report_date": "2025-12-31",
+          "content_hash": "a94ba53fea1e73642cf0603ea108f65d7a81e2f9f6f9cb81b31ab59e9cf7e501",
+          "source_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260320000001"
+        },
+        {
+          "document_id": "DOC-9fb25e06dccdacf059758b9d",
+          "document_type": "interim",
+          "published_at": "2026-10-29",
+          "report_date": "2026-09-30",
+          "content_hash": "db2d1a40babda97f508ce97bcdb7ec81fae41ae5676b72cbc7439c029bcb22d6",
+          "source_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000001"
+        },
+        {
+          "document_id": "DOC-2c329e45e294e93d77530f34",
+          "document_type": "earnings",
+          "published_at": "2026-10-29",
+          "report_date": "2026-09-30",
+          "content_hash": "6358f4b9993cc218c878fdaddd04e872a759b234b09379a7aa7d56bf99f622fd",
+          "source_url": "https://news.skhynix.com/en/q3-2026-business-results/"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "policy_version": "primary-v1",
+      "company_name": "현대자동차",
+      "ticker": "005380.KS",
+      "as_of_date": "2026-11-03",
+      "status": "ready",
+      "missing": [],
+      "counts": {
+        "annual": 1,
+        "interim": 1,
+        "earnings": 1,
+        "report": 0
+      },
+      "corpus_hash": "6cb47630156f164956caef407e8c1db02afc2b87d6f166862ebcd72e4b381ae7",
+      "documents": [
+        {
+          "document_id": "DOC-166e59bbefa189cb40903d8e",
+          "document_type": "annual",
+          "published_at": "2026-03-20",
+          "report_date": "2025-12-31",
+          "content_hash": "a94ba53fea1e73642cf0603ea108f65d7a81e2f9f6f9cb81b31ab59e9cf7e501",
+          "source_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260320000001"
+        },
+        {
+          "document_id": "DOC-9fb25e06dccdacf059758b9d",
+          "document_type": "interim",
+          "published_at": "2026-10-29",
+          "report_date": "2026-09-30",
+          "content_hash": "db2d1a40babda97f508ce97bcdb7ec81fae41ae5676b72cbc7439c029bcb22d6",
+          "source_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000001"
+        },
+        {
+          "document_id": "DOC-ff9483c3933783b713d57920",
+          "document_type": "earnings",
+          "published_at": "2026-10-29",
+          "report_date": "2026-09-30",
+          "content_hash": "6358f4b9993cc218c878fdaddd04e872a759b234b09379a7aa7d56bf99f622fd",
+          "source_url": "https://www.hyundai.com/content/dam/hyundai/ww/en/images/company/investor-relations/financial-Information/2026-q3.pdf"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "policy_version": "primary-v1",
+      "company_name": "NAVER",
+      "ticker": "035420.KS",
+      "as_of_date": "2026-11-03",
+      "status": "ready",
+      "missing": [],
+      "counts": {
+        "annual": 1,
+        "interim": 1,
+        "earnings": 1,
+        "report": 0
+      },
+      "corpus_hash": "db0899082f18686ad74e8a3d0e328aea9d6a25a652a6f5f293098750df074ecb",
+      "documents": [
+        {
+          "document_id": "DOC-166e59bbefa189cb40903d8e",
+          "document_type": "annual",
+          "published_at": "2026-03-20",
+          "report_date": "2025-12-31",
+          "content_hash": "a94ba53fea1e73642cf0603ea108f65d7a81e2f9f6f9cb81b31ab59e9cf7e501",
+          "source_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260320000001"
+        },
+        {
+          "document_id": "DOC-9fb25e06dccdacf059758b9d",
+          "document_type": "interim",
+          "published_at": "2026-10-29",
+          "report_date": "2026-09-30",
+          "content_hash": "db2d1a40babda97f508ce97bcdb7ec81fae41ae5676b72cbc7439c029bcb22d6",
+          "source_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000001"
+        },
+        {
+          "document_id": "DOC-6bbfb9d3a36541557bac8f1e",
+          "document_type": "earnings",
+          "published_at": "2026-10-29",
+          "report_date": "2026-09-30",
+          "content_hash": "6358f4b9993cc218c878fdaddd04e872a759b234b09379a7aa7d56bf99f622fd",
+          "source_url": "https://www.navercorp.com/api/article/download/offline-fixture"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "policy_version": "primary-v1",
+      "company_name": "Apple Inc.",
+      "ticker": "AAPL",
+      "as_of_date": "2026-11-03",
+      "status": "ready",
+      "missing": [],
+      "counts": {
+        "annual": 1,
+        "interim": 1,
+        "earnings": 1,
+        "report": 0
+      },
+      "corpus_hash": "de04920f44e853424f7bd675a7649878f0b371a30b5038ed7665fec858aadd5f",
+      "documents": [
+        {
+          "document_id": "DOC-33fee21cc9449159fda5322c",
+          "document_type": "annual",
+          "published_at": "2026-03-20",
+          "report_date": "2025-12-31",
+          "content_hash": "a94ba53fea1e73642cf0603ea108f65d7a81e2f9f6f9cb81b31ab59e9cf7e501",
+          "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000001/annual.htm"
+        },
+        {
+          "document_id": "DOC-feba0a98a8ad964ab6622ce4",
+          "document_type": "interim",
+          "published_at": "2026-10-29",
+          "report_date": "2026-09-30",
+          "content_hash": "db2d1a40babda97f508ce97bcdb7ec81fae41ae5676b72cbc7439c029bcb22d6",
+          "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000001/interim.htm"
+        },
+        {
+          "document_id": "DOC-8237a66408000be842b7c34c",
+          "document_type": "earnings",
+          "published_at": "2026-10-29",
+          "report_date": "2026-09-30",
+          "content_hash": "6358f4b9993cc218c878fdaddd04e872a759b234b09379a7aa7d56bf99f622fd",
+          "source_url": "https://www.apple.com/newsroom/2026/10/apple-reports-fourth-quarter-results/"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "policy_version": "primary-v1",
+      "company_name": "Microsoft Corporation",
+      "ticker": "MSFT",
+      "as_of_date": "2026-11-03",
+      "status": "ready",
+      "missing": [],
+      "counts": {
+        "annual": 1,
+        "interim": 1,
+        "earnings": 1,
+        "report": 0
+      },
+      "corpus_hash": "8bcdddcf7715665a88583304e50145744f0121a67afb181e30791f2da0e0159e",
+      "documents": [
+        {
+          "document_id": "DOC-58b17b6c4def9d5aa821e96f",
+          "document_type": "annual",
+          "published_at": "2026-03-20",
+          "report_date": "2025-12-31",
+          "content_hash": "a94ba53fea1e73642cf0603ea108f65d7a81e2f9f6f9cb81b31ab59e9cf7e501",
+          "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000032019326000001/annual.htm"
+        },
+        {
+          "document_id": "DOC-f88a4eb141e296a10a510997",
+          "document_type": "interim",
+          "published_at": "2026-10-29",
+          "report_date": "2026-09-30",
+          "content_hash": "db2d1a40babda97f508ce97bcdb7ec81fae41ae5676b72cbc7439c029bcb22d6",
+          "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000032019326000001/interim.htm"
+        },
+        {
+          "document_id": "DOC-ea22f9d29fa3d37ac0a2310d",
+          "document_type": "earnings",
+          "published_at": "2026-10-29",
+          "report_date": "2026-09-30",
+          "content_hash": "6358f4b9993cc218c878fdaddd04e872a759b234b09379a7aa7d56bf99f622fd",
+          "source_url": "https://www.microsoft.com/en-us/investor/earnings/fy-2027-q1/press-release-webcast"
+        }
+      ]
+    }
+  ],
+  "empty_reports": [
+    {
+      "schema_version": 1,
+      "policy_version": "primary-v1",
+      "company_name": "삼성전자",
+      "ticker": "005930.KS",
+      "as_of_date": "2026-11-03",
+      "status": "insufficient",
+      "missing": [
+        "annual_missing",
+        "recent_financial_missing",
+        "earnings_missing"
+      ],
+      "counts": {
+        "annual": 0,
+        "interim": 0,
+        "earnings": 0,
+        "report": 0
+      },
+      "corpus_hash": "ab8a10740ef6a0d1dece26a55eced4a4b4335df1581763a527b1cf522fe14422",
+      "documents": []
+    },
+    {
+      "schema_version": 1,
+      "policy_version": "primary-v1",
+      "company_name": "SK하이닉스",
+      "ticker": "000660.KS",
+      "as_of_date": "2026-11-03",
+      "status": "insufficient",
+      "missing": [
+        "annual_missing",
+        "recent_financial_missing",
+        "earnings_missing"
+      ],
+      "counts": {
+        "annual": 0,
+        "interim": 0,
+        "earnings": 0,
+        "report": 0
+      },
+      "corpus_hash": "9f41805b76d9efcdefc33461797d80fe230cad635b9b854417cbc85a146f0872",
+      "documents": []
+    },
+    {
+      "schema_version": 1,
+      "policy_version": "primary-v1",
+      "company_name": "현대자동차",
+      "ticker": "005380.KS",
+      "as_of_date": "2026-11-03",
+      "status": "insufficient",
+      "missing": [
+        "annual_missing",
+        "recent_financial_missing",
+        "earnings_missing"
+      ],
+      "counts": {
+        "annual": 0,
+        "interim": 0,
+        "earnings": 0,
+        "report": 0
+      },
+      "corpus_hash": "1ffbc744d83149e7903defcc19aba28d40eb818e4a51dc700a3224ca1f5e1803",
+      "documents": []
+    },
+    {
+      "schema_version": 1,
+      "policy_version": "primary-v1",
+      "company_name": "NAVER",
+      "ticker": "035420.KS",
+      "as_of_date": "2026-11-03",
+      "status": "insufficient",
+      "missing": [
+        "annual_missing",
+        "recent_financial_missing",
+        "earnings_missing"
+      ],
+      "counts": {
+        "annual": 0,
+        "interim": 0,
+        "earnings": 0,
+        "report": 0
+      },
+      "corpus_hash": "6cf866efc18e363b08c09b48dabab6acf57ef8e8616ae2df973624e4a72ec637",
+      "documents": []
+    },
+    {
+      "schema_version": 1,
+      "policy_version": "primary-v1",
+      "company_name": "Apple Inc.",
+      "ticker": "AAPL",
+      "as_of_date": "2026-11-03",
+      "status": "insufficient",
+      "missing": [
+        "annual_missing",
+        "recent_financial_missing",
+        "earnings_missing"
+      ],
+      "counts": {
+        "annual": 0,
+        "interim": 0,
+        "earnings": 0,
+        "report": 0
+      },
+      "corpus_hash": "e6a00569a81f93137a63499ca62e29255bf999463add2c61bbb65f07b699f819",
+      "documents": []
+    },
+    {
+      "schema_version": 1,
+      "policy_version": "primary-v1",
+      "company_name": "Microsoft Corporation",
+      "ticker": "MSFT",
+      "as_of_date": "2026-11-03",
+      "status": "insufficient",
+      "missing": [
+        "annual_missing",
+        "recent_financial_missing",
+        "earnings_missing"
+      ],
+      "counts": {
+        "annual": 0,
+        "interim": 0,
+        "earnings": 0,
+        "report": 0
+      },
+      "corpus_hash": "c3463465de660a8db8d954fcf6aa759cccf89fdd667df2160fb26edf17ec1eab",
+      "documents": []
+    }
+  ]
+}

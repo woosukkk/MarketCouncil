@@ -1,5 +1,6 @@
 import {validateResult} from './resultValidation.js';
-const fields = ['company_name','created_at','analysis_as_of','financial_data','agenda','rounds','issue_statuses','moderator_summary','navigation','bull_analysis','bear_analysis'];
+import {sanitizeReadinessReport,validateReadinessReport} from './evidenceReadiness.js';
+const fields = ['company_name','created_at','analysis_as_of','financial_data','agenda','rounds','issue_statuses','moderator_summary','navigation','bull_analysis','bear_analysis','readiness_report'];
 const evidenceFields = ['evidence_id','source_id','exact_quote','reason','verified','title','source_type','source_url','published_at','page_number','source_page_url'];
 function compact(value) {
   if(Array.isArray(value)) return value.map(compact);
@@ -10,6 +11,10 @@ export function prepareResult(text) {
   let data;
   try {data=JSON.parse(text.replace(/^\uFEFF/,''));} catch {throw Error('분석 JSON 파일을 선택하세요. 파일 내용을 읽을 수 없습니다.');}
   validateResult(data);
+  try {
+    if(data.readiness_report!=null)data.readiness_report=sanitizeReadinessReport(data.readiness_report,data.company_name,data.financial_data?.ticker);
+    if(data.financial_data?.readiness_report!=null)data.financial_data.readiness_report=sanitizeReadinessReport(data.financial_data.readiness_report,data.company_name,data.financial_data.ticker);
+  }catch{throw Error('분석 결과 형식이 올바르지 않아 열 수 없습니다. 원본 결과를 확인해 주세요.');}
   const payload=compact(Object.fromEntries(fields.filter(f=>f in data).map(f=>[f,data[f]])));
   if(new TextEncoder().encode(JSON.stringify(payload)).length>1900000) throw Error('결과 크기가 업로드 한도를 넘습니다. 더 작은 결과 파일을 선택하세요.');
   return payload;
@@ -17,6 +22,10 @@ export function prepareResult(text) {
 export async function uploadResult(client,session,text) {
   if(!session?.user?.id) throw Error('로그인한 뒤 업로드하세요.');
   const payload=prepareResult(text);
+  for(const report of [payload.readiness_report,payload.financial_data?.readiness_report])if(report!=null){
+    try{await validateReadinessReport(report,payload.company_name,payload.financial_data?.ticker);}
+    catch{throw Error('분석 결과 형식이 올바르지 않아 열 수 없습니다. 원본 결과를 확인해 주세요.');}
+  }
   const bytes=new TextEncoder().encode(session.user.id+JSON.stringify(payload));
   const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));
   digest[6]=(digest[6]&15)|80;digest[8]=(digest[8]&63)|128;

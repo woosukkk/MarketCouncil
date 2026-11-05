@@ -1,5 +1,6 @@
 import {useLanguage} from './Language.jsx';
 import {withLanguage} from './language.js';
+import {validateReadinessReport} from './evidenceReadiness.js';
 import React,{useEffect,useState} from 'react';
 import {supabase} from './account.js';
 import {dateLabel,researchRows,koreaToday,publicOfficialSelections} from './data.js';
@@ -32,8 +33,13 @@ export default function Discussions({session,onOpen,onChange,refreshVersion,pers
  async function chooseOfficial(row){
   if(!window.confirm(t('이 토론을 오늘의 공식 공개 토론으로 지정할까요? 오늘 기존 지정이 있으면 바뀝니다. 이전 토론은 공개 상태로 남으며 별도로 비공개로 바꿀 수 있습니다.')))return;
   setBusy(true);setError('');
-  try{const {error}=await supabase.rpc('select_daily_official',{discussion:row.id,expected_day:koreaToday(),replace_existing:true});if(error)throw error;setRows(prev=>(prev||[]).map(x=>x.id===row.id?{...x,visibility:'public',share_token:null}:x));onChange?.();}
-  catch(error){setError(error?.message?.includes('official_date_changed')?'한국 날짜가 바뀌었습니다. 오늘의 공식 토론 지정을 다시 눌러 주세요.':'공식 토론을 지정하지 못했습니다.');}finally{setBusy(false)}
+  try{
+   const {data:result,error:readError}=await supabase.from('discussions').select('company_name,ticker,payload').eq('id',row.id).single();
+   if(readError)throw readError;
+   try{await validateReadinessReport(result.payload?.readiness_report,result.company_name,result.ticker,{todayOnly:true});}
+   catch{throw Error('공식 게시 전에 오늘의 근거 준비 상태를 다시 확인하세요.');}
+   const {error}=await supabase.rpc('select_daily_official',{discussion:row.id,expected_day:koreaToday(),replace_existing:true});if(error)throw error;setRows(prev=>(prev||[]).map(x=>x.id===row.id?{...x,visibility:'public',share_token:null}:x));onChange?.();}
+  catch(error){setError(error?.message==='공식 게시 전에 오늘의 근거 준비 상태를 다시 확인하세요.'?error.message:error?.message?.includes('official_date_changed')?'한국 날짜가 바뀌었습니다. 오늘의 공식 토론 지정을 다시 눌러 주세요.':'공식 토론을 지정하지 못했습니다.');}finally{setBusy(false)}
  }
  async function open(row){
   setBusy(true);setError('');
