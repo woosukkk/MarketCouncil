@@ -1,3 +1,4 @@
+import {externalEvaluation} from './externalEvaluation.js';
 import {readinessBatchStructure,validateReadinessBatch} from './evidenceReadiness.js';
 
 const numericKeys=['performance_score','fcp_ms','lcp_ms','tbt_ms','cls','speed_index_ms','duration_ms','cpu_ms','recall','precision','mrr','hit','median_ms','p95_ms','mixed_company','unknown_company','future_sources','request_count','error_count'];
@@ -140,6 +141,7 @@ function quality(raw,settings){
  return {metrics,cases};
 }
 export function measurementReport(raw){
+ if(raw?.scope==='external_rag')return externalEvaluation(raw);
  if(raw?.scope==='evidence_readiness'||raw?.companies!==undefined)return readinessBatchStructure(raw);
  if(!object(raw)||raw.schema_version!==1||!['monitoring','rag'].includes(raw.kind)||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(raw.id||'')||!Number.isFinite(Date.parse(raw.recorded_at))||!text(raw.label)||!['success','failed'].includes(raw.status))throw Error('지원하는 성능 기록 JSON을 선택하세요.');
  const metrics={};
@@ -174,7 +176,7 @@ export function measurementReport(raw){
  return clean;
 }
 export const metricText=(n,percent=false)=>typeof n==='number'&&Number.isFinite(n)?percent?(n*100).toFixed(1)+'%':n.toLocaleString('ko-KR',{maximumFractionDigits:1}):'미측정';
-export const reportTab=report=>report.kind==='monitoring'&&report.scope==='evidence_readiness'?'readiness':report.kind==='monitoring'?'monitoring':report.scope==='answer_quality'?'quality':'rag';
+export const reportTab=report=>report.scope==='external_rag'?'standards':report.kind==='monitoring'&&report.scope==='evidence_readiness'?'readiness':report.kind==='monitoring'?'monitoring':report.scope==='answer_quality'?'quality':'rag';
 export async function prepareMeasurementReport(raw){
  return raw?.scope==='evidence_readiness'||raw?.companies!==undefined?measurementReport(await validateReadinessBatch(raw)):measurementReport(raw);
 }

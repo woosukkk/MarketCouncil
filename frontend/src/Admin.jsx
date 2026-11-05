@@ -1,3 +1,4 @@
+import StandardEvaluation from './StandardEvaluation.jsx';
 import {useLanguage} from './Language.jsx';
 import React,{useState,useEffect} from 'react';
 import {supabase} from './account.js';
@@ -157,10 +158,10 @@ export default function Admin({session,allowed,checking}){
  const summary=monitoringSummary(reports),latest=reports[0],analysis=reports.find(report=>report.scope==='analysis'),web=reports.find(report=>report.scope==='web_lighthouse');
  return <section className="account-page admin-page">
   <span className="eyebrow">ADMIN · MEASURED DATA</span><h1>{t("서비스 성능과 근거 품질")}</h1><p>{t("실제 측정 기록을 비교합니다. 과거 실행 시간과 AI 정확도를 추정하지 않습니다.")}</p>
-  <nav className="tabs" aria-label={t("관리자 성능 페이지")}><button aria-pressed={tab==='monitoring'} className={tab==='monitoring'?'active':undefined} onClick={()=>setTab('monitoring')}>{t("운영 모니터링")}</button><button aria-pressed={tab==='rag'} className={tab==='rag'?'active':undefined} onClick={()=>setTab('rag')}>{t("RAG 벤치마크")}</button><button aria-pressed={tab==='quality'} className={tab==='quality'?'active':undefined} onClick={()=>setTab('quality')}>{t("답변 근거 품질")}</button><button aria-pressed={tab==='readiness'} className={tab==='readiness'?'active':undefined} onClick={()=>setTab('readiness')}>{t("기업별 근거")}</button></nav>
+  <nav className="tabs" aria-label={t("관리자 성능 페이지")}><button aria-pressed={tab==='standards'} className={tab==='standards'?'active':undefined} onClick={()=>setTab('standards')}>{t("공통 평가 기준")}</button><button aria-pressed={tab==='monitoring'} className={tab==='monitoring'?'active':undefined} onClick={()=>setTab('monitoring')}>{t("운영 모니터링")}</button><button aria-pressed={tab==='rag'} className={tab==='rag'?'active':undefined} onClick={()=>setTab('rag')}>{t("RAG 벤치마크")}</button><button aria-pressed={tab==='quality'} className={tab==='quality'?'active':undefined} onClick={()=>setTab('quality')}>{t("답변 근거 품질")}</button><button aria-pressed={tab==='readiness'} className={tab==='readiness'?'active':undefined} onClick={()=>setTab('readiness')}>{t("기업별 근거")}</button></nav>
   <label className="result-import">{t("성능·품질·근거 현황 가져오기")}<input type="file" accept=".json,application/json" disabled={busy||!session} onChange={upload}/></label>
   {error&&<p role="alert">{t(error)}</p>}{notice&&<p role="status">{t(notice)}</p>}{loading&&<p role="status">{t("측정 기록을 불러오는 중입니다.")}</p>}
-  {tab==='monitoring'?<>
+  {tab==='standards'?<StandardEvaluation reports={reports}/>:tab==='monitoring'?<>
    <h2>{t("운영 모니터링")}</h2><div className="detail-metrics"><div><span>{t("분석 실행 표본")}</span><strong>{summary.count}</strong></div><div><span>{t("분석 성공률")}</span><strong>{t(metricText(summary.successRate,true))}</strong></div><div><span>{t("평균 분석 시간 · 초")}</span><strong>{t(metricText(summary.averageMs===null?null:summary.averageMs/1000))}</strong></div><div><span>{t("최근 관측 토큰 비용 · USD")}</span><strong>{t(costText(analysis?.llm))}</strong></div></div>
    <p className="muted">{t("PC에서 측정해 업로드한 실행만 집계합니다. 미업로드 실행과 PC가 꺼진 시간은 관측하지 않습니다. 분석 성공률과 API 요청 오류는 별개이며, 서비스 전체 가용성을 뜻하지 않습니다.")}</p>
    <ApiObservations report={analysis}/>
@@ -168,10 +169,10 @@ export default function Admin({session,allowed,checking}){
    <h2>{t("RAG 검색 품질")}</h2><div className="detail-metrics">{[[t('정답 근거 포함률'),'recall'],[t('검색 정밀도'),'precision'],[t('정답의 검색 순위 · MRR'),'mrr'],[t('검색 지연 p95 · ms'),'p95_ms']].map(([label,key])=><div key={key}><span>{label}</span><strong>{t(metricText(latest?.metrics[key],key!=='p95_ms'))}</strong></div>)}</div>
    <p className="muted">{t("최신 검색 평가 기록 기준입니다. 정답 근거가 지정된 고정 질문으로 측정하며 모델 준비 시간은 제외합니다. 데이터셋·문서 저장소·모델·검색 개수가 같은 기록끼리 비교하세요. 답변의 의미 판정은 별도 탭에서 확인합니다.")}</p>
   </>}
-  {!loading&&reports.length===0&&<div className="paper"><h3>{t("아직 측정 기록이 없습니다.")}</h3><p>{tab==='readiness'?t('PC에서 만든 6개 기업의 근거 준비 현황 JSON을 가져오세요. 공시 원문과 개인 경로는 업로드하지 않습니다.'):tab==='quality'?t('로컬 검토 파일에 사람 정답을 작성하고 별도 예측 파일과 비교한 품질 보고서를 가져오세요. 원문이 든 검토 파일은 업로드하지 마세요. 검수 전 보고서는 의미 품질을 미평가로 표시합니다.'):tab==='rag'?t('실제 문서에서 질문과 정답 근거를 지정한 평가 데이터셋을 준비한 뒤, 로컬 평가 결과를 가져오세요. 임의 점수나 예시 결과는 표시하지 않습니다.'):t('Windows 프로그램 또는 소스의 분석에서 생성되는 MarketCouncil/metrics 기록을 가져오세요. 0.6.0 이상은 단계·API 토큰·관측 비용 추정을, 0.5.0은 전체 시간만 수집합니다. 이전 실행에 새 수치를 소급 생성하지 않습니다.')}</p></div>}
+  {tab!=='standards'&&!loading&&reports.length===0&&<div className="paper"><h3>{t("아직 측정 기록이 없습니다.")}</h3><p>{tab==='readiness'?t('PC에서 만든 6개 기업의 근거 준비 현황 JSON을 가져오세요. 공시 원문과 개인 경로는 업로드하지 않습니다.'):tab==='quality'?t('로컬 검토 파일에 사람 정답을 작성하고 별도 예측 파일과 비교한 품질 보고서를 가져오세요. 원문이 든 검토 파일은 업로드하지 마세요. 검수 전 보고서는 의미 품질을 미평가로 표시합니다.'):tab==='rag'?t('실제 문서에서 질문과 정답 근거를 지정한 평가 데이터셋을 준비한 뒤, 로컬 평가 결과를 가져오세요. 임의 점수나 예시 결과는 표시하지 않습니다.'):t('Windows 프로그램 또는 소스의 분석에서 생성되는 MarketCouncil/metrics 기록을 가져오세요. 0.6.0 이상은 단계·API 토큰·관측 비용 추정을, 0.5.0은 전체 시간만 수집합니다. 이전 실행에 새 수치를 소급 생성하지 않습니다.')}</p></div>}
   {tab==='monitoring'&&web&&<>
    <h2>{t("웹 페이지 성능 · Lighthouse")}</h2><div className="detail-metrics">{[[t('성능 점수'),'performance_score'],[t('주요 콘텐츠 표시 · LCP ms'),'lcp_ms'],[t('화면 이동 · CLS'),'cls'],[t('작업 지연 · TBT ms'),'tbt_ms']].map(([label,key])=><div key={key}><span>{label}</span><strong>{t(metricText(web.metrics[key],key==='performance_score'))}</strong></div>)}</div><p className="muted">{new Date(web.recorded_at).toLocaleString(locale==='en'?'en-US':'ko-KR')} · {web.settings.form_factor}{t(" 실험실 측정 1회 · Lighthouse ")}{web.settings.lighthouse_version}{t(". 실제 방문자 평균이나 서비스 가용성 지표가 아닙니다.")}</p>
   </>}
-  {tab==='readiness'?<ReadinessHistory reports={reports}/>:<History reports={reports} tab={tab}/>}
+  {tab==='standards'?null:tab==='readiness'?<ReadinessHistory reports={reports}/>:<History reports={reports} tab={tab}/>}
  </section>;
 }
