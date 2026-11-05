@@ -3,9 +3,9 @@ setlocal EnableExtensions
 chcp 65001 >nul
 set "PYTHONUTF8=1"
 set "PYTHONIOENCODING=utf-8"
-pushd "%~dp0"
+pushd "%~dp0..\"
 
-set "MARKETCOUNCIL_PYTHON=%~dp0venv\Scripts\python.exe"
+set "MARKETCOUNCIL_PYTHON=%~dp0..\venv\Scripts\python.exe"
 if not exist "%MARKETCOUNCIL_PYTHON%" (
     echo [ERROR] Python virtual environment was not found.
     echo Expected: %MARKETCOUNCIL_PYTHON%
