@@ -74,7 +74,7 @@ Expand a citation to see its excerpt, publication date, page and original-source
 
 Select Samsung Electronics, SK hynix, Hyundai Motor, NAVER, Apple or Microsoft in Research by company to browse published results. New analyses run in the PC app. Missing filing or earnings originals block paid analysis. The evidence collected on November 5, 2026 meets the minimum for all six companies. Direct SEC requests remain restricted; official issuer copies provide the Apple and Microsoft filing path. This does not establish completed AI quality validation. Evidence availability is separate from actual debate quality. See the [evidence preparation guide](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/company-evidence-readiness.md).
 
-Open **Company connections** for dated first-party relationships and conditional impact paths. Admin → **Shared evaluation criteria** supports Ragas result imports and external tool references, with a local Streamlit viewer for the same records. See the [evaluation guide](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/standard-evaluation.md). The relationship map is maintained separately from debate generation, and adding evaluation tools does not create completed scores.
+**Company connections** is available in local development while source evidence is reviewed. Admin → **Shared evaluation criteria** supports Ragas result imports and external tool references, with a local Streamlit viewer for the same records. See the [evaluation guide](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/standard-evaluation.md).
 
 ## System architecture
 

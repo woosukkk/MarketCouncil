@@ -72,7 +72,7 @@ MarketCouncil은 금융 데이터·공시·리서치 문서·웹 자료를 공�
 
 기업별 리서치에서 삼성전자·SK하이닉스·현대차·NAVER·Apple·Microsoft를 선택하고 공개된 결과를 확인합니다. 새 분석은 PC 프로그램에서 실행합니다. 공시·실적 발표 원문이 부족하면 유료 분석을 시작하지 않습니다. 2026-11-05 확보한 자료에서 6기업 모두 최소 근거 조건을 충족했습니다. SEC 직접 요청은 접근 제한이 남아 있어 Apple·Microsoft의 공식 IR 원문 사본으로 수집을 이어갑니다. 이는 실제 AI 분석 품질 검증 완료를 뜻하지 않습니다. 자료 확보 상태와 실제 AI 토론 품질은 구분합니다. 자세한 기준은 [기업별 근거 준비 안내](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/company-evidence-readiness.md)에 있습니다.
 
-공식 출처와 조건부 영향 경로는 웹의 **기업 관계**에서 살펴봅니다. 관리자 → **공통 평가 기준**은 Ragas 결과 가져오기와 외부 평가 도구 안내를 제공합니다. 같은 기록을 읽는 로컬 Streamlit도 포함합니다. [평가 방식과 실행 안내](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/standard-evaluation.md). 관계 지도는 토론 생성 경로와 별도로 관리하며, 평가 도구를 연결했다는 이유만으로 평가 완료 점수를 만들지 않습니다.
+**기업 관계** 화면은 자료 근거를 보완하는 동안 로컬 개발 환경에서 검토합니다. 관리자 → **공통 평가 기준**은 Ragas 결과 가져오기와 외부 평가 도구 안내를 제공합니다. 같은 기록을 읽는 로컬 Streamlit도 포함합니다. [평가 방식과 실행 안내](https://github.com/woosukkk/MarketCouncil/blob/debate_focus/docs/standard-evaluation.md).
 
 ## 시스템 구조
 

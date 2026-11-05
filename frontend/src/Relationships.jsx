@@ -1,5 +1,6 @@
 import React,{useState} from 'react';
 import {useLanguage} from './Language.jsx';
+import './relations.css';
 import {companyRelations,relationNodes,relationsAsOf,relationsFor} from './companyRelations.js';
 
 export default function Relationships({onResearch}){

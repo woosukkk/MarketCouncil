@@ -2,6 +2,7 @@ import React from 'react';
 import {useLanguage} from './Language.jsx';
 import {metricText} from './adminData.js';
 import {externalMetrics} from './externalEvaluation.js';
+import './standardEvaluation.css';
 const docs='https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/';
 const definitions={
  faithfulness:['근거 충실도','생성 답변의 주장이 검색 문맥으로 뒷받침되는지 평가합니다. 원문 자체의 진실성을 보증하지는 않습니다.'],
