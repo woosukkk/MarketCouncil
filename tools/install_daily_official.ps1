@@ -5,7 +5,7 @@ $taskUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 if ($ExecutablePath) {
     $runner = [System.IO.Path]::GetFullPath($ExecutablePath)
     if (!(Test-Path -LiteralPath $runner -PathType Leaf) -or [System.IO.Path]::GetExtension($runner) -ne '.exe') { throw 'Desktop executable is missing' }
-    $action = New-ScheduledTaskAction -Execute $runner -Argument '--daily-official' -WorkingDirectory (Split-Path -Parent $runner)
+    $action = New-ScheduledTaskAction -Execute $runner -Argument '--daily-prompt' -WorkingDirectory (Split-Path -Parent $runner)
 } else {
     $runner = Join-Path $repoRoot 'venv\Scripts\pythonw.exe'
     if (!(Test-Path -LiteralPath $runner)) { throw 'Project Python runtime is missing' }
@@ -13,8 +13,7 @@ if ($ExecutablePath) {
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -WindowStyle Hidden -File "' + $launcher + '"') -WorkingDirectory $repoRoot
 }
 $login = New-ScheduledTaskTrigger -AtLogOn -User $taskUser
-$login.Delay = 'PT2M'
-$daily = New-ScheduledTaskTrigger -Daily -At '09:00'
+$login.Delay = 'PT30S'
 $principal = New-ScheduledTaskPrincipal -UserId $taskUser -LogonType Interactive -RunLevel Limited
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 4) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-Register-ScheduledTask -TaskName 'MarketCouncil Daily Samsung Official' -Action $action -Trigger @($login,$daily) -Principal $principal -Settings $settings -Description 'Samsung analysis and official publication once per KST date; encrypted user credentials.' -Force | Out-Null
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName 'MarketCouncil Daily Samsung Official' -Action $action -Trigger @($login) -Principal $principal -Settings $settings -Description 'Show daily history at user logon; analyze and publish only after an explicit user choice.' -Force | Out-Null

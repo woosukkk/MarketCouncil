@@ -21,11 +21,11 @@ def runtime_root() -> Path:
     return DATA.parent if getattr(sys, "frozen", False) else ROOT
 
 
-def launch_command(*, setup: bool = False) -> list[str]:
+def launch_command(*, setup: bool = False, prompt: bool = False) -> list[str]:
     if getattr(sys, "frozen", False):
-        return [sys.executable, "--daily-setup" if setup else "--daily-official"]
+        return [sys.executable, "--daily-setup" if setup else "--daily-prompt" if prompt else "--daily-official"]
     command = [str(ROOT / "venv" / "Scripts" / "pythonw.exe"), "-m", "desktop.daily_official"]
-    return [*command, "--setup"] if setup else command
+    return [*command, "--setup"] if setup else [*command, "--prompt"] if prompt else command
 
 
 def install_command() -> list[str]:
@@ -98,9 +98,14 @@ def today() -> str:
     return datetime.now(timezone(timedelta(hours=9))).date().isoformat()
 
 def save_state(state: dict) -> None:
+    from desktop.daily_history import read_record, record_run
+    previous = read_record(DATA / "state.json", [])
+    if previous.get("day") != state.get("day"):
+        record_run(DATA, previous)
     temporary = DATA / "state.tmp"
     temporary.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
     temporary.replace(DATA / "state.json")
+    record_run(DATA, state)
 
 def run_once(state: dict, day: str, prepare, analyze, publish, persist, resume: bool = False, *, target: dict | None = None) -> str:
     if state.get("day") == day and state.get("status") == "completed":
@@ -256,6 +261,9 @@ def run() -> int:
         os.environ["RESULTS_RUN_ID"]=run_id
         os.environ["RESULTS_SOURCE_VERSION"]=source_version()
         stage = "credentials"
+        day = today()
+        state = {}
+        from desktop.daily_history import record_run
         services = ExitStack()
         def record_cleanup_error(service: str) -> None:
             stage = {"SearXNG": "cleanup_search", "Docker Desktop": "cleanup_docker"}[service]
@@ -266,6 +274,7 @@ def run() -> int:
                 try: save_failure("cleanup", error, run_id)
                 except Exception: pass
         try:
+            record_run(DATA, {"day": day, "status": "checking"}, stage)
             config = credentials()
             state_path = DATA / "state.json"
             state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {}
@@ -334,15 +343,19 @@ def run() -> int:
                 select_official(session, identifier, state["day"])
             outcome = run_once(state, day, prepare, analyze, publish, save_state, resume=True,target=target)
             close_services()
+            record_run(DATA, {**state, "day": day, "status": "completed"} if outcome == "completed" else state)
             if outcome == "completed": notify("오늘 "+target.get("company_name","선택 기업")+" 공식 토론 게시가 완료됐습니다. 웹 커뮤니티에서 확인하세요.")
             elif state.get("status") in ("attempting", "analysis_failed"):
                 notify("오늘 분석이 중단되거나 실패했습니다. 오늘 복구 시도 한도에 도달해 더 실행하지 않습니다. 로컬 결과와 실행 환경을 확인하세요.")
             return 0
-        except AlreadyPublished: return 0
+        except AlreadyPublished:
+            record_run(DATA, {**(state if state.get("day") == day else {}), "day": day, "status": "completed"})
+            return 0
         except Exception as error:
             close_services()
             try:
                 save_failure(stage,error,run_id)
+                record_run(DATA, {**(state if state.get("day") == day else {}), "day": day, "status": "failed"}, stage)
                 note="상세 원인은 운영자용 로컬 기록에 저장했습니다."
             except OSError:note="로컬 진단 기록 저장도 실패했습니다. 저장 공간과 권한을 확인하세요."
             if isinstance(error, OfficialSchemaRequired):
@@ -366,7 +379,7 @@ def setup() -> None:
     try: previous=credentials()
     except (OSError,ValueError):previous={}
     window = tk.Tk(); window.title("MarketCouncil 매일 공식 게시 설정"); window.geometry("640x720")
-    ttk.Label(window, text="로그인 시 및 매일 오전 9시 확인 · 하루 1회 분석 후 공식 공개", wraplength=600).pack(pady=12)
+    ttk.Label(window, text="로그인 시 실행 이력 창 표시 · 실행을 선택한 날만 분석 후 공식 공개", wraplength=600).pack(pady=12)
     ttk.Label(window,text="분석 대상 · 기존 저장 설정은 삼성전자 고정을 유지합니다.").pack(anchor="w",padx=20)
     mode=ttk.Combobox(window,state="readonly",values=("삼성전자 고정 · 근거 충족 시만 실행","준비된 6개 기업 · 새 공시 우선, 오래 미게시한 기업 순"))
     mode.pack(fill="x",padx=20,pady=4);mode.current(1)
@@ -391,15 +404,22 @@ def setup() -> None:
             completed = subprocess.run(install_command(), capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
             if completed.returncode: raise RuntimeError("scheduler")
             (DATA / "setup-complete").write_text("configured", encoding="utf-8")
-            messagebox.showinfo("설정 완료", "Windows 로그인과 매일 오전 9시에 자동 확인합니다. 선택한 모드에서 근거가 충분한 기업만 분석합니다. 오늘 실행을 시작하며 분석 결과와 근거는 공식 공개됩니다.")
-            subprocess.Popen(launch_command(), cwd=runtime_root(), creationflags=subprocess.CREATE_NO_WINDOW)
+            messagebox.showinfo("설정 완료", "Windows 로그인 30초 후 실행 이력 창을 엽니다. 실행 버튼을 누를 때만 분석을 시작합니다. 분석 결과와 근거는 공식 공개됩니다. 지금 실행 이력 창을 엽니다.")
+            subprocess.Popen(launch_command(prompt=True), cwd=runtime_root(), creationflags=subprocess.CREATE_NO_WINDOW)
             window.destroy()
         except Exception: messagebox.showerror("설정 실패", "키·검색 주소와 새 로그인 링크, 공식 운영자 권한을 확인하세요. 일정 등록에 실패한 경우 설정을 다시 저장하세요.")
     ttk.Button(window, text="로그인 메일 보내기", command=mail).pack(pady=5)
-    ttk.Button(window, text="암호화 저장 후 자동 게시 켜기", command=save).pack(pady=10)
+    ttk.Button(window, text="암호화 저장 후 로그인 알림 켜기", command=save).pack(pady=10)
     window.mainloop()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(); parser.add_argument("--setup", action="store_true"); args = parser.parse_args()
+    parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--setup", action="store_true")
+    group.add_argument("--prompt", action="store_true")
+    args = parser.parse_args()
     if args.setup: setup()
+    elif args.prompt:
+        from desktop.daily_prompt import prompt
+        prompt()
     else: raise SystemExit(run())

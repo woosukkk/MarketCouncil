@@ -22,6 +22,7 @@ class PackagedDailyTests(unittest.TestCase):
         with patch.object(sys, "frozen", True, create=True), patch.object(sys, "executable", r"C:\Apps\MarketCouncil\MarketCouncil.exe"):
             self.assertEqual(daily.launch_command(), [sys.executable, "--daily-official"])
             self.assertEqual(daily.launch_command(setup=True), [sys.executable, "--daily-setup"])
+            self.assertEqual(daily.launch_command(prompt=True), [sys.executable, "--daily-prompt"])
             command = daily.install_command()
             self.assertEqual(command[-2:], ["-ExecutablePath", str(Path(sys.executable).resolve())])
             self.assertEqual(Path(command[5]), daily.BUNDLE / "tools" / "install_daily_official.ps1")
@@ -31,6 +32,7 @@ class PackagedDailyTests(unittest.TestCase):
             expected = [str(daily.ROOT / "venv" / "Scripts" / "pythonw.exe"), "-m", "desktop.daily_official"]
             self.assertEqual(daily.launch_command(), expected)
             self.assertEqual(daily.launch_command(setup=True), [*expected, "--setup"])
+            self.assertEqual(daily.launch_command(prompt=True), [*expected, "--prompt"])
             self.assertNotIn("-ExecutablePath", daily.install_command())
 
     def test_frozen_runtime_copies_only_service_resources_into_writable_data(self) -> None:
@@ -182,10 +184,10 @@ class InstallerCommandTests(unittest.TestCase):
         mocks = r'''
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 function New-ScheduledTaskAction { param($Execute,$Argument,$WorkingDirectory) [pscustomobject]@{Execute=$Execute;Argument=$Argument;WorkingDirectory=$WorkingDirectory} }
-function New-ScheduledTaskTrigger { param([switch]$AtLogOn,[switch]$Daily,$User,$At) [pscustomobject]@{Delay=""} }
+function New-ScheduledTaskTrigger { param([switch]$AtLogOn,[switch]$Daily,$User,$At) [pscustomobject]@{Delay="";Kind=$(if ($AtLogOn) {"Logon"} else {"Daily"})} }
 function New-ScheduledTaskPrincipal { param($UserId,$LogonType,$RunLevel) @{} }
-function New-ScheduledTaskSettingsSet { param([switch]$StartWhenAvailable,$MultipleInstances,$ExecutionTimeLimit,[switch]$AllowStartIfOnBatteries,[switch]$DontStopIfGoingOnBatteries) @{} }
-function Register-ScheduledTask { param($TaskName,$Action,$Trigger,$Principal,$Settings,$Description,[switch]$Force) $script:CapturedAction=$Action }
+function New-ScheduledTaskSettingsSet { param([switch]$StartWhenAvailable,$MultipleInstances,$ExecutionTimeLimit,[switch]$AllowStartIfOnBatteries,[switch]$DontStopIfGoingOnBatteries) $script:LimitSeconds=$ExecutionTimeLimit.TotalSeconds; $script:Instances=$MultipleInstances; @{} }
+function Register-ScheduledTask { param($TaskName,$Action,$Trigger,$Principal,$Settings,$Description,[switch]$Force) $script:CapturedAction=@{Action=$Action;Triggers=@($Trigger);LimitSeconds=$script:LimitSeconds;Instances=$script:Instances} }
 '''
         with tempfile.TemporaryDirectory(prefix="marketcouncil-한글-") as folder:
             executable = Path(folder) / "Market Council.exe"
@@ -196,10 +198,16 @@ function Register-ScheduledTask { param($TaskName,$Action,$Trigger,$Principal,$S
                     if frozen:
                         invocation += " -ExecutablePath '" + str(executable).replace("'", "''") + "'"
                     result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", mocks + "\n" + invocation + "\n$script:CapturedAction | ConvertTo-Json -Compress"], capture_output=True, text=True, encoding="utf-8", timeout=30, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                    action = json.loads(result.stdout)
+                    captured = json.loads(result.stdout)
+                    action = captured["Action"]
+                    self.assertEqual(len(captured["Triggers"]), 1)
+                    self.assertEqual(captured["Triggers"][0]["Kind"], "Logon")
+                    self.assertEqual(captured["Triggers"][0]["Delay"], "PT30S")
+                    self.assertEqual(captured["LimitSeconds"], 0)
+                    self.assertEqual(captured["Instances"], "IgnoreNew")
                     if frozen:
                         self.assertEqual(Path(action["Execute"]).resolve(), executable.resolve())
-                        self.assertEqual(action["Argument"], "--daily-official")
+                        self.assertEqual(action["Argument"], "--daily-prompt")
                         self.assertEqual(Path(action["WorkingDirectory"]).resolve(), Path(folder).resolve())
                     else:
                         self.assertEqual(action["Execute"], "powershell.exe")

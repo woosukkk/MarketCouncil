@@ -70,6 +70,7 @@ class Desktop:
             if value:entry.delete(0,"end");entry.insert(0,value)
         ttk.Button(analysis_panel,text="기업명·검색 주소 기억하기",command=self.remember).pack(anchor="w")
         ttk.Button(setup_panel,text="운영자 · 매일 공식 게시 설정",command=self.setup_daily).pack(anchor="w",pady=8)
+        ttk.Button(setup_panel,text="운영자 · 실행 이력 / 오늘 실행",command=self.daily_history).pack(anchor="w",pady=4)
         ttk.Button(setup_panel,text="새 버전 확인",command=self.check_version).pack(anchor="w",pady=8)
         from desktop.preferences import VERSION
         self.version_status=ttk.Label(setup_panel,text=f"버전 {VERSION} · 일반 분석 키는 저장하지 않습니다. 자동 게시 설정은 Windows 계정에 암호화 저장합니다.",wraplength=780)
@@ -101,6 +102,14 @@ class Desktop:
             save_preferences(DATA/"preferences.json",self.company.get().strip(),self.search.get().strip())
             messagebox.showinfo("입력 설정 저장","기업명과 검색 주소를 기억합니다. API 키와 로그인 정보는 저장하지 않습니다.")
         except OSError:messagebox.showerror("저장 실패","입력 설정을 저장하지 못했습니다.")
+
+    def daily_history(self) -> None:
+        if self.busy: return
+        from desktop.daily_official import launch_command
+        try:
+            subprocess.Popen(launch_command(prompt=True), cwd=Path(sys.executable).parent if getattr(sys,"frozen",False) else Path(__file__).resolve().parent.parent, creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
+        except OSError:
+            messagebox.showerror("실행 이력", "실행 이력 창을 열 수 없습니다. 프로그램 경로를 확인하세요.")
 
     def setup_daily(self) -> None:
         if self.busy:return
@@ -332,6 +341,9 @@ def main() -> None:
         from playwright.__main__ import main
         sys.argv=["playwright","install","chromium"]
         main()
+    elif "--daily-prompt" in sys.argv:
+        from desktop.daily_prompt import prompt
+        prompt()
     elif "--daily-official" in sys.argv:
         from desktop.daily_official import run
         raise SystemExit(run())
