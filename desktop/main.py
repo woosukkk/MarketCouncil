@@ -359,6 +359,7 @@ def main() -> None:
                 assert Path(install_command()[5]).is_file()
                 assert launch_command() == [sys.executable,"--daily-official"]
                 assert launch_command(setup=True) == [sys.executable,"--daily-setup"]
+                assert launch_command(prompt=True) == [sys.executable,"--daily-prompt"]
                 assert install_command()[-2:] == ["-ExecutablePath",str(Path(sys.executable).resolve())]
             os.environ["OPENAI_API_KEY"]="self-check-not-a-real-key"
             os.environ["CHROMA_MODE"]="local"
@@ -406,8 +407,24 @@ def main() -> None:
             root=tk.Tk();root.withdraw();ui=Desktop(root)
             assert ui.run_button.winfo_exists()
             root.destroy()
+            from desktop import daily_official as daily
+            from desktop.daily_prompt import DailyPrompt
+            original_daily_data = daily.DATA
+            try:
+                with tempfile.TemporaryDirectory(prefix="marketcouncil-prompt-check-") as temporary:
+                    daily.DATA = Path(temporary)
+                    root = tk.Tk(); root.withdraw()
+                    try:
+                        prompt = DailyPrompt(root)
+                        assert prompt.child is None
+                        assert str(prompt.run_button["state"]) == "disabled"
+                        assert prompt.rows[daily.today()]["status"] == "not_run"
+                    finally:
+                        root.destroy()
+            finally:
+                daily.DATA = original_daily_data
             assert PUBLIC_KEY.startswith("sb_publishable_")
-            output_path.write_text("desktop imports OK; multi-company preset checks OK; synthetic stage/token/pricing checks OK",encoding="utf-8")
+            output_path.write_text("desktop imports OK; multi-company preset checks OK; synthetic stage/token/pricing checks OK; daily prompt without paid execution OK",encoding="utf-8")
         except Exception:
             import traceback
             output_path.write_text(traceback.format_exc(),encoding="utf-8")
