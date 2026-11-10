@@ -1,3 +1,4 @@
+import gc
 import json
 import os
 import tempfile
@@ -140,6 +141,8 @@ class PromptTests(unittest.TestCase):
         import tkinter as tk
         from desktop import daily_prompt
         self.module = daily_prompt
+        # Runs last: free Tk objects here so the GC never deletes them on another thread.
+        self.addCleanup(self._release_tk)
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         self.data = Path(self.folder.name)
@@ -154,6 +157,11 @@ class PromptTests(unittest.TestCase):
         self.launch = mocks[-1]
         self.launch.return_value.poll.return_value = None
         self.window = daily_prompt.DailyPrompt(self.root)
+
+    def _release_tk(self) -> None:
+        self.__dict__.pop("window", None)
+        self.__dict__.pop("root", None)
+        gc.collect()
 
     def test_open_refresh_and_close_do_not_start_any_paid_work(self) -> None:
         self.window.refresh()
