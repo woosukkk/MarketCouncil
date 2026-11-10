@@ -39,6 +39,7 @@ class PublicationSQLTests(unittest.TestCase):
                 create role anon nologin;
                 create role authenticated nologin;
                 alter default privileges in schema public grant execute on functions to anon,authenticated;
+                alter default privileges in schema public grant all on tables to anon,authenticated;
                 create schema auth;
                 create table auth.users(id uuid primary key);
                 create function auth.uid() returns uuid language sql stable as $$
@@ -47,6 +48,7 @@ class PublicationSQLTests(unittest.TestCase):
                 grant usage on schema auth to anon,authenticated;
             """)
             cls.sql((ROOT / "supabase/discussions.sql").read_text(encoding="utf-8"))
+            cls.sql((ROOT / "supabase/user-lists.sql").read_text(encoding="utf-8"))
             cls.sql(f"insert into auth.users values ('{OWNER}'),('{OTHER}');")
         except BaseException:
             subprocess.run(["docker", "rm", "-f", cls.container], capture_output=True)
@@ -101,6 +103,33 @@ class PublicationSQLTests(unittest.TestCase):
         for _ in range(2):
             for filename in ("discussion-result-validation.sql", "discussion-publication-state.sql"):
                 self.sql((ROOT / "supabase" / filename).read_text(encoding="utf-8"))
+            check_acl()
+
+    def test_table_acl_restricts_supabase_default_table_privileges(self) -> None:
+        tables = ("discussions", "daily_official_discussions", "watchlist", "saved_analyses")
+        expected = {
+            ("anon", "discussions"): "SELECT",
+            ("anon", "daily_official_discussions"): "SELECT",
+            ("authenticated", "discussions"): "DELETE,INSERT,SELECT,UPDATE",
+            ("authenticated", "daily_official_discussions"): "SELECT",
+            ("authenticated", "watchlist"): "DELETE,INSERT,SELECT,UPDATE",
+            ("authenticated", "saved_analyses"): "DELETE,INSERT,SELECT,UPDATE",
+        }
+
+        def check_acl() -> None:
+            for role in ("anon", "authenticated"):
+                for table in tables:
+                    with self.subTest(role=role, table=table):
+                        self.assertEqual(self.sql(
+                            "select coalesce(string_agg(privilege_type,',' order by privilege_type),'') "
+                            "from information_schema.role_table_grants "
+                            f"where table_schema='public' and table_name='{table}' and grantee='{role}';"
+                        ), expected.get((role, table), ""))
+
+        check_acl()
+        self.sql("grant all on " + ",".join(f"public.{t}" for t in tables) + " to anon,authenticated;")
+        for _ in range(2):
+            self.sql((ROOT / "supabase/table-privileges.sql").read_text(encoding="utf-8"))
             check_acl()
 
     def test_sql_validator_matches_shared_web_and_desktop_contract(self) -> None:

@@ -17,7 +17,8 @@ create table if not exists public.saved_analyses (
 );
 alter table public.watchlist enable row level security;
 alter table public.saved_analyses enable row level security;
-revoke all on public.watchlist, public.saved_analyses from anon;
+-- Supabase grants every table privilege to anon and authenticated by default; TRUNCATE bypasses RLS.
+revoke all on public.watchlist, public.saved_analyses from anon, authenticated;
 grant select, insert, update, delete on public.watchlist, public.saved_analyses to authenticated;
 create policy "Own watchlist only" on public.watchlist for all to authenticated
   using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);

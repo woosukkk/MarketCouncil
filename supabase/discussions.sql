@@ -108,6 +108,8 @@ drop trigger if exists enforce_discussion_result on public.discussions;
 create trigger enforce_discussion_result before insert or update of payload,visibility,share_token on public.discussions
  for each row execute function public.enforce_discussion_result();
 alter table public.discussions enable row level security;
+-- Supabase grants every table privilege to anon and authenticated by default; TRUNCATE bypasses RLS.
+revoke all on public.discussions from anon,authenticated;
 grant select on public.discussions to anon;
 grant select,insert,update,delete on public.discussions to authenticated;
 create policy "Read public or own discussion" on public.discussions for select to anon, authenticated
@@ -132,8 +134,8 @@ create table public.daily_official_discussions (
  discussion_id uuid not null references public.discussions(id) on delete cascade
 );
 alter table public.daily_official_discussions enable row level security;
+revoke all on public.daily_official_discussions from anon,authenticated;
 grant select on public.daily_official_discussions to anon,authenticated;
-revoke insert,update,delete on public.daily_official_discussions from anon,authenticated;
 create function public.is_official_editor() returns boolean
  language sql stable security definer set search_path='' as $$
  select exists(select 1 from public.official_editors where user_id=(select auth.uid()));
