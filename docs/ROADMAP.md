@@ -19,7 +19,7 @@
 | 항목 | 관련 코드 | 상태 |
 | --- | --- | --- |
 | 중첩 결과 형식 서버/입력/읽기 검증과 상세 화면 오류 격리 | `frontend/src/resultUpload.js`, `supabase/discussions.sql`, `frontend/src/main.jsx` | 대기 (일부 커밋됨, 잔여 확인 필요) |
-| 검색 의도(`search_focus`)와 검증된 출처 유형(`source_type`) 분리 — 언론 기사가 공식 자료로 표시되는 문제 | `tools/source_collector.py`, `app/debate_workflow.py`, `tools/evidence_catalog.py` | 완료 (2026-11-10, 미분류는 `unknown`, 집계 사이트 `official`→`news`) |
+| 검색 의도(`search_focus`)와 검증된 출처 유형(`source_type`) 분리 — 언론 기사가 공식 자료로 표시되는 문제 | `tools/source_collector.py`, `app/debate_workflow.py`, `tools/evidence_catalog.py` | 완료 (2026-11-10, 미분류는 `unknown`, 집계 사이트 `official`→`news`, #21 기록. 실제 분석 결과·기존 저장 결과는 미검증) |
 | 공식·커뮤니티 결과 저장 버튼 숨김과 UUID/북마크 키 제약 불일치 | `frontend/src/data.js`, `Discussions.jsx`, `supabase/user-lists.sql` | 대기 |
 | 공식 결과 비공개 전환 시 날짜 선택 행이 남는 문제 | `Discussions.jsx`, `desktop/daily_official.py`, `desktop/cloud.py` | 대기 |
 | 공식 지정·업로드·공개 범위 변경 후 목록 미갱신 | `frontend/src/main.jsx` | 일부 수정됨 (재확인 필요) |
@@ -66,7 +66,9 @@
 
 - `master`가 `debate_focus`보다 약 149커밋 뒤처짐 → 기본 브랜치 전략 결정 후 AGENTS.md 브랜치 규칙 갱신.
 - AGENTS.md의 단계별 구축 순서(이미 완료)를 현재 단계(평가·품질·운영)로 갱신.
-- ~~테스트 실행 통일과 CI~~ 완료(2026-11-10): `python -m tests`(413개 수집), `.github/workflows/ci.yml`. 첫 CI 실행은 푸시 후 확인 필요.
+- ~~테스트 실행 통일과 CI~~ 완료(2026-11-10): `python -m tests`(456개 수집), `.github/workflows/ci.yml`. 첫 CI에서 Tk 정리 충돌·#29 이후 미갱신 테스트 11건·CI venv 부재 테스트 1건을 발견해 테스트만 수정, CI 통과(#36, 웹·Python 모두 성공, Python skipped=12). CI는 설치 스크립트의 소스 실행 경로를 검사하지 않음(로컬 venv에서만).
+- 건너뛰는 테스트 11개(로컬)의 사유 검토 — 대기.
+- 운영 Supabase 테이블·RLS·RPC와 `supabase/*.sql` 일치 비교(읽기 전용), Vercel 프로덕션 배포 커밋 확인 — 외부 설정 필요(Supabase·Vercel MCP 로그인).
 - ~~의존성 버전 고정~~ 완료: `requirements/lock-windows.txt`(검증된 venv 스냅샷), `requirements/test.txt`.
 - Linux 공개 서버 배포(`docs/deployment.md`)는 구성만 준비됨 — 진행 여부 결정.
 
