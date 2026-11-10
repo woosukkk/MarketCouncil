@@ -195,6 +195,8 @@ function Register-ScheduledTask { param($TaskName,$Action,$Trigger,$Principal,$S
             executable.touch()
             for frozen in (False, True):
                 with self.subTest(frozen=frozen):
+                    if not frozen and not (daily.ROOT / "venv" / "Scripts" / "pythonw.exe").exists():
+                        self.skipTest("source action needs the project venv (absent on CI)")
                     invocation = ". '" + str(installer).replace("'", "''") + "'"
                     if frozen:
                         invocation += " -ExecutablePath '" + str(executable).replace("'", "''") + "'"
