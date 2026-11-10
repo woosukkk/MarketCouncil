@@ -56,7 +56,7 @@ function Debate({data}) {
 function Sources({data}) {
   const {t,locale}=useLanguage();
   const sources=usedSources(data);
-  const types={broker_report:t('증권사 리포트'),financial_data:t('재무 데이터'),news:t('뉴스'),official:t('공식 자료'),dart:t('공시'),report:t('보고서'),blog:t('블로그'),youtube:t('영상'),rag:t('문서 검색')};
+  const types={broker_report:t('증권사 리포트'),financial_data:t('재무 데이터'),news:t('뉴스'),official:t('공식 자료'),dart:t('공시'),report:t('보고서'),blog:t('블로그'),youtube:t('영상'),rag:t('문서 검색'),unknown:t('유형 미상')};
   return <section className="sources"><span className="eyebrow">SOURCES & EVIDENCE</span><h2>{t("토론에 사용한 근거 ")}<small>{sources.length}{t("개 자료")}</small></h2><p className="muted">{t("저장된 토론의 인용 기록을 기준으로 모았습니다. 인용 대조는 주장 자체의 사실 검증을 뜻하지 않습니다.")}</p>{sources.length===0?<p className="paper">{t("이 분석에는 구조화된 출처 기록이 없습니다. 분석·반론 원문에서 근거를 확인해 주세요.")}</p>:sources.map((source,index)=>{const href=safeUrl(source.source_url || source.source_page_url);return <article className="source-item" key={index}><div className="source-heading"><span className="source-type">{types[source.source_type] || source.source_type || t('유형 미상')}</span><span className="metadata">{source.published_at || t('발행일 미상')}</span></div><h3>{source.title || source.source_id || t('제목 없는 자료')}</h3><div className="source-uses">{source.uses.map(use=><span key={use}>{locale==='en'?use.replace('의제 미상','Issue not recorded'):use}</span>)}</div>{href && <a href={href} target="_blank" rel="noreferrer">{t("출처 원문 열기 ↗")}</a>}<details className="source-quotes"><summary>{t("사용한 인용 ")}{source.quotes.length}{t("개 보기")}</summary>{source.quotes.map((quote,i)=><blockquote key={i}>{quote}</blockquote>)}</details></article>})}</section>;
 }
 

@@ -38,6 +38,19 @@ class DebateWorkflow:
         print("[공통 근거 수집 완료]")
 
         financial_data = context["financial_data"]
+        source_data = context.get("source_data", {})
+        article_types = {
+            str(article.get("url", "")): str(article.get("source_type", ""))
+            for article in source_data.get("articles", [])
+            if article.get("url")
+        }
+        web_documents = [
+            {
+                **document,
+                "source_type": article_types.get(str(document.get("url", "")), ""),
+            }
+            for document in source_data.get("source_documents", [])
+        ]
         retrieved_chunks = (
             context.get("bull_chunks", [])
             + context.get("bear_chunks", [])
@@ -46,10 +59,7 @@ class DebateWorkflow:
         evidence_catalog = EvidenceCatalog.build(
             financial_data=financial_data,
             retrieved_chunks=retrieved_chunks,
-            web_documents=context.get("source_data", {}).get(
-                "source_documents",
-                [],
-            ),
+            web_documents=web_documents,
         )
         try:
             historical_documents = self.historical_collector.collect(

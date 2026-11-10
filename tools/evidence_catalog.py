@@ -6,12 +6,13 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 from tools.evidence_dates import parse_evidence_date
 from tools.evidence_text import is_navigation_text
-from urllib.parse import urlsplit
+from urllib.parse import quote, urldefrag, urlsplit
 
 
 class EvidenceCatalog:
     MAX_WEB_DOCUMENTS = 16
     MAX_QUOTES_PER_SOURCE = 16
+    AGGREGATOR_DOMAINS = {"biggo.com", "finance.biggo.com"}
 
     @classmethod
     def build(
@@ -57,7 +58,7 @@ class EvidenceCatalog:
         ):
             entry = {
                 "source_id": f"WEB-{index:03d}",
-                "source_type": str(document.get("search_focus", "web")),
+                "source_type": cls._web_source_type(document),
                 "title": str(document.get("title", "웹 자료")),
                 "source_url": cls._public_url(document.get("url", "")),
                 "published_at": str(document.get("published_date", "")),
@@ -80,7 +81,7 @@ class EvidenceCatalog:
         return [
             cls._with_quotes({
                 "source_id": f"{prefix}-{index:03d}",
-                "source_type": str(document.get("search_focus", "web")),
+                "source_type": cls._web_source_type(document),
                 "title": str(document.get("title", "역사 자료")),
                 "source_url": cls._public_url(document.get("url", "")),
                 "published_at": str(document.get("published_date", "")),
@@ -116,6 +117,7 @@ class EvidenceCatalog:
         resolved = deepcopy(debate)
         by_id = {str(entry.get("source_id", "")): entry for entry in catalog}
         evidence_number = 0
+        evidence_ids: dict[tuple[str, str], str] = {}
 
         for round_data in resolved.get("rounds", []):
             for side in ("bull_response", "bear_response"):
@@ -129,12 +131,20 @@ class EvidenceCatalog:
                         if not isinstance(item, dict):
                             enriched.append(item)
                             continue
-                        evidence_number += 1
+                        key = (
+                            str(item.get("source_id", "")).strip(),
+                            str(item.get("quote_id", "")).strip(),
+                        )
+                        evidence_id = evidence_ids.get(key)
+                        if not evidence_id:
+                            evidence_number += 1
+                            evidence_id = f"E-{evidence_number:03d}"
+                            evidence_ids[key] = evidence_id
                         enriched.append(
                             cls._resolve_item(
                                 item,
                                 by_id,
-                                f"E-{evidence_number:03d}",
+                                evidence_id,
                             )
                         )
                     issue["evidence"] = enriched
@@ -184,6 +194,7 @@ class EvidenceCatalog:
             "source_page_url": cls._page_url(
                 str(source.get("source_url", "")) if source else "",
                 source.get("page_number") if source else None,
+                quote,
             ),
         }
 
@@ -317,11 +328,30 @@ class EvidenceCatalog:
         return entry
 
     @staticmethod
-    def _page_url(url: str, page_number: Any) -> str:
-        if not url or not page_number:
+    def _page_url(url: str, page_number: Any, quote_text: str = "") -> str:
+        if not url:
             return url
-        separator = "&" if "#" in url else "#"
-        return f"{url}{separator}page={page_number}"
+        base_url, _ = urldefrag(url)
+        path = urlsplit(base_url).path.lower()
+        is_pdf = path.endswith(".pdf") or "contenttype=application%2fpdf" in base_url.lower()
+        if page_number:
+            return f"{base_url}#page={page_number}"
+        if quote_text and not is_pdf:
+            fragment = quote(quote_text[:180], safe="")
+            return f"{base_url}#:~:text={fragment}"
+        return base_url
+
+    @classmethod
+    def _web_source_type(cls, document: dict[str, Any]) -> str:
+        # search_focus is the search intent, not a verified classification.
+        source_type = str(document.get("source_type") or "unknown").strip().lower()
+        domain = (urlsplit(str(document.get("url", ""))).hostname or "").lower()
+        if source_type == "official" and any(
+            domain == item or domain.endswith(f".{item}")
+            for item in cls.AGGREGATOR_DOMAINS
+        ):
+            return "news"
+        return source_type
 
     @staticmethod
     def _public_url(value: Any) -> str:

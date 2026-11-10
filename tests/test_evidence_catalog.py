@@ -142,3 +142,67 @@ def test_unknown_quote_id_is_not_verified() -> None:
     assert evidence["exact_quote"] == ""
     assert "quote_id" in item_schema["required"]
     assert "exact_quote" not in item_schema["properties"]
+
+
+def test_reuses_evidence_id_and_builds_text_fragment_url() -> None:
+    catalog = [{
+        "source_id": "WEB-001",
+        "source_type": "news",
+        "source_url": "https://example.com/article",
+        "content": "검증할 수 있는 충분히 긴 원문 문장입니다.",
+        "quotes": [{
+            "quote_id": "WEB-001-Q01",
+            "text": "검증할 수 있는 충분히 긴 원문 문장입니다.",
+        }],
+    }]
+    item = {
+        "source_id": "WEB-001",
+        "quote_id": "WEB-001-Q01",
+        "reason": "같은 근거",
+    }
+    debate = {
+        "rounds": [
+            {
+                "bull_response": {"issues": [{"evidence": [item]}]},
+                "bear_response": {"issues": [{"evidence": [item]}]},
+            }
+        ]
+    }
+
+    resolved = EvidenceCatalog.resolve(debate, catalog)
+    bull = resolved["rounds"][0]["bull_response"]["issues"][0]["evidence"][0]
+    bear = resolved["rounds"][0]["bear_response"]["issues"][0]["evidence"][0]
+
+    assert bull["evidence_id"] == bear["evidence_id"] == "E-001"
+    assert "#:~:text=" in bull["source_page_url"]
+
+
+def test_downgrades_aggregator_marked_as_official() -> None:
+    catalog = EvidenceCatalog.build(
+        financial_data={"ticker": "TEST"},
+        retrieved_chunks=[],
+        web_documents=[{
+            "url": "https://finance.biggo.com/news/example",
+            "source_type": "official",
+            "content": "원문으로 분류하기에 충분히 긴 집계 기사 문장입니다.",
+        }],
+    )
+
+    assert catalog[1]["source_type"] == "news"
+
+
+def test_search_focus_is_not_used_as_source_type() -> None:
+    document = {
+        "url": "https://news.example.com/article",
+        "search_focus": "official",
+        "content": "검색 의도만 공식 자료이고 실제 분류가 없는 충분히 긴 기사 문장입니다.",
+    }
+    catalog = EvidenceCatalog.build(
+        financial_data={"ticker": "TEST"},
+        retrieved_chunks=[],
+        web_documents=[document],
+    )
+    historical = EvidenceCatalog.from_web_documents([document])
+
+    assert catalog[1]["source_type"] == "unknown"
+    assert historical[0]["source_type"] == "unknown"
