@@ -20,6 +20,16 @@ DB_PATH = "vector_db_bge_m3"
 COLLECTION_NAME = "investment_reports_bge_m3"
 
 
+def _has_pdf_page_metadata(collection: Any, document_id: str) -> bool:
+    result = collection.get(
+        where={"document_id": document_id},
+        limit=1,
+        include=["metadatas"],
+    )
+    metadatas = result.get("metadatas", [])
+    return bool(metadatas and metadatas[0].get("page_number"))
+
+
 def _published_timestamp(value: str) -> int:
     if not value:
         return 0
@@ -99,7 +109,12 @@ def build_vector_store() -> None:
 
         if record.get("status") not in {"approved", "ingested"}:
             continue
-        if record.get("indexed_at"):
+        document_id = str(record["document_id"])
+        index_is_current = (
+            file_path.suffix.lower() != ".pdf"
+            or _has_pdf_page_metadata(collection, document_id)
+        )
+        if record.get("indexed_at") and index_is_current:
             skipped_documents += 1
             continue
 
@@ -122,7 +137,6 @@ def build_vector_store() -> None:
             continue
 
         embeddings = model.encode(chunks).tolist()
-        document_id = str(record["document_id"])
         ids = [f"{document_id}_{index}" for index in range(len(chunks))]
         published_timestamp = _published_timestamp(
             str(record.get("published_at", ""))
