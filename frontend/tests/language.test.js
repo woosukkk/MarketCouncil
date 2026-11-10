@@ -62,7 +62,7 @@ test('all supplied English messages and placeholders are complete',()=>{
 });
 
 test('every fixed Korean UI label and surfaced validator message has an English entry',async()=>{
- const files=['main.jsx','Landing.jsx','Account.jsx','Discussions.jsx','GettingStarted.jsx','Admin.jsx','data.js','adminData.js','resultUpload.js','resultValidation.js'];
+ const files=['main.jsx','DebateDetail.jsx','Landing.jsx','Account.jsx','Discussions.jsx','GettingStarted.jsx','Admin.jsx','data.js','adminData.js','resultUpload.js','resultValidation.js'];
  const visit=node=>{
   if(!node||typeof node!=='object')return;
   if(Array.isArray(node)){node.forEach(visit);return;}
