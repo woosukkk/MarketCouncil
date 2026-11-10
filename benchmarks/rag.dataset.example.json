@@ -1,0 +1,18 @@
+{
+  "name": "format-example-not-real",
+  "version": "0",
+  "dataset_kind": "synthetic",
+  "note": "형식 예시입니다. 실제 정답이 아니므로 점수 기록에 사용하지 마세요.",
+  "cases": [
+    {
+      "id": "samsung-q001",
+      "query": "메모리 부문의 최근 분기 영업이익 변화와 그 원인은 무엇인가?",
+      "company": "삼성전자",
+      "as_of_date": "2026-11-10",
+      "expected": [
+        {"source": "EXAMPLE_REPLACE_WITH_REGISTRY_FILENAME.pdf"},
+        {"source": "EXAMPLE_REPLACE_WITH_REGISTRY_FILENAME_2.pdf", "chunk_id": "3"}
+      ]
+    }
+  ]
+}
