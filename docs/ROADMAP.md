@@ -3,7 +3,7 @@
 열려 있는 GitHub 이슈, 개발 보고서(`docs/project-summary-2026-10-11.md`), 검증 기록에 남은 한계를 모아 정리한 개선 목록입니다. 작업을 시작하거나 끝낼 때 상태를 갱신합니다. 우선순위는 제안이며 사용자가 정합니다.
 
 상태 표기: `진행 중` · `대기` · `외부 설정 필요` · `완료`
-기준일: 2026-11-10 (기준 커밋 `026d904`, 브랜치 `debate_focus`)
+기준일: 2026-11-10 (브랜치 `debate_focus`, 최종 갱신 커밋 이후 기록)
 
 ## P0. 진행 중인 배포·기능 마무리
 
@@ -19,7 +19,7 @@
 | 항목 | 관련 코드 | 상태 |
 | --- | --- | --- |
 | 중첩 결과 형식 서버/입력/읽기 검증과 상세 화면 오류 격리 | `frontend/src/resultUpload.js`, `supabase/discussions.sql`, `frontend/src/main.jsx` | 대기 (일부 커밋됨, 잔여 확인 필요) |
-| 검색 의도(`search_focus`)와 검증된 출처 유형(`source_type`) 분리 — 언론 기사가 공식 자료로 표시되는 문제 | `tools/source_collector.py`, `app/debate_workflow.py`, `tools/evidence_catalog.py` | 대기 (현재 작업 트리에 관련 미커밋 변경 있음) |
+| 검색 의도(`search_focus`)와 검증된 출처 유형(`source_type`) 분리 — 언론 기사가 공식 자료로 표시되는 문제 | `tools/source_collector.py`, `app/debate_workflow.py`, `tools/evidence_catalog.py` | 완료 (2026-11-10, 미분류는 `unknown`, 집계 사이트 `official`→`news`) |
 | 공식·커뮤니티 결과 저장 버튼 숨김과 UUID/북마크 키 제약 불일치 | `frontend/src/data.js`, `Discussions.jsx`, `supabase/user-lists.sql` | 대기 |
 | 공식 결과 비공개 전환 시 날짜 선택 행이 남는 문제 | `Discussions.jsx`, `desktop/daily_official.py`, `desktop/cloud.py` | 대기 |
 | 공식 지정·업로드·공개 범위 변경 후 목록 미갱신 | `frontend/src/main.jsx` | 일부 수정됨 (재확인 필요) |
@@ -28,11 +28,16 @@
 
 현재 평가 도구는 구현됐지만 **사람 정답 기반 실제 점수는 아직 없습니다.**
 
-1. 기업·문서·기준일로 분리한 고정 평가 데이터셋 구축(사람 검수 질문·정답 근거 ID). `benchmarks/*.template.json` 기반.
+1. 기업·문서·기준일로 분리한 고정 평가 데이터셋 구축(사람 검수 질문·정답 근거 ID). 절차·후보 목록 도구 준비 완료([evaluation-dataset.md](evaluation-dataset.md), `tools/rag_dataset_candidates.py`). **사람 정답 작성 대기**.
 2. 검색 Recall@k·Precision@k·MRR·지연 측정(`tools/rag_benchmark.py`).
 3. 단일 LLM 답변 / RAG 답변 / 토론을 같은 조건에서 비교.
 4. 주장–인용 의미 지지 평가: 사람 정답 큐(`tools/quality_benchmark.py`)와 Ragas 결과 반입(`tools/external_evaluation.py`). `semantic_status`를 `not_evaluated`에서 실제 판정으로 확장.
 5. 관련 이슈: #24(단계별 시간·토큰·비용과 답변 근거 품질) 종료 조건 정리.
+
+## P2-1. 코드 구조
+
+- ~~미사용 `app/workflow.py` 삭제, 토론 상세 화면을 `DebateDetail.jsx`로 분리~~ 완료(2026-11-10).
+- 남은 후보: `bull_main`·`bear_main`·`video_debate_main` 등 단독 CLI 정리 여부 결정, `config` import 시 키 검사 지연, 역할별 모델 설정, `desktop/main.py` UI·로직 분리.
 
 ## P3. 검색·인용 품질
 
@@ -61,8 +66,8 @@
 
 - `master`가 `debate_focus`보다 약 149커밋 뒤처짐 → 기본 브랜치 전략 결정 후 AGENTS.md 브랜치 규칙 갱신.
 - AGENTS.md의 단계별 구축 순서(이미 완료)를 현재 단계(평가·품질·운영)로 갱신.
-- 테스트 실행을 하나의 명령으로 통일(모듈 수준 `test_` 함수까지 수집되도록 정리)하고, 가능하면 GitHub Actions CI로 `unittest` + `npm test` + `npm run build` 자동 실행.
-- `requirements/`의 버전 고정(현재 대부분 미고정) — 재현 가능한 빌드.
+- ~~테스트 실행 통일과 CI~~ 완료(2026-11-10): `python -m tests`(413개 수집), `.github/workflows/ci.yml`. 첫 CI 실행은 푸시 후 확인 필요.
+- ~~의존성 버전 고정~~ 완료: `requirements/lock-windows.txt`(검증된 venv 스냅샷), `requirements/test.txt`.
 - Linux 공개 서버 배포(`docs/deployment.md`)는 구성만 준비됨 — 진행 여부 결정.
 
 ## 갱신 방법
