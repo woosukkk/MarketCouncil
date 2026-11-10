@@ -5,7 +5,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace as NS
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from app.debate_workflow import DebateWorkflow
 from tools.analysis_checkpoint import AnalysisCheckpoint
@@ -105,11 +105,12 @@ class RetrieverLifecycleTests(unittest.TestCase):
             release=Mock()
             workflow.bull_tools=NS(retriever=NS(release_model=release))
             workflow.graph=NS(invoke=Mock(side_effect=RuntimeError('collection failed')) if fails else Mock(return_value={'evidence':'preserved'}))
-            if fails:
-                with self.assertRaisesRegex(RuntimeError,'collection failed'):
-                    workflow.run('company')
-            else:
-                self.assertEqual(workflow.run('company'),{'evidence':'preserved'})
+            with patch('tools.company_lookup.resolve_ticker',return_value='TEST'),                 patch('app.evidence_preflight.require_company_ready',return_value=({},{})),                 patch('app.evidence_preflight.assert_prepared_corpus'),                 patch('app.evidence_preflight.primary_chunks',return_value=[]):
+                if fails:
+                    with self.assertRaisesRegex(RuntimeError,'collection failed'):
+                        workflow.run('company')
+                else:
+                    self.assertEqual(workflow.run('company'),{'evidence':'preserved'})
             release.assert_called_once_with()
 
 

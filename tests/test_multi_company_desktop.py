@@ -1,5 +1,6 @@
 """Offline multi-company Desktop selection, local save and private upload regression."""
 import json
+from contextlib import nullcontext
 import os
 import queue
 import sys
@@ -66,7 +67,7 @@ class MultiCompanyDesktopTests(unittest.TestCase):
         workflow = SimpleNamespace(DebateWorkflow=Mock(return_value=SimpleNamespace(run=Mock(side_effect=analyze))))
         metrics = SimpleNamespace(measure_analysis=Mock(side_effect=lambda company, work, target: work()))
         services = SimpleNamespace(ensure_local_services=Mock())
-        preflight=SimpleNamespace(require_company_ready=Mock(side_effect=lambda company,ticker,**kwargs:({},ready_report(company,ticker))))
+        preflight=SimpleNamespace(require_company_ready=Mock(side_effect=lambda company,ticker,**kwargs:({},ready_report(company,ticker))),prepared_corpus=Mock(side_effect=lambda report:nullcontext()))
         original_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as folder:
             data = Path(folder).resolve() / "MarketCouncil"

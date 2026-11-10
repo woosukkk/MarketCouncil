@@ -1,5 +1,6 @@
 """Offline Desktop and daily publication evidence gates; no model or provider calls."""
 import copy
+from contextlib import nullcontext
 import hashlib
 import json
 import os
@@ -45,7 +46,7 @@ def ready_result(company: str="삼성전자", ticker: str="005930.KS", day: str 
 
 
 def preflight() -> SimpleNamespace:
-    return SimpleNamespace(prepare_company=Mock(),require_company_ready=Mock())
+    return SimpleNamespace(prepare_company=Mock(),require_company_ready=Mock(),prepared_corpus=Mock(side_effect=lambda report:nullcontext()))
 
 
 class OfficialEvidenceGateTests(unittest.TestCase):

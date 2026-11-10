@@ -1,5 +1,6 @@
 """Packaged daily entry points and resources; never register or run a real job."""
 import json
+from contextlib import nullcontext
 import os
 import queue
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
@@ -106,7 +107,7 @@ class PackagedDailyTests(unittest.TestCase):
             owner = SimpleNamespace(company=SimpleNamespace(get=lambda: "Apple Inc."), key=SimpleNamespace(get=lambda: "test-key"), dart=SimpleNamespace(get=lambda: ""), search=SimpleNamespace(get=lambda: "http://127.0.0.1:8080"), busy=False, matched_name="Apple Inc.", company_choice=SimpleNamespace(current=lambda: 0), company_candidates=[{"name": "Apple Inc.", "ticker": "AAPL"}], loaded_settings=None, messages=queue.Queue(), task=lambda callback: callback())
             workflow = Mock()
             workflow.run.return_value=ready_result("Apple","AAPL")
-            preflight=SimpleNamespace(require_company_ready=Mock(return_value=({},ready_report("Apple","AAPL"))))
+            preflight=SimpleNamespace(require_company_ready=Mock(return_value=({},ready_report("Apple","AAPL"))),prepared_corpus=Mock(side_effect=lambda report:nullcontext()))
             store = Mock()
             store.save.return_value = str(data / "saved-result.json")
             try:
