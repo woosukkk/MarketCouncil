@@ -68,7 +68,10 @@
 - AGENTS.md의 단계별 구축 순서(이미 완료)를 현재 단계(평가·품질·운영)로 갱신.
 - ~~테스트 실행 통일과 CI~~ 완료(2026-11-10): `python -m tests`(456개 수집), `.github/workflows/ci.yml`. 첫 CI에서 Tk 정리 충돌·#29 이후 미갱신 테스트 11건·CI venv 부재 테스트 1건을 발견해 테스트만 수정, CI 통과(#36, 웹·Python 모두 성공, Python skipped=12). CI는 설치 스크립트의 소스 실행 경로를 검사하지 않음(로컬 venv에서만).
 - 건너뛰는 테스트 11개(로컬)의 사유 검토 — 대기.
-- 운영 Supabase 테이블·RLS·RPC와 `supabase/*.sql` 일치 비교(읽기 전용), Vercel 프로덕션 배포 커밋 확인 — 외부 설정 필요(Supabase·Vercel MCP 로그인).
+- ~~운영 Supabase 테이블·RLS·RPC와 `supabase/*.sql` 일치 비교, Vercel 프로덕션 배포 커밋 확인~~ 완료(2026-11-10, 읽기 전용 조회만):
+  - Supabase `snembdnkylggbxtxfqyz`: 테이블 6개·RLS·CHECK/FK 제약, 정책 9개, 함수 6개(본문 해시 일치, 줄바꿈만 CRLF)·실행 권한, 트리거 2개가 SQL과 일치. 마이그레이션 이력은 비어 있음(SQL 편집기로 직접 적용).
+  - 남은 차이(수정 대기, 운영 DB 변경은 별도 승인): Supabase 기본 권한 때문에 `discussions`에 anon의 INSERT/UPDATE/DELETE/TRUNCATE 등, 여러 테이블에 TRUNCATE·REFERENCES·TRIGGER가 남아 있음(쓰기는 RLS가 막지만 TRUNCATE는 RLS 대상 아님). `analysis-results` 버킷(공개, 스토리지 정책 없음)은 SQL 파일에 정의가 없음. 보안 권고: 유출 비밀번호 보호 꺼짐.
+  - Vercel: 운영 주소는 `dpl_HcrVD9T18e1HJS9cEpyr9K25UgYN`(`465ee2e`, web-v0.15.2). `dpl_Ft87dzcHnCH84X92P6zHA9kVtapz`는 #35의 0.9.0 후보로 별칭 미연결(Git 커밋 메타 없음, 빌드 커밋 미검증). `60097cd` 대비 frontend 변경 커밋 5개 미배포. `docs/deployment-versions.md`에 web-v0.15.2 항목 누락.
 - ~~의존성 버전 고정~~ 완료: `requirements/lock-windows.txt`(검증된 venv 스냅샷), `requirements/test.txt`.
 - Linux 공개 서버 배포(`docs/deployment.md`)는 구성만 준비됨 — 진행 여부 결정.
 
