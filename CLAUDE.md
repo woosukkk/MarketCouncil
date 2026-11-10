@@ -58,9 +58,10 @@ MarketCouncil 저장소에서 작업하는 Claude를 위한 안내서입니다. 
 ## 4. 개발 명령어 (Windows, 프로젝트 루트)
 
 ```powershell
-# Python 테스트 (가상환경 사용, pytest는 설치되어 있지 않음)
-venv\Scripts\python.exe -B -m unittest discover -s tests -q
-venv\Scripts\python.exe -B -m unittest tests.test_evidence_catalog -v   # 단일 모듈
+# Python 테스트 전체 (unittest 클래스 + 모듈 수준 test_ 함수까지 수집)
+venv\Scripts\python.exe -B -m tests
+venv\Scripts\python.exe -B -m tests -p test_evidence_catalog.py -v   # 단일 파일
+# 테스트 의존성만 설치: pip install -r requirements/test.txt -c requirements/lock-windows.txt
 
 # 웹
 cd frontend; npm ci; npm test; npm run build; npm run dev
@@ -76,7 +77,9 @@ scripts\view_debate.bat
 ```
 
 테스트 주의사항:
-- 일부 모듈(`test_regime_workflow`, `test_evidence_catalog`의 일부)은 모듈 수준 `test_` 함수라 `unittest`가 자동 수집하지 않습니다. 통과 개수를 보고할 때 이를 섞지 않습니다.
+- `python -m unittest discover`는 모듈 수준 `test_` 함수(8개 파일, 30개)를 수집하지 않습니다. 항상 `python -m tests`를 사용합니다(`tests/__main__.py`, `tmp_path` 인자 지원).
+- CI(`.github/workflows/ci.yml`): Python 테스트는 Windows·Python 3.11, 웹은 Ubuntu·Node 22에서 `npm test`·`npm run build`를 실행합니다.
+- 의존성 버전은 `requirements/lock-windows.txt`(검증된 venv 스냅샷)가 기준입니다. 업그레이드 시 함께 갱신합니다.
 - 테스트는 모의 API 응답과 더미 키를 사용합니다. 실제 키가 필요한 테스트를 새로 만들지 않습니다.
 - 전역 `sys.modules` 모의로 다른 테스트를 오염시키지 않습니다(#21에서 실제 문제였음).
 - UI 문구를 바꾸면 `frontend/src/messages.en.js`의 영문 항목도 함께 갱신합니다.
@@ -133,6 +136,7 @@ scripts\view_debate.bat
 - `config`를 import하면 `OPENAI_API_KEY`가 없을 때 예외가 납니다. 테스트에서는 환경 변수를 더미로 주입합니다.
 - Windows 경로·인코딩: 배치 파일은 `chcp 65001`, `PYTHONUTF8=1`을 사용합니다. 한글 파일명·예약 작업 문자열의 유니코드 보존을 확인합니다.
 - `frontend`의 Supabase 값은 공개 키(`VITE_SUPABASE_PUBLISHABLE_KEY`)만 사용합니다.
+- 작업 트리 파일은 Windows에서 CRLF, 저장소는 LF입니다. Linux 셸에서 git을 쓸 때는 `git -c core.autocrlf=true ...`로 실행해야 전체 파일이 수정된 것처럼 보이지 않습니다.
 - 기업 프로필은 Python(`tools/company_profiles.py`)과 웹(`frontend/src/companyProfiles.json`)에 각각 있습니다. 기업을 추가·수정할 때 둘을 함께 맞춥니다.
 - SEC 직접 접근은 제한될 수 있으며, 이때는 발행사 공식 공시 사본 경로를 사용합니다(제3자 미러 금지).
 - 일반 수동 PC/CLI 분석에는 단계 복구가 연결되어 있지 않습니다(자동 공식 분석 경로만 해당).
