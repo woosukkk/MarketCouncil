@@ -128,14 +128,28 @@ def run_once(state: dict, day: str, prepare, analyze, publish, persist, resume: 
     state["status"] = "completed"; persist(state)
     return "completed"
 
+def news_credentials() -> tuple[str, str] | None:
+    """Optional NAVER API HUB keys from the environment, or the project .env when run from source."""
+    values = dict(os.environ)
+    if not getattr(sys, "frozen", False) and not values.get("NAVER_CLIENT_ID"):
+        try:
+            from dotenv import dotenv_values
+            values.update({key: value for key, value in dotenv_values(ROOT / ".env").items() if value})
+        except Exception:
+            pass
+    client, secret = (values.get("NAVER_CLIENT_ID") or "").strip(), (values.get("NAVER_CLIENT_SECRET") or "").strip()
+    return (client, secret) if client and secret else None
+
+
 def selection_signals(profiles: list, day: str) -> dict:
-    """Price attention for choosing today's company; any failure falls back to rotation."""
+    """Price and news attention for choosing the company of the day; any failure falls back to rotation."""
     if not profiles:
         return {}
     try:
         from datetime import date
-        from tools.attention_signal import attention_scores
-        return attention_scores(profiles, date.fromisoformat(day))
+        from tools.attention_signal import attention_scores, naver_news
+        keys = news_credentials()
+        return attention_scores(profiles, date.fromisoformat(day), news=naver_news(*keys) if keys else None)
     except Exception:
         return {}
 
@@ -398,7 +412,7 @@ def setup() -> None:
     window = tk.Tk(); window.title("MarketCouncil 매일 공식 게시 설정"); window.geometry("640x720")
     ttk.Label(window, text="로그인 시 실행 이력 창 표시 · 실행을 선택한 날만 분석 후 공식 공개", wraplength=600).pack(pady=12)
     ttk.Label(window,text="분석 대상 · 기존 저장 설정은 삼성전자 고정을 유지합니다.").pack(anchor="w",padx=20)
-    mode=ttk.Combobox(window,state="readonly",values=("삼성전자 고정 · 근거 충족 시만 실행","준비된 6개 기업 · 새 공시 우선, 다음은 주가 변동 관심도 순"))
+    mode=ttk.Combobox(window,state="readonly",values=("삼성전자 고정 · 근거 충족 시만 실행","준비된 6개 기업 · 새 공시 우선, 다음은 주가 변동·뉴스량 관심도 순"))
     mode.pack(fill="x",padx=20,pady=4);mode.current(1)
     fields = {}
     for name, label, default, secret in [("email", "공식 운영자 이메일", "" if getattr(sys, "frozen", False) else "tkftor8544@gmail.com", False), ("key", "OpenAI 키 · Windows 계정에 암호화 저장", defaults.get("OPENAI_API_KEY", ""), True), ("dart", "DART 키 (국내 공시 원문용) · Windows 계정에 암호화 저장", defaults.get("DART_API_KEY", ""), True), ("sec", "SEC 수집 연락처·User-Agent (선택, SEC 요청 헤더로 전송)", previous.get("sec_user_agent") or defaults.get("SEC_USER_AGENT") or os.getenv("SEC_USER_AGENT", ""), False), ("search", "검색 서비스", defaults.get("SEARXNG_URL", "http://127.0.0.1:8080"), False), ("link", "메일의 로그인 버튼 링크 복사 후 붙여넣기", "", True)]:
