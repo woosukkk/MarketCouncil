@@ -80,4 +80,5 @@ hf_cache/
 build/
 dist/
 *.spec
+!/scripts/desktop.spec
 /release-build.json
