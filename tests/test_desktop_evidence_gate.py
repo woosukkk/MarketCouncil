@@ -96,14 +96,14 @@ class DailyEvidenceGateTests(unittest.TestCase):
         used=[{"content_hash":doc["content_hash"]} for profile in PROFILES for doc in ready_report(profile["company_name"],profile["ticker"],DAY)["documents"]]
         history=[{"ticker":profile["ticker"],"publication_date":"2026-01-0"+str(index+1),"documents":used} for index,profile in enumerate(PROFILES)]
         self.signals.stop()
-        scores={"MSFT":{"price_move":3.2,"news_surge":2.0,"score":0.65},"AAPL":{"price_move":0.4,"news_surge":None,"score":0.1}}
+        scores={"MSFT":{"price_move":3.2,"score":0.8},"AAPL":{"price_move":0.4,"score":0.1}}
         with patch.dict(sys.modules,{"app.evidence_preflight":module}),patch.object(cloud,"official_history",return_value=history),patch.object(daily,"selection_signals",return_value=scores) as signals:
             selected=daily.prepare_target({"official_mode":"eligible"},{},DAY,SESSION)
         self.signals.start()
         self.assertEqual((selected["ticker"],selected["readiness_report"]["selection_reason"]),("MSFT","attention"))
         self.assertEqual(selected["selection_signals"],scores["MSFT"])
         self.assertNotIn("selection_signals",selected["readiness_report"])
-        self.assertEqual(len(signals.call_args.args[1]),len(PROFILES))
+        self.assertEqual(len(signals.call_args.args[0]),len(PROFILES))
 
     def test_all_insufficient_candidates_block_before_an_attempt_or_publication(self) -> None:
         module=preflight()

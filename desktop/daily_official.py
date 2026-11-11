@@ -128,21 +128,14 @@ def run_once(state: dict, day: str, prepare, analyze, publish, persist, resume: 
     state["status"] = "completed"; persist(state)
     return "completed"
 
-def selection_signals(config: dict, profiles: list, day: str) -> dict:
-    """Price and news attention for choosing today's company; any failure falls back to rotation."""
+def selection_signals(profiles: list, day: str) -> dict:
+    """Price attention for choosing today's company; any failure falls back to rotation."""
     if not profiles:
         return {}
     try:
         from datetime import date
         from tools.attention_signal import attention_scores
-        search = config.get("search") or None
-        if search:
-            try:
-                from app.local_services import _service_ready
-                if not _service_ready(): search = None
-            except Exception:
-                search = None
-        return attention_scores(profiles, date.fromisoformat(day), search)
+        return attention_scores(profiles, date.fromisoformat(day))
     except Exception:
         return {}
 
@@ -180,7 +173,7 @@ def prepare_target(config: dict, state: dict, day: str, session: dict) -> dict:
             _,report = prepare_company(profile["company_name"], profile["ticker"], base_dir=DATA.parent/"company-evidence")
             reports.append(report)
         ready = [get_profile(item["company_name"], item["ticker"]) for item in reports if item.get("status") == "ready"]
-        signals = selection_signals(config, ready, day)
+        signals = selection_signals(ready, day)
         report = select_official_candidate(reports, history, day, signals)
         if report is None:
             raise ValueError("오늘 기준 근거가 충분한 기업이 없어 유료 분석과 공식 게시를 시작하지 않습니다.")
@@ -405,7 +398,7 @@ def setup() -> None:
     window = tk.Tk(); window.title("MarketCouncil 매일 공식 게시 설정"); window.geometry("640x720")
     ttk.Label(window, text="로그인 시 실행 이력 창 표시 · 실행을 선택한 날만 분석 후 공식 공개", wraplength=600).pack(pady=12)
     ttk.Label(window,text="분석 대상 · 기존 저장 설정은 삼성전자 고정을 유지합니다.").pack(anchor="w",padx=20)
-    mode=ttk.Combobox(window,state="readonly",values=("삼성전자 고정 · 근거 충족 시만 실행","준비된 6개 기업 · 새 공시 우선, 다음은 주가 변동·뉴스량 관심도 순"))
+    mode=ttk.Combobox(window,state="readonly",values=("삼성전자 고정 · 근거 충족 시만 실행","준비된 6개 기업 · 새 공시 우선, 다음은 주가 변동 관심도 순"))
     mode.pack(fill="x",padx=20,pady=4);mode.current(1)
     fields = {}
     for name, label, default, secret in [("email", "공식 운영자 이메일", "" if getattr(sys, "frozen", False) else "tkftor8544@gmail.com", False), ("key", "OpenAI 키 · Windows 계정에 암호화 저장", defaults.get("OPENAI_API_KEY", ""), True), ("dart", "DART 키 (국내 공시 원문용) · Windows 계정에 암호화 저장", defaults.get("DART_API_KEY", ""), True), ("sec", "SEC 수집 연락처·User-Agent (선택, SEC 요청 헤더로 전송)", previous.get("sec_user_agent") or defaults.get("SEC_USER_AGENT") or os.getenv("SEC_USER_AGENT", ""), False), ("search", "검색 서비스", defaults.get("SEARXNG_URL", "http://127.0.0.1:8080"), False), ("link", "메일의 로그인 버튼 링크 복사 후 붙여넣기", "", True)]:
