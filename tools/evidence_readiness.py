@@ -152,7 +152,7 @@ def validate_readiness_report(report: object, company: str, ticker: str) -> dict
     if not isinstance(report, dict) or type(report.get("schema_version")) is not int or report["schema_version"] != 1 or report.get("policy_version") != POLICY_VERSION:
         raise ValueError("근거 준비 보고서 형식을 확인하세요.")
     fields = {"schema_version", "policy_version", "company_name", "ticker", "as_of_date", "status", "missing", "counts", "corpus_hash", "documents"}
-    if not fields.issubset(report) or set(report) - fields - {"selection_reason"} or ("selection_reason" in report and report["selection_reason"] not in ("new_official_event", "rotation")):
+    if not fields.issubset(report) or set(report) - fields - {"selection_reason"} or ("selection_reason" in report and report["selection_reason"] not in ("new_official_event", "attention", "rotation")):
         raise ValueError("근거 준비 보고서 필드를 확인하세요.")
     identity = get_profile(report.get("company_name"), report.get("ticker"))
     if identity["ticker"] != profile["ticker"]:
@@ -190,8 +190,9 @@ def validate_readiness_report(report: object, company: str, ticker: str) -> dict
     return report
 
 
-def select_official_candidate(reports: list[dict[str, Any]], history: list[dict[str, Any]], as_of_date: object) -> dict[str, Any] | None:
-    """Prefer new dated primary events, otherwise rotate the oldest ready issuer."""
+def select_official_candidate(reports: list[dict[str, Any]], history: list[dict[str, Any]], as_of_date: object,
+                              attention: dict[str, Any] | None = None, min_gap_days: int = 2) -> dict[str, Any] | None:
+    """Prefer new dated primary events, then the highest attention score, otherwise rotate the oldest ready issuer."""
     cutoff = _cutoff(as_of_date)
     if not isinstance(reports, list) or not isinstance(history, list):
         raise ValueError("기업 준비 보고서와 공식 선정 기록을 확인하세요.")
@@ -220,5 +221,16 @@ def select_official_candidate(reports: list[dict[str, Any]], history: list[dict[
     if events:
         selected = sorted(events, key=lambda item: (-item[2].toordinal(), item[1], item[0]["ticker"]))[0]
         return {**selected[0], "selection_reason": "new_official_event"}
+    scored = []
+    for item in ready:
+        signal = attention.get(item[0]["ticker"]) if isinstance(attention, dict) else None
+        score = signal.get("score") if isinstance(signal, dict) else None
+        if isinstance(score, (int, float)) and not isinstance(score, bool) and score >= 0:
+            scored.append((item, float(score)))
+    if scored:
+        # Avoid repeating a just-published issuer unless every scored issuer is that recent.
+        rested = [entry for entry in scored if (cutoff - entry[0][1]).days >= min_gap_days] or scored
+        selected = sorted(rested, key=lambda entry: (-entry[1], entry[0][1], entry[0][0]["ticker"]))[0][0]
+        return {**selected[0], "selection_reason": "attention"}
     selected = min(ready, key=lambda item: (item[1], item[0]["ticker"]))
     return {**selected[0], "selection_reason": "rotation"}

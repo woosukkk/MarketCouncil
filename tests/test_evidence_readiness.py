@@ -1,5 +1,6 @@
 """Synthetic local text only; no API, model, credentials or corpus access."""
 from copy import deepcopy
+from datetime import date, timedelta
 import hashlib
 import unittest
 
@@ -177,6 +178,27 @@ class EvidenceReadinessTests(unittest.TestCase):
         selected = select_official_candidate([apple, microsoft], history, DAY)
         self.assertEqual((selected["ticker"], selected["selection_reason"]), ("MSFT", "new_official_event"))
         validate_readiness_report(selected, "Microsoft", "MSFT")
+
+    def test_attention_ranks_ready_issuers_after_new_events_and_respects_the_gap(self) -> None:
+        reports = [evaluate_readiness(manifest(ticker), DAY) for ticker in ("AAPL", "MSFT")]
+        used = [{"content_hash": doc["content_hash"]} for report in reports for doc in report["documents"]]
+        history = [{"ticker": "AAPL", "publication_date": "2026-10-20", "documents": used},
+                   {"ticker": "MSFT", "publication_date": "2026-10-10", "documents": used}]
+        scores = {"AAPL": {"score": 0.9}, "MSFT": {"score": 0.2}}
+        selected = select_official_candidate(reports, history, DAY, scores)
+        self.assertEqual((selected["ticker"], selected["selection_reason"]), ("AAPL", "attention"))
+        validate_readiness_report(selected, "Apple", "AAPL")
+        # Published yesterday: the next issuer is chosen even with a lower score.
+        recent = [{**history[0], "publication_date": (date.fromisoformat(DAY) - timedelta(days=1)).isoformat()}, history[1]]
+        self.assertEqual(select_official_candidate(reports, recent, DAY, scores)["ticker"], "MSFT")
+        # If every scored issuer is that recent, the score still decides.
+        both = [{**row, "publication_date": (date.fromisoformat(DAY) - timedelta(days=1)).isoformat()} for row in history]
+        self.assertEqual(select_official_candidate(reports, both, DAY, scores)["ticker"], "AAPL")
+        # Missing or malformed scores fall back to rotation.
+        for unusable in (None, {}, {"AAPL": {"score": None}}, {"AAPL": {"score": True}}, {"AAPL": "high"}, {"AAPL": {"score": -1}}):
+            with self.subTest(scores=unusable):
+                fallback = select_official_candidate(reports, history, DAY, unusable)
+                self.assertEqual((fallback["ticker"], fallback["selection_reason"]), ("MSFT", "rotation"))
 
     def test_no_new_event_rotates_oldest_and_does_not_mutate_inputs(self) -> None:
         reports = [evaluate_readiness(manifest(ticker), DAY) for ticker in ("AAPL", "MSFT")]

@@ -59,7 +59,7 @@ function requirements(documents,cutoff){
 function structure(report,company,ticker,{todayOnly=false}={}){
  const profile=profileFor(company,ticker);
  if(!keys(report,fields,['selection_reason'])||report.schema_version!==1||report.policy_version!=='primary-v1'||profileFor(report.company_name,report.ticker).ticker!==profile.ticker)fail();
- if(Object.hasOwn(report,'selection_reason')&&!['new_official_event','rotation'].includes(report.selection_reason))fail();
+ if(Object.hasOwn(report,'selection_reason')&&!['new_official_event','attention','rotation'].includes(report.selection_reason))fail();
  const cutoff=day(report.as_of_date);
  if(todayOnly&&report.as_of_date!==kstDay(Date.now()))throw Error('공식 게시 전에 오늘의 근거 준비 상태를 다시 확인하세요.');
  if(!Array.isArray(report.documents)||report.documents.length>200)fail();
