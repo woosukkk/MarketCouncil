@@ -16,7 +16,8 @@ MarketCouncil 저장소에서 작업하는 Claude를 위한 안내서입니다. 
 
 ### 브랜치와 버전 상태 (2026-11-10 기준)
 
-- **서비스 개발 브랜치는 `debate_focus`** 입니다. README도 이 브랜치를 구현 기준으로 안내합니다. `master`는 2026-08 초 이후 갱신되지 않아 `debate_focus`보다 약 149커밋 뒤처져 있습니다.
+- **서비스 개발 브랜치는 `debate_focus`** 이며, 2026-11-12부터 GitHub 기본 브랜치입니다. README도 이 브랜치를 구현 기준으로 안내합니다.
+- `master`는 공개 저장소용으로 정리한 별도 브랜치입니다. `debate_focus`에 없는 2026-11-03~05 문서·정리 커밋 11개(#26~#32)가 있고, 반대로 `debate_focus`보다 약 146커밋 뒤처져 있습니다. `master`에 `debate_focus`를 force push하지 않습니다.
 - `archive/B-B-N`, `archive/emotional-axis`는 과거 실험 브랜치, `origin/feature/web-deployment`는 원격에만 있습니다.
 - 태그: 웹 `web-vX.Y.Z`(최신 `web-v0.15.2`), Windows `desktop-vX.Y.Z`(최신 공개 `desktop-v0.8.1`, `0.9.0`은 #35에서 배포 준비 중).
 - 작업 시작 전 `git status`로 **사용자의 미커밋 변경**을 확인하고 절대 덮어쓰거나 함께 커밋하지 않습니다.
@@ -127,7 +128,7 @@ scripts\view_debate.bat
 
 다음은 AGENTS.md의 내용이 현재 저장소 상태와 다른 부분입니다. 임의로 고치지 말고, 관련 작업 시 사용자에게 확인합니다.
 
-- **브랜치 규칙**: AGENTS.md는 `main`/`develop`/`feature/*`/`hotfix/*`를 정의하지만 실제로는 `master`(정체)와 `debate_focus`(서비스)를 사용합니다.
+- **브랜치 규칙**: AGENTS.md는 `main`/`develop`/`feature/*`/`hotfix/*`를 정의하지만 실제로는 `debate_focus`(서비스·기본 브랜치)와 `master`(공개용 정리 브랜치)를 사용합니다.
 - **단계별 구축 순서**: "단일 LLM → … → 멀티 에이전트" 순서는 이미 모두 구현된 상태입니다. 현재 단계는 품질 평가·근거 품질·운영 안정화입니다.
 - **개발 기록**: Notion 기록 규칙이 있으나 이 세션 환경에서 Notion 연결 여부는 별도로 확인해야 합니다.
 
