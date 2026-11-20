@@ -27,6 +27,7 @@ class RecoverableDebateWorkflow(DebateWorkflow):
             'agents/moderator_agent.py',
             'agents/analysis_debate_prompt.py',
             'agents/moderator_prompt.py',
+            'agents/debate_stage_prompt.py',
             'tools/structured_response.py',
             'tools/debate_payload.py',
             'tools/analysis_checkpoint.py',

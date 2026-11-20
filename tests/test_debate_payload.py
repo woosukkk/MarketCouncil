@@ -9,7 +9,8 @@ os.environ.setdefault("OPENAI_API_KEY", "offline-test-key")
 
 from agents.analysis_debate_agent import AnalysisDebateAgent, PARTICIPANT_SCHEMA
 from agents.moderator_agent import ModeratorAgent, REVIEW_SCHEMA
-from tools.debate_payload import DYNAMIC_SECTION, debate_payload
+from agents.debate_stage_prompt import DEBATE_STAGE_PROMPT, ROLE_PROMPTS
+from tools.debate_payload import DYNAMIC_SECTION, ROLE_SECTION, debate_cache_key, debate_payload, with_role
 
 
 class DebatePayloadTests(unittest.TestCase):
@@ -61,7 +62,9 @@ class DebatePayloadTests(unittest.TestCase):
         with patch("agents.analysis_debate_agent.structured_response", return_value={}) as call:
             agent._participant_response("bear", state)
         encoded = call.call_args.args[2]
-        self.assertTrue(encoded.startswith(self.common + DYNAMIC_SECTION))
+        self.assertTrue(encoded.startswith(self.common + ROLE_SECTION + "bear_debate_turn" + DYNAMIC_SECTION))
+        self.assertIs(call.call_args.args[1], DEBATE_STAGE_PROMPT)
+        self.assertEqual(call.call_args.kwargs["prompt_cache_key"], debate_cache_key(self.common))
         self.assertNotIn("original_evidence_and_analysis", self.decode(encoded))
         self.assertNotIn("exact_quote", self.decode(encoded)["current_opponent_response"]["evidence"][0])
         self.assertIs(call.call_args.args[4], PARTICIPANT_SCHEMA)
@@ -76,12 +79,30 @@ class DebatePayloadTests(unittest.TestCase):
             moderator.review_round(payload)
         encoded = call.call_args.args[1]
         dynamic = self.decode(encoded)
-        self.assertTrue(encoded.startswith(self.common + DYNAMIC_SECTION))
+        self.assertTrue(encoded.startswith(self.common + ROLE_SECTION + "debate_review" + DYNAMIC_SECTION))
+        self.assertIs(call.call_args.args[0], DEBATE_STAGE_PROMPT)
+        self.assertEqual(call.call_args.args[5], debate_cache_key(self.common))
         self.assertNotIn("evidence_catalog", dynamic)
         self.assertNotIn("original_evidence_and_analysis", dynamic)
         self.assertNotIn("exact_quote", dynamic["bull_response"]["evidence"][0])
         self.assertIs(call.call_args.args[3], REVIEW_SCHEMA)
         self.assertEqual(payload, original)
+
+    def test_debate_calls_share_instructions_and_input_prefix_across_roles(self) -> None:
+        moderator = ModeratorAgent(Mock())
+        with patch.object(moderator, "_respond", return_value={}) as call:
+            moderator.create_agenda(self.common)
+        agenda_instructions, agenda_input = call.call_args.args[0], call.call_args.args[1]
+        self.assertEqual(agenda_input, self.common + ROLE_SECTION + "debate_agenda")
+        self.assertEqual(call.call_args.args[5], debate_cache_key(self.common))
+        turns = [with_role(debate_payload(self.common, {"round": 1}, self.catalog), role) for role in ("bull_debate_turn", "bear_debate_turn")]
+        self.assertTrue(all(value.startswith(self.common + ROLE_SECTION) for value in [agenda_input, *turns]))
+        self.assertIs(agenda_instructions, DEBATE_STAGE_PROMPT)
+        # Every role's rules stay in the system instructions, named the same way the input selects them.
+        for role, prompt in ROLE_PROMPTS.items():
+            self.assertIn("===== 역할: " + role + " =====", DEBATE_STAGE_PROMPT)
+            self.assertIn(prompt.strip(), DEBATE_STAGE_PROMPT)
+        self.assertNotEqual(debate_cache_key(self.common), debate_cache_key(self.common + " "))
 
 
 if __name__ == "__main__":

@@ -6,17 +6,14 @@ from typing import Any, Literal, TypedDict
 from langgraph.graph import END, START, StateGraph
 from openai import OpenAI
 
-from agents.analysis_debate_prompt import (
-    BEAR_ANALYSIS_DEBATE_PROMPT,
-    BULL_ANALYSIS_DEBATE_PROMPT,
-)
+from agents.debate_stage_prompt import DEBATE_STAGE_PROMPT
 from agents.moderator_agent import ModeratorAgent
 from config import MODEL_NAME, OPENAI_API_KEY
 from tools.regime_context import build_regime_context
 from tools.citation_quality import assess_issue_evidence
 from tools.evidence_dates import parse_evidence_date
 from tools.evidence_text import is_navigation_text
-from tools.debate_payload import debate_payload
+from tools.debate_payload import debate_cache_key, debate_payload, with_role
 from tools.structured_response import structured_response, ensure_complete
 
 
@@ -333,13 +330,8 @@ class AnalysisDebateAgent:
                 state.get("bull_response", {}) if role == "bear" else {}
             ),
         }
-        instructions = (
-            BULL_ANALYSIS_DEBATE_PROMPT
-            if role == "bull"
-            else BEAR_ANALYSIS_DEBATE_PROMPT
-        )
         try:
-            result=structured_response(self.client,instructions,debate_payload(state["debate_input"],payload,state.get("evidence_catalog",[])),f"{role}_debate_turn",PARTICIPANT_SCHEMA)
+            result=structured_response(self.client,DEBATE_STAGE_PROMPT,with_role(debate_payload(state["debate_input"],payload,state.get("evidence_catalog",[])),f"{role}_debate_turn"),f"{role}_debate_turn",PARTICIPANT_SCHEMA,prompt_cache_key=debate_cache_key(state["debate_input"]))
             return self._validate_citations(result,state.get("evidence_catalog",[]),state.get("analysis_as_of"))
         except Exception as error:
             raise RuntimeError(f"{role_label} 토론 발언 생성에 실패했습니다") from error

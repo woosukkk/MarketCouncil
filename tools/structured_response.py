@@ -31,13 +31,13 @@ def record_response(name: str, limit: int, response: Any = None, error: Exceptio
         (target/(str(uuid.uuid4())+".json")).write_text(json.dumps(record),encoding="utf-8")
     except OSError: pass
 
-def structured_response(client: Any, instructions: str, input_text: str, name: str, schema: dict, max_output_tokens: int = 4000) -> dict:
+def structured_response(client: Any, instructions: str, input_text: str, name: str, schema: dict, max_output_tokens: int = 4000, prompt_cache_key: str | None = None) -> dict:
     if hasattr(client, "with_options"): client=client.with_options(max_retries=0,timeout=180)
     limit=min(max(max_output_tokens,4000),8000)
     for attempt in range(3):
         response=None
         try:
-            response=create_response(client,name,model=__import__("config").MODEL_NAME,instructions=instructions,text={"format":{"type":"json_schema","name":name,"strict":True,"schema":schema}},input=input_text,reasoning={"effort":"minimal"},max_output_tokens=limit)
+            response=create_response(client,name,**({"prompt_cache_key":prompt_cache_key} if prompt_cache_key else {}),model=__import__("config").MODEL_NAME,instructions=instructions,text={"format":{"type":"json_schema","name":name,"strict":True,"schema":schema}},input=input_text,reasoning={"effort":"minimal"},max_output_tokens=limit)
         except Exception as error:
             record_response(name,limit,error=error)
             status=getattr(error,"status_code",None);code=getattr(error,"code",None)

@@ -129,7 +129,7 @@ class DebateQualityIntegrationTests(unittest.TestCase):
         }
         self.agent.moderator.summarize.return_value = {"summary": "가상 최종 정리"}
         self.agent.graph = self.agent._build_graph()
-        with patch("agents.analysis_debate_agent.structured_response", side_effect=lambda *args: self.response()) as generate:
+        with patch("agents.analysis_debate_agent.structured_response", side_effect=lambda *args, **kwargs: self.response()) as generate:
             result = self.agent.run(**self.run_args())
         self.assertEqual(len(result["rounds"]), 2)
         self.assertEqual(result["analysis_as_of"], "2026-10-15")

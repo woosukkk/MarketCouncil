@@ -3,13 +3,10 @@ from typing import Any
 
 from openai import OpenAI
 
-from agents.moderator_prompt import (
-    MODERATOR_AGENDA_PROMPT,
-    MODERATOR_REVIEW_PROMPT,
-    MODERATOR_SUMMARY_PROMPT,
-)
+from agents.debate_stage_prompt import DEBATE_STAGE_PROMPT
+from agents.moderator_prompt import MODERATOR_SUMMARY_PROMPT
 from config import MODEL_NAME
-from tools.debate_payload import debate_payload
+from tools.debate_payload import debate_cache_key, debate_payload, with_role
 from tools.structured_response import structured_response, ensure_complete
 
 
@@ -99,24 +96,26 @@ class ModeratorAgent:
 
     def create_agenda(self, debate_input: str) -> dict[str, Any]:
         return self._respond(
-            MODERATOR_AGENDA_PROMPT,
-            debate_input,
+            DEBATE_STAGE_PROMPT,
+            with_role(debate_input, "debate_agenda"),
             "debate_agenda",
             AGENDA_SCHEMA,
             2000,
+            debate_cache_key(debate_input),
         )
 
     def review_round(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._respond(
-            MODERATOR_REVIEW_PROMPT,
-            debate_payload(
+            DEBATE_STAGE_PROMPT,
+            with_role(debate_payload(
                 payload["original_evidence_and_analysis"],
                 {key: value for key, value in payload.items() if key not in {"original_evidence_and_analysis", "evidence_catalog"}},
                 payload.get("evidence_catalog", []),
-            ),
+            ), "debate_review"),
             "debate_review",
             REVIEW_SCHEMA,
             2000,
+            debate_cache_key(payload["original_evidence_and_analysis"]),
         )
 
     def summarize(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -135,9 +134,10 @@ class ModeratorAgent:
         schema_name: str,
         schema: dict[str, Any],
         max_output_tokens: int,
+        prompt_cache_key: str | None = None,
     ) -> dict[str, Any]:
         try:
-            return structured_response(self.client,instructions,input_text,schema_name,schema,max_output_tokens)
+            return structured_response(self.client,instructions,input_text,schema_name,schema,max_output_tokens,prompt_cache_key)
         except Exception as error:
             raise RuntimeError(f"중재자 {schema_name} 응답 생성에 실패했습니다") from error
 
