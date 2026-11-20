@@ -349,11 +349,18 @@ URL: {article.get("url", "")}"""
             "collect_financial_data",
             "calculate_quality_and_valuation",
         )
+        # Local document search and web collection are independent: the web branch
+        # only needs the ticker from financial data. Run them side by side and join
+        # before duplicate resolution, which needs both. The branches write disjoint keys.
         builder.add_edge(
             "calculate_quality_and_valuation",
             "retrieve_regulatory_filings",
         )
         builder.add_edge(
+            "calculate_quality_and_valuation",
+            "collect_web_sources",
+        )
+        builder.add_edge(
             "retrieve_regulatory_filings",
             "retrieve_bull_reports",
         )
@@ -366,11 +373,7 @@ URL: {article.get("url", "")}"""
             "build_report_contexts",
         )
         builder.add_edge(
-            "build_report_contexts",
-            "collect_web_sources",
-        )
-        builder.add_edge(
-            "collect_web_sources",
+            ["build_report_contexts", "collect_web_sources"],
             "resolve_evidence",
         )
         builder.add_edge(
